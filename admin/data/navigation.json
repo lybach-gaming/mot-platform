@@ -1,0 +1,257 @@
+[
+  {
+    "label": "Dashboard",
+    "icon": "fas fa-home",
+    "url": "/dashboard"
+  },
+    {
+    "label": "Tournaments",
+    "icon": "fas fa-medal",
+    "url": "/tournaments"
+  },
+  {
+    "label": "Web Seo",
+    "icon": "fas fa-th",
+    "permissions": [["read", "users"]],
+    "children": [
+      { "label": "Web Seo Common", "url": "/web-seo" }
+    ]
+  },
+  {
+    "label": "Quiz HQ",
+    "icon": "fas fa-gift",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["create", "questions"],
+      ["read", "questions"],
+      ["read", "question_report"]
+    ],
+    "children": [
+      { "label": "Main Category", "url": "/main-category", "permissions": [["read", "categories"]] },
+      { "label": "Sub Category", "url": "/sub-category", "permissions": [["read", "subcategories"]] },
+      { "label": "Sub Category Level", "url": "/sub-category-level", "permissions": [["read", "subcategories_level"]] },
+      { "label": "Quiz", "url": "/quizz", "permissions": [["read", "quizz"]] },
+      { "label": "Quiz Pinned", "url": "/quizz-pinned", "permissions": [["read", "quizz"]] },
+      { "label": "Category Order", "url": "/category-order", "permissions": [["read", "category_order"]] },
+      { "label": "Create Questions", "url": "/create-questions", "permissions": [["read", "questions"]] },
+      { "label": "View Questions", "url": "/manage-questions", "permissions": [["read", "questions"]] },
+      { "label": "Import Questions", "url": "/import-questions", "permissions": [["read", "questions"]] },
+      { "label": "Question Reports", "url": "/question-reports", "permissions": [["read", "question_report"]] }
+    ]
+  },
+  {
+    "label": "Daily Quiz",
+    "icon": "fas fa-question",
+    "url": "/daily-quiz",
+    "permissions": [["read", "daily_quiz"]]
+  },
+  {
+    "label": "Contests",
+    "icon": "fas fa-gift",
+    "permissions": [
+      ["read", "manage_contest"],
+      ["read", "manage_contest_question"],
+      ["read", "import_contest_question"]
+    ],
+    "children": [
+      { "label": "Manage Contest", "url": "/contest", "permissions": [["read", "manage_contest"]] },
+      { "label": "Manage Questions", "url": "/contest-questions", "permissions": [["read", "manage_contest_question"]] },
+      { "label": "Import Questions", "url": "/contest-questions-import", "permissions": [["read", "manage_contest_question"]] }
+    ]
+  },
+  {
+    "label": "Fun 'N' Learn",
+    "icon": "fas fa-book-open",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["read", "fun_n_learn"]
+    ],
+    "children": [
+      { "label": "Main Category", "url": "/fun-n-learn-category", "permissions": [["read", "categories"]] },
+      { "label": "Sub Category", "url": "/fun-n-learn-subcategory", "permissions": [["read", "subcategories"]] },
+      { "label": "Manage Story", "url": "/fun-n-learn-story", "permissions": [["read", "fun_n_learn"]] },
+      { "label": "Category Order", "url": "/fun-n-learn-category-order", "permissions": [["read", "category_order"]] },
+      { "label": "Create Question", "url": "/fun-n-learn-question-create", "permissions": [["read", "fun_n_learn"]] },
+      { "label": "Manage Question", "url": "/fun-n-learn-questions", "permissions": [["read", "fun_n_learn"]] }
+    ]
+  },
+  {
+    "label": "Guess The Word",
+    "icon": "fas fa-atom",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["read", "guess_the_word"]
+    ],
+    "children": [
+      { "label": "Main Category", "url": "/guess-the-word-category", "permissions": [["read", "categories"]] },
+      { "label": "Category Order", "url": "/guess-the-word-category-order", "permissions": [["read", "category_order"]] },
+      { "label": "Manage Guess The Word", "url": "/guess-the-word", "permissions": [["read", "guess_the_word"]] }
+    ]
+  },
+  {
+    "label": "Audio Questions",
+    "icon": "fas fa-microphone-alt",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["read", "audio_question"]
+    ],
+    "children": [
+      { "label": "Main Category", "url": "/audio-question-category", "permissions": [["read", "categories"]] },
+      { "label": "Sub Category", "url": "/audio-question-subcategory", "permissions": [["read", "subcategories"]] },
+      { "label": "Category Order", "url": "/audio-question-category-order", "permissions": [["read", "category_order"]] },
+      { "label": "Manage Audio Questions", "url": "/audio-question", "permissions": [["read", "audio_question"]] }
+    ]
+  },
+  {
+    "label": "Maths Quiz",
+    "icon": "fas fa-book-open",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["create", "maths_questions"],
+      ["read", "maths_questions"]
+    ],
+    "children": [
+      { "label": "Main Category", "url": "/maths-question-category", "permissions": [["read", "categories"]] },
+      { "label": "Math Quiz", "url": "/maths-question-quiz", "permissions": [["read", "subcategories"]] },
+      { "label": "Category Order", "url": "/maths-question-category-order", "permissions": [["read", "category_order"]] },
+      { "label": "Create Questions", "url": "/create-maths-questions", "permissions": [["read", "maths_questions"]] },
+      { "label": "View Questions", "url": "/manage-maths-questions", "permissions": [["read", "maths_questions"]] }
+    ]
+  },
+  {
+    "label": "True False",
+    "icon": "fas fa-book-open",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["create", "true_false"],
+      ["read", "true_false"]
+    ],
+    "children": [
+      { "label": "Manage Questions", "url": "/true_false_question_manage", "permissions": [["read", "maths_questions"]] }
+    ]
+  },
+  {
+    "label": "Quizzes By Language",
+    "icon": "fas fa-microphone-alt",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"],
+      ["read", "audio_question"]
+    ],
+    "children": [
+      { "label": "Language", "url": "/quizz-by-language-lang", "permissions": [["read", "categories"]] },
+      { "label": "Category", "url": "/quizz-by-language-category", "permissions": [["read", "subcategories"]] },
+      { "label": "Quiz", "url": "/quizz-by-language-quizz", "permissions": [["read", "category_order"]] },
+      { "label": "Create Questions", "url": "/quizz-by-language-questions", "permissions": [["read", "audio_question"]] },
+      { "label": "Manage Questions", "url": "/quizz-by-language-manage-questions", "permissions": [["read", "audio_question"]] }
+    ]
+  },
+  {
+    "label": "Exam Module",
+    "icon": "fas fa-book",
+    "permissions": [["read", "exam_module"]],
+    "children": [
+      { "label": "Exam Module Category", "url": "/exam-module-category" },
+      { "label": "Exam Module", "url": "/exam-module" },
+      { "label": "Import Exam Question", "url": "/exam-module-questions-import" }
+    ]
+  },
+  {
+    "label": "Blog",
+    "icon": "fas fa-microphone-alt",
+    "permissions": [
+      ["read", "categories"],
+      ["read", "subcategories"],
+      ["read", "category_order"]
+    ],
+    "children": [
+      { "label": "Author", "url": "/blog-author", "permissions": [["read", "categories"]] },
+      { "label": "Category", "url": "/blog-category", "permissions": [["read", "subcategories"]] },
+      { "label": "Manage Blog", "url": "/manage-blog", "permissions": [["read", "category_order"]] },
+      { "label": "Manage Comments", "url": "/manage-blog-comments", "permissions": [["read", "category_order"]] }
+    ]
+  },
+  {
+    "label": "Game Rules",
+    "icon": "fas fa-book",
+    "url": "/game-rules"
+  },
+  {
+    "label": "Badges Game Mode",
+    "icon": "fas fa-book",
+    "url": "/badges-game-mode"
+  },
+  {
+    "label": "Users",
+    "icon": "fas fa-users",
+    "url": "/users",
+    "permissions": [["read", "users"]]
+  },
+  {
+    "label": "Activity Tracker",
+    "icon": "fas fa-chart-bar",
+    "url": "/activity-tracker"
+  },
+  {
+    "label": "Rewards Card",
+    "icon": "fas fa-rupee-sign",
+    "url": "/rewards-card"
+  },
+  {
+    "label": "Leaderboard",
+    "icon": "fas fa-th",
+    "children": [
+      { "label": "All", "url": "/global-leaderboard" },
+      { "label": "Monthly", "url": "/monthly-leaderboard" },
+      { "label": "Daily", "url": "/daily-leaderboard" }
+    ]
+  },
+  {
+    "label": "Languages",
+    "icon": "fas fa-language",
+    "url": "/languages",
+    "permissions": [["read", "languages"]]
+  },
+  {
+    "label": "Settings",
+    "icon": "fas fa-cog",
+    "permissions": [["read", "system_configuration"]],
+    "children": [
+      { "label": "System Configurations", "url": "/system-configurations", "permissions": [["read", "system_configuration"]] },
+      { "label": "Firebase Configurations", "url": "/firebase-configurations" },
+      { "label": "Ads. Settings", "url": "/ads-settings" },
+      { "label": "Notification Settings", "url": "/notification-settings" }
+    ]
+  },
+  {
+    "label": "Send Notifications",
+    "icon": "fas fa-bullhorn",
+    "url": "/send-notifications",
+    "permissions": [["read", "send_notification"]]
+  },
+  {
+    "label": "User Accounts and Rights",
+    "icon": "fas fa-user",
+    "url": "/user-accounts-rights"
+  },
+  {
+    "label": "Web Settings",
+    "icon": "fas fa-cog",
+    "children": [
+      { "label": "Settings", "url": "/web-settings" }
+    ]
+  }
+]
