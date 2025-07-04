@@ -20,6 +20,10 @@ export default function RootLayout({
       <head>
         <link
           rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap"
+        />
+        <link
+          rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           integrity="sha512-pX...YOUR_HASH..."
           crossOrigin="anonymous"
@@ -36,7 +40,7 @@ export default function RootLayout({
         >
           <div id="topbar">
             <Image
-             className='mr-12'
+              className="mr-12"
               src="/full-logo.png"
               alt="Logo"
               width={150}
@@ -44,14 +48,14 @@ export default function RootLayout({
               priority
             />
             <button
-              onClick={toggleSidebar}
+              onClick={() => toggleSidebar()}
               className="
-    text-[var(--color-accent)]
-    hover:text-white
-    p-2
-    transition-colors
-    duration-200
-  "
+                text-[var(--color-accent)]
+                hover:text-white
+                p-2
+                transition-colors
+                duration-200
+              "
               aria-label="Toggle sidebar"
             >
               <i className="fas fa-bars text-xl"></i>
@@ -62,12 +66,15 @@ export default function RootLayout({
             <div
               id="sidebar"
               style={{
-                width: collapsed ? '60px' : '250px',
+                width: collapsed ? '65px' : '250px',
                 transition: 'width 0.3s',
                 overflow: 'hidden',
               }}
             >
-              <Sidebar navigation={navigation as NavigationItem[]} />
+              <Sidebar
+                navigation={navigation as NavigationItem[]}
+                collapsed={collapsed}
+              />
             </div>
 
             <div id="content" style={{ flex: 1 }}>

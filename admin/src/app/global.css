@@ -11,7 +11,6 @@
   --sidebar-width-collapsed: 60px;
 }
 
-
 html {
   -webkit-text-size-adjust: 100%;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -22,8 +21,11 @@ html {
   scroll-behavior: smooth;
 }
 body {
-  font-family: inherit;
-  line-height: inherit;
+  background-color: rgb(244, 246, 249);
+  font-size: 14px;
+  font-weight: 400;
+  font-family: Nunito, 'Segoe UI', Arial, sans-serif;
+  color: rgb(108, 117, 125);
   margin: 0;
 }
 h1,
@@ -90,6 +92,11 @@ pre {
   width: 100%;
 }
 
+#topbar,
+#sidebar {
+  border: none;
+}
+
 /* Topbar */
 #topbar {
   height: 60px;
@@ -98,7 +105,6 @@ pre {
   align-items: center;
   padding: 0 1rem;
   box-sizing: border-box;
-  border-bottom: 1px solid #bbb;
 }
 
 /* Sidebar */
