@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mot_mysql
+    restart: always
+    env_file:
+      - .env.db
+    ports:
+      - "11241:3306"
+    volumes:
+      - mot_mysql_data:/var/lib/mysql
+    networks:
+      - mot_network
+
+volumes:
+  mot_mysql_data:
+    name: mot_mysql_data
+
+networks:
+  mot_network:
+    name: mot_network
+    driver: bridge
