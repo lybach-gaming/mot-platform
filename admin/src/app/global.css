@@ -6,6 +6,7 @@
   --color-dark-grey: #343a40;
   --color-topbar-bg: var(--color-dark-grey);
   --color-sidebar-bg: var(--color-dark-grey);
+  --color-navigation-dropdown-bg: var(--color-dark-grey);
   --color-accent: #f05387;
   --sidebar-width: 250px;
   --sidebar-width-collapsed: 60px;
