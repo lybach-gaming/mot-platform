@@ -36,6 +36,7 @@ function SidebarItem({
   return (
     <li className="sidebar-item">
       <div
+        onClick={hasChildren ? () => setOpen(!open) : undefined}
         className={`
           sidebar-item-row
           flex items-center w-full ${collapsed ? 'justify-center' : 'justify-between'}
@@ -49,11 +50,15 @@ function SidebarItem({
           cursor-pointer
         `}
       >
-        <div className="flex items-center space-x-2 w-full">
+        <div
+          className={`flex cursor-pointer w-full ${
+            collapsed ? 'justify-center' : 'items-center space-x-2'
+          }`}
+        >
           {item.url ? (
             <Link
               href={item.url}
-              className={`flex cursor-default w-full ${
+              className={`flex cursor-pointer w-full ${
                 collapsed ? 'justify-center' : 'items-center space-x-2'
               }`}
             >
@@ -68,7 +73,7 @@ function SidebarItem({
             </Link>
           ) : (
             <div
-              className={`flex cursor-default w-full ${
+              className={`flex cursor-pointer w-full ${
                 collapsed ? 'justify-center' : 'items-center space-x-2'
               }`}
             >
@@ -100,7 +105,7 @@ function SidebarItem({
         )}
       </div>
 
-      {hasChildren && open && (
+      {hasChildren && open && !collapsed && (
         <ul className="mt-1 space-y-1 py-2 text-sm">
           {item.children!.map((child) => (
             <SidebarItem

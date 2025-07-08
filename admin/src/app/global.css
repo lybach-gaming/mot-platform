@@ -99,7 +99,7 @@ pre {
 
 /* Topbar */
 #topbar {
-  height: 60px;
+  height: 70px;
   background-color: var(--color-topbar-bg);
   display: flex;
   align-items: center;

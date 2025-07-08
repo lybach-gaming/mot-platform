@@ -41,12 +41,13 @@ export default function RootLayout({
           <div id="topbar">
             <Image
               className="mr-12"
-              src="/full-logo.png"
+              src={collapsed ? '/half-logo.png' : '/full-logo.png'}
               alt="Logo"
-              width={150}
-              height={40}
+              width={collapsed ? 50 : 150}
+              height={collapsed ? 75 : 40}
               priority
             />
+
             <button
               onClick={() => toggleSidebar()}
               className="
