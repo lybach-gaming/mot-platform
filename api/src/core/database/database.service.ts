@@ -13,11 +13,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       },
       pool: { min: 5, max: 100 },
     });
-    console.log('✅ Database connected');
+
+    if (await this.checkConnection()) {
+      console.log('✅ Database connected');
+    }
   }
 
   onModuleDestroy() {
     this.db?.destroy();
+  }
+
+  async checkConnection() {
+    try {
+      await this.db.raw('SELECT 1');
+      return true;
+    } catch (err) {
+      console.error('DB not connected:', err);
+      return false;
+    }
   }
 
   get connection(): Knex {
