@@ -6,10 +6,15 @@ import type { NavigationItem } from '../types/navigation';
 
 interface SidebarProps {
   navigation: NavigationItem[];
+  activePath?: string;
   collapsed?: boolean;
 }
 
-export default function Sidebar({ navigation, collapsed }: SidebarProps) {
+export default function Sidebar({
+  navigation,
+  activePath,
+  collapsed,
+}: SidebarProps) {
   const [hovered, setHovered] = useState<{
     item: NavigationItem;
     top: number;
@@ -24,6 +29,7 @@ export default function Sidebar({ navigation, collapsed }: SidebarProps) {
             item={item}
             collapsed={collapsed}
             setHovered={setHovered}
+            activePath={activePath}
           />
         ))}
       </ul>
@@ -78,11 +84,13 @@ function SidebarItem({
   isPrimary = true,
   collapsed = false,
   setHovered,
+  activePath,
 }: {
   item: NavigationItem;
   isPrimary?: boolean;
   collapsed?: boolean;
   setHovered?: (value: { item: NavigationItem; top: number } | null) => void;
+  activePath?: string;
 }) {
   const [open, setOpen] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
@@ -106,6 +114,9 @@ function SidebarItem({
       }
     }
   };
+
+  const isActive = item.url === activePath;
+
   return (
     <li
       className="sidebar-item relative"
@@ -120,7 +131,11 @@ function SidebarItem({
             collapsed ? 'justify-center' : 'justify-between'
           }
           ${isPrimary ? (collapsed ? 'px-2 py-3' : 'px-4 py-3') : 'pl-12 py-2'}
-          hover:bg-[var(--color-accent)] hover:text-white
+          ${
+            isActive
+              ? `bg-[var(--color-accent)] text-white`
+              : 'hover:bg-[var(--color-accent)] hover:text-white'
+          }
           transition-colors duration-200
           cursor-pointer
         `}
@@ -189,6 +204,7 @@ function SidebarItem({
               isPrimary={false}
               collapsed={collapsed}
               setHovered={setHovered}
+              activePath={activePath}
             />
           ))}
         </ul>

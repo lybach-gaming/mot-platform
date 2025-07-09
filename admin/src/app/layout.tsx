@@ -6,6 +6,7 @@ import navigation from '../../data/navigation.json';
 import Image from 'next/image';
 import './global.css';
 import { NavigationItem } from '@/types/navigation';
+import { useActivePath } from './hooks/useActivePath';
 
 export default function RootLayout({
   children,
@@ -15,6 +16,8 @@ export default function RootLayout({
   const [collapsed, setCollapsed] = useState(false);
   const toggleSidebar = () => setCollapsed(!collapsed);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const activePath = useActivePath();
+
 
   const userMenu: NavigationItem[] = [
     { label: 'Profile', url: '/profile', icon: 'fas fa-user' },
@@ -115,6 +118,7 @@ export default function RootLayout({
               <Sidebar
                 navigation={navigation as NavigationItem[]}
                 collapsed={collapsed}
+                activePath={activePath}
               />
             </div>
 
