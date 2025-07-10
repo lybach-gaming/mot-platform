@@ -1,0 +1,92 @@
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { DatabaseService } from '../../core/database/database.service';
+import { RedisService } from '../../core/redis/redis.service';
+import { CacheKey } from '../../common/constants/cache-key';
+
+@Injectable()
+export class SettingService implements OnModuleInit {
+  private readonly logger = new Logger(SettingService.name);
+
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly redisService: RedisService
+  ) {}
+
+  async onModuleInit() {
+    this.logger.log('🔄 Preloading all web settings into Redis cache...');
+    await this.syncToCache();
+    this.logger.log('✅ Redis cache populated with web settings');
+  }
+
+  async syncToCache(): Promise<void> {
+    const rows = await this.dbService.connection
+      .table('tbl_settings')
+      .select('type', 'message');
+
+    const Setting = rows.reduce((acc, cur) => {
+      acc[cur.type] = cur.message;
+      return acc;
+    }, {} as Record<string, string>);
+
+    await this.redisService.set(CacheKey.WebSetting, Setting);
+  }
+
+  async get(key: string): Promise<string | null> {
+    const cachedSettings = await this.redisService.get<Record<string, string>>(
+      CacheKey.WebSetting
+    );
+
+    if (cachedSettings && key in cachedSettings) {
+      return cachedSettings[key];
+    }
+
+    const result = await this.dbService.connection
+      .table('tbl_settings')
+      .where({ type: key })
+      .first('message');
+
+    await this.syncToCache();
+
+    return result ? result.value : null;
+  }
+
+  async findAll(): Promise<Record<string, string>> {
+    let cachedSettings = await this.redisService.get<Record<string, string>>(
+      CacheKey.WebSetting
+    );
+
+    if (!cachedSettings) {
+      await this.syncToCache();
+      cachedSettings = await this.redisService.get<Record<string, string>>(
+        CacheKey.WebSetting
+      );
+    }
+
+    return cachedSettings ?? {};
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    const exists = await this.dbService.connection
+      .table('tbl_settings')
+      .where({ type: key })
+      .first();
+
+    if (exists) {
+      await this.dbService.connection
+        .table('tbl_settings')
+        .where({ key })
+        .update({ message: value });
+    } else {
+      await this.dbService.connection
+        .table('tbl_settings')
+        .insert({ type: key, message: value });
+    }
+
+    await this.syncToCache();
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.dbService.connection.table('tbl_settings').where({ key }).del();
+    await this.syncToCache();
+  }
+}

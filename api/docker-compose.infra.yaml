@@ -6,15 +6,34 @@ services:
     env_file:
       - .env.db
     ports:
-      - "11241:3306"
+      - '11241:3306'
     volumes:
       - mot_mysql_data:/var/lib/mysql
+    networks:
+      - mot_network
+
+  redis:
+    image: redis:7.4.5
+    container_name: mot_redis
+    restart: always
+    command:
+      - /bin/sh
+      - -c
+      - redis-server --requirepass "$${REDIS_PASSWORD:?REDIS_PASSWORD variable is not set}"
+    env_file:
+      - .env.redis
+    ports:
+      - '11242:6379'
+    volumes:
+      - mot_redis_data:/data
     networks:
       - mot_network
 
 volumes:
   mot_mysql_data:
     name: mot_mysql_data
+  mot_redis_data:
+    name: mot_redis_data
 
 networks:
   mot_network:
