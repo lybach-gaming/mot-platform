@@ -2,6 +2,11 @@
   "name": "@mot-platform/admin",
   "version": "0.0.1",
   "private": true,
+   "scripts": {
+    "dev": "next dev",
+    "start": "next start -p 3100",
+    "build": "next build"
+  },
   "dependencies": {
     "next": "~15.2.4",
     "react": "19.0.0",
