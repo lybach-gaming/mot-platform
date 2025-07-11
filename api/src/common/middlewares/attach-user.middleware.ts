@@ -1,12 +1,13 @@
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { SettingService } from '../../app/setting/setting.service';
 import { SettingType } from '../constants/setting-key';
+import { AppLogger } from '../../core/logger/app-logger';
 
 @Injectable()
 export class AttachUserMiddleware implements NestMiddleware {
-  private readonly logger = new Logger(AttachUserMiddleware.name);
+  private readonly logger = new AppLogger(AttachUserMiddleware.name);
 
   constructor(private readonly settingService: SettingService) {}
 

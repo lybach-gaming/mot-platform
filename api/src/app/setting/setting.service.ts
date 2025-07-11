@@ -1,11 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { DatabaseService } from '../../core/database/database.service';
-import { RedisService } from '../../core/redis/redis.service';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { CacheKey } from '../../common/constants/cache-key';
+import { DatabaseService } from '../../core/database/database.service';
+import { AppLogger } from '../../core/logger/app-logger';
+import { RedisService } from '../../core/redis/redis.service';
 
 @Injectable()
 export class SettingService implements OnModuleInit {
-  private readonly logger = new Logger(SettingService.name);
+  private readonly logger = new AppLogger(SettingService.name);
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -13,9 +14,9 @@ export class SettingService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    this.logger.log('🔄 Preloading all web settings into Redis cache...');
+    this.logger.logDev('🔄 Preloading all web settings into Redis cache...');
     await this.syncSettingToCache();
-    this.logger.log('✅ Redis cache populated with web settings');
+    this.logger.logDev('✅ Redis cache populated with web settings');
   }
 
   /**
