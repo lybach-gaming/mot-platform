@@ -1,0 +1,23 @@
+export const USERS_SCHEMA = {
+  TABLE: 'tbl_users',
+  FIELDS: {
+    ID: 'id',
+    FIREBASE_ID: 'firebase_id',
+    NAME: 'name',
+    EMAIL: 'email',
+    MOBILE: 'mobile',
+    TYPE: 'type',
+    PROFILE: 'profile',
+    FCM_ID: 'fcm_id',
+    COINS: 'coins',
+    REFER_CODE: 'refer_code',
+    FRIENDS_CODE: 'friends_code',
+    REMOVE_ADS: 'remove_ads',
+    STATUS: 'status',
+    DATE_REGISTERED: 'date_registered',
+    API_TOKEN: 'api_token',
+    IS_CREDITED: 'is_credited',
+    IS_VERIFY: 'is_verify',
+    NEWSLETTER_OPT_IN: 'newsletter_opt_in',
+  },
+};
