@@ -16,7 +16,7 @@ export class AttachUserMiddleware implements NestMiddleware {
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7).trim();
       try {
-        const jwtSecret = await this.settingService.get(SettingType.JwtKey);
+        const jwtSecret = await this.settingService.getSetting(SettingType.JwtKey);
         if (!jwtSecret) {
           this.logger.warn('⚠️ JWT secret not found in settings');
           return next();

@@ -14,11 +14,14 @@ export class SettingService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log('🔄 Preloading all web settings into Redis cache...');
-    await this.syncToCache();
+    await this.syncSettingToCache();
     this.logger.log('✅ Redis cache populated with web settings');
   }
 
-  async syncToCache(): Promise<void> {
+  /**
+   * Setting Management
+   */
+  async syncSettingToCache(): Promise<void> {
     const rows = await this.dbService.connection
       .table('tbl_settings')
       .select('type', 'message');
@@ -31,7 +34,7 @@ export class SettingService implements OnModuleInit {
     await this.redisService.set(CacheKey.WebSetting, Setting);
   }
 
-  async get(key: string): Promise<string | null> {
+  async getSetting(key: string): Promise<string | null> {
     const cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
     );
@@ -45,18 +48,18 @@ export class SettingService implements OnModuleInit {
       .where({ type: key })
       .first('message');
 
-    await this.syncToCache();
+    await this.syncSettingToCache();
 
     return result ? result.value : null;
   }
 
-  async findAll(): Promise<Record<string, string>> {
+  async findAllSetting(): Promise<Record<string, string>> {
     let cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
     );
 
     if (!cachedSettings) {
-      await this.syncToCache();
+      await this.syncSettingToCache();
       cachedSettings = await this.redisService.get<Record<string, string>>(
         CacheKey.WebSetting
       );
@@ -65,7 +68,7 @@ export class SettingService implements OnModuleInit {
     return cachedSettings ?? {};
   }
 
-  async set(key: string, value: string): Promise<void> {
+  async setSetting(key: string, value: string): Promise<void> {
     const exists = await this.dbService.connection
       .table('tbl_settings')
       .where({ type: key })
@@ -82,11 +85,14 @@ export class SettingService implements OnModuleInit {
         .insert({ type: key, message: value });
     }
 
-    await this.syncToCache();
+    await this.syncSettingToCache();
   }
 
-  async delete(key: string): Promise<void> {
-    await this.dbService.connection.table('tbl_settings').where({ key }).del();
-    await this.syncToCache();
+  async deleteSetting(key: string): Promise<void> {
+    await this.dbService.connection
+      .table('tbl_settings')
+      .where({ type: key })
+      .del();
+    await this.syncSettingToCache();
   }
 }
