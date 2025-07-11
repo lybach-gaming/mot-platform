@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CacheKey } from '../../common/constants/cache-key';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { SETTINGS_SCHEMA } from '../../core/database/schemas';
+import { ISetting } from '../../core/database/types';
 
 @Injectable()
 export class SettingService implements OnModuleInit {
@@ -18,20 +20,30 @@ export class SettingService implements OnModuleInit {
     this.logger.debug('✅ Redis cache populated with web settings');
   }
 
+  transformSettingsRows(rows: ISetting[]): Record<string, string> {
+    return rows.reduce((acc, cur) => {
+      acc[cur.type] = cur.message;
+      return acc;
+    }, {} as Record<string, string>);
+  }
+
   /**
    * Setting Management
    */
   async syncSettingToCache(): Promise<void> {
-    const rows = await this.dbService.connection
-      .table('tbl_settings')
-      .select('type', 'message');
+    try {
+      const rows: ISetting[] = await this.dbService.connection
+        .table(SETTINGS_SCHEMA.TABLE)
+        .select(SETTINGS_SCHEMA.FIELDS.TYPE, SETTINGS_SCHEMA.FIELDS.MESSAGE);
 
-    const Setting = rows.reduce((acc, cur) => {
-      acc[cur.type] = cur.message;
-      return acc;
-    }, {} as Record<string, string>);
+      const settings = this.transformSettingsRows(rows);
 
-    await this.redisService.set(CacheKey.WebSetting, Setting);
+      await this.redisService.set(CacheKey.WebSetting, settings);
+      this.logger.debug('Settings successfully synced to Redis cache');
+    } catch (error) {
+      this.logger.error('Failed to sync settings to Redis cache', error);
+      throw error;
+    }
   }
 
   async getSetting(key: string): Promise<string | null> {
@@ -44,9 +56,9 @@ export class SettingService implements OnModuleInit {
     }
 
     const result = await this.dbService.connection
-      .table('tbl_settings')
+      .table(SETTINGS_SCHEMA.TABLE)
       .where({ type: key })
-      .first('message');
+      .first(SETTINGS_SCHEMA.FIELDS.MESSAGE);
 
     await this.syncSettingToCache();
 
@@ -70,18 +82,18 @@ export class SettingService implements OnModuleInit {
 
   async setSetting(key: string, value: string): Promise<void> {
     const exists = await this.dbService.connection
-      .table('tbl_settings')
+      .table(SETTINGS_SCHEMA.TABLE)
       .where({ type: key })
       .first();
 
     if (exists) {
       await this.dbService.connection
-        .table('tbl_settings')
+        .table(SETTINGS_SCHEMA.TABLE)
         .where({ key })
         .update({ message: value });
     } else {
       await this.dbService.connection
-        .table('tbl_settings')
+        .table(SETTINGS_SCHEMA.TABLE)
         .insert({ type: key, message: value });
     }
 
@@ -90,7 +102,7 @@ export class SettingService implements OnModuleInit {
 
   async deleteSetting(key: string): Promise<void> {
     await this.dbService.connection
-      .table('tbl_settings')
+      .table(SETTINGS_SCHEMA.TABLE)
       .where({ type: key })
       .del();
     await this.syncSettingToCache();
