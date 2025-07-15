@@ -1,11 +1,19 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
+import { AttachUserMiddleware } from '../common/middlewares/attach-user.middleware';
+import { DatabaseModule } from '../core/database/database.module';
+import { RedisModule } from '../core/redis/redis.module';
+import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseModule } from '../core/database/database.module';
+import { SettingModule } from './setting/setting.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, RedisModule, SettingModule, AccountModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AttachUserMiddleware).forRoutes('*');
+  }
+}

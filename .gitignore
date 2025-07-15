@@ -57,6 +57,7 @@ out
 # Environment files
 .env
 .env.db
+.env.redis
 .env.local
 
 # Patch files
