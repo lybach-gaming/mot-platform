@@ -48,6 +48,8 @@
     }
   },
   "dependencies": {
+    "@nestjs/mapped-types": "^2.1.0",
+    "@nestjs/swagger": "^11.2.0",
     "@types/jsonwebtoken": "^9.0.10",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",

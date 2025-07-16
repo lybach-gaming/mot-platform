@@ -4,6 +4,8 @@ import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { SETTINGS_SCHEMA } from '../../core/database/schemas';
 import { ISetting } from '../../core/database/types';
+import { WebSettingType } from '../../common/constants/setting-key';
+import { WEB_SETTINGS_SCHEMA } from '../../core/database/schemas/web-settings.schema';
 
 @Injectable()
 export class SettingService implements OnModuleInit {
@@ -16,7 +18,10 @@ export class SettingService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.debug('🔄 Preloading all web settings into Redis cache...');
-    await this.syncSettingToCache();
+    await Promise.all([
+      this.syncSettingToCache(),
+      this.syncWebSettingToCache(),
+    ]);
     this.logger.debug('✅ Redis cache populated with web settings');
   }
 
@@ -38,7 +43,7 @@ export class SettingService implements OnModuleInit {
 
       const settings = this.transformSettingsRows(rows);
 
-      await this.redisService.set(CacheKey.WebSetting, settings);
+      await this.redisService.set(CacheKey.Setting, settings);
       this.logger.debug('Settings successfully synced to Redis cache');
     } catch (error) {
       this.logger.error('Failed to sync settings to Redis cache', error);
@@ -48,7 +53,7 @@ export class SettingService implements OnModuleInit {
 
   async getSetting(key: string): Promise<string | null> {
     const cachedSettings = await this.redisService.get<Record<string, string>>(
-      CacheKey.WebSetting
+      CacheKey.Setting
     );
 
     if (cachedSettings && key in cachedSettings) {
@@ -67,13 +72,13 @@ export class SettingService implements OnModuleInit {
 
   async findAllSetting(): Promise<Record<string, string>> {
     let cachedSettings = await this.redisService.get<Record<string, string>>(
-      CacheKey.WebSetting
+      CacheKey.Setting
     );
 
     if (!cachedSettings) {
       await this.syncSettingToCache();
       cachedSettings = await this.redisService.get<Record<string, string>>(
-        CacheKey.WebSetting
+        CacheKey.Setting
       );
     }
 
@@ -103,6 +108,150 @@ export class SettingService implements OnModuleInit {
   async deleteSetting(key: string): Promise<void> {
     await this.dbService.connection
       .table(SETTINGS_SCHEMA.TABLE)
+      .where({ type: key })
+      .del();
+    await this.syncSettingToCache();
+  }
+
+  /**
+   * Web Setting Management
+   */
+  async syncWebSettingToCache(): Promise<void> {
+    try {
+      const rows: ISetting[] = await this.dbService.connection
+        .table(WEB_SETTINGS_SCHEMA.TABLE)
+        .select(WEB_SETTINGS_SCHEMA.FIELDS.TYPE, WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE);
+
+      const settings = this.transformSettingsRows(rows);
+
+      await this.redisService.set(CacheKey.WebSetting, settings);
+      this.logger.debug('Settings successfully synced to Redis cache');
+    } catch (error) {
+      this.logger.error('Failed to sync settings to Redis cache', error);
+      throw error;
+    }
+  }
+
+  async getWebSetting(key: string): Promise<string | null> {
+    const cachedSettings = await this.redisService.get<Record<string, string>>(
+      CacheKey.WebSetting
+    );
+
+    if (cachedSettings && key in cachedSettings) {
+      return cachedSettings[key];
+    }
+
+    const result = await this.dbService.connection
+      .table(WEB_SETTINGS_SCHEMA.TABLE)
+      .where({ type: key })
+      .first(WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE);
+
+    await this.syncSettingToCache();
+
+    return result ? result.value : null;
+  }
+
+  async getAllWebSetting(): Promise<Record<string, string>> {
+    let cachedSettings = await this.redisService.get<Record<string, string>>(
+      CacheKey.WebSetting
+    );
+
+    if (!cachedSettings) {
+      await this.syncSettingToCache();
+      cachedSettings = await this.redisService.get<Record<string, string>>(
+        CacheKey.WebSetting
+      );
+    }
+
+    return cachedSettings ?? {};
+  }
+
+  async getPublicWebSetting(): Promise<Record<string, string>> {
+    const publicSettings = [
+      WebSettingType.FirebaseApiKey,
+      WebSettingType.FirebaseAuthDomain,
+      WebSettingType.FirebaseDatabaseUrl,
+      WebSettingType.FirebaseProjectId,
+      WebSettingType.FirebaseStorageBucket,
+      WebSettingType.FirebaseMessagerSenderId,
+      WebSettingType.FirebaseAppId,
+      WebSettingType.FirebaseMeasurementId,
+      WebSettingType.MetaDescription,
+      WebSettingType.MetaKeywords,
+      WebSettingType.RtlSupport,
+      WebSettingType.ShowRecommendationsWidget,
+      WebSettingType.FacebookLinkFooter,
+      WebSettingType.TwitterLinkFooter,
+      WebSettingType.TiktokLinkFooter,
+      WebSettingType.InstagramLinkFooter,
+      WebSettingType.LinkedinLinkFooter,
+      WebSettingType.YoutubeLinkFooter,
+      WebSettingType.TelegramLinkFooter,
+      WebSettingType.Favicon,
+      WebSettingType.HeaderLogo,
+      WebSettingType.FooterLogo,
+      WebSettingType.StickyHeaderLogo,
+      WebSettingType.QuizZoneIcon,
+      WebSettingType.DailyQuizIcon,
+      WebSettingType.TrueFalseIcon,
+      WebSettingType.FunLearnIcon,
+      WebSettingType.QuizzesByLan,
+      WebSettingType.SelfChallengeIcon,
+      WebSettingType.ContestPlayIcon,
+      WebSettingType.OneOneBattleIcon,
+      WebSettingType.GroupBattleIcon,
+      WebSettingType.AudioQuestionIcon,
+      WebSettingType.MathManiaIcon,
+      WebSettingType.ExamIcon,
+      WebSettingType.GuessTheWordIcon,
+    ];
+
+    let cachedSettings = await this.redisService.get<Record<string, string>>(
+      CacheKey.WebSetting
+    );
+
+    console.log('cachedSettings', cachedSettings)
+
+    if (!cachedSettings) {
+      await this.syncSettingToCache();
+      cachedSettings = await this.redisService.get<Record<string, string>>(
+        CacheKey.WebSetting
+      );
+    }
+
+    const filteredSettings: Record<string, string> = {};
+    for (const key of publicSettings) {
+      if (cachedSettings?.[key]) {
+        filteredSettings[key] = cachedSettings[key];
+      }
+    }
+
+    return filteredSettings;
+  }
+
+  async setWebSetting(key: string, value: string): Promise<void> {
+    const exists = await this.dbService.connection
+      .table(WEB_SETTINGS_SCHEMA.TABLE)
+      .where({ type: key })
+      .first();
+
+    if (exists) {
+      await this.dbService.connection
+        .table(WEB_SETTINGS_SCHEMA.TABLE)
+        .where({ key })
+        .update({ message: value });
+    } else {
+      await this.dbService.connection
+        .table(WEB_SETTINGS_SCHEMA.TABLE)
+        .insert({ type: key, message: value });
+    }
+
+    await this.syncSettingToCache();
+  }
+
+  async deleteWebSetting(key: string): Promise<void> {
+    await this.dbService.connection
+      .table(WEB_SETTINGS_SCHEMA.TABLE)
       .where({ type: key })
       .del();
     await this.syncSettingToCache();
