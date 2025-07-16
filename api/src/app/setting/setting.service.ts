@@ -220,15 +220,15 @@ export class SettingService implements OnModuleInit {
       );
     }
 
-    const filteredSettings: Record<string, string> = {};
-    for (const key of publicSettings) {
-      filteredSettings[key] = '';
-      if (cachedSettings?.[key]) {
-        filteredSettings[key] = cachedSettings[key];
-      }
-    }
+    // const filteredSettings: Record<string, string> = {};
+    // for (const key of publicSettings) {
+    //   filteredSettings[key] = '';
+    //   if (cachedSettings?.[key]) {
+    //     filteredSettings[key] = cachedSettings[key];
+    //   }
+    // }
 
-    return filteredSettings;
+    return cachedSettings ?? {};
   }
 
   async setWebSetting(key: string, value: string): Promise<void> {
