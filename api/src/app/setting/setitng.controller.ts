@@ -8,7 +8,7 @@ export class SettingController {
   constructor(private readonly settingService: SettingService) {}
 
   @Get('/get_web_settings')
-  async getUserById() {
+  async getWebSetting() {
     const publicWebSetting = await this.settingService.getPublicWebSetting();
 
     return {

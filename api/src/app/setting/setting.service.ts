@@ -120,7 +120,10 @@ export class SettingService implements OnModuleInit {
     try {
       const rows: ISetting[] = await this.dbService.connection
         .table(WEB_SETTINGS_SCHEMA.TABLE)
-        .select(WEB_SETTINGS_SCHEMA.FIELDS.TYPE, WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE);
+        .select(
+          WEB_SETTINGS_SCHEMA.FIELDS.TYPE,
+          WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE
+        );
 
       const settings = this.transformSettingsRows(rows);
 
@@ -210,8 +213,6 @@ export class SettingService implements OnModuleInit {
       CacheKey.WebSetting
     );
 
-    console.log('cachedSettings', cachedSettings)
-
     if (!cachedSettings) {
       await this.syncSettingToCache();
       cachedSettings = await this.redisService.get<Record<string, string>>(
@@ -221,6 +222,7 @@ export class SettingService implements OnModuleInit {
 
     const filteredSettings: Record<string, string> = {};
     for (const key of publicSettings) {
+      filteredSettings[key] = '';
       if (cachedSettings?.[key]) {
         filteredSettings[key] = cachedSettings[key];
       }
