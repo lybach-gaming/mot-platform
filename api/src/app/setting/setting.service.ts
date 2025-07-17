@@ -30,6 +30,11 @@ export class SettingService implements OnModuleInit {
     this.logger.debug('✅ Redis cache populated with web settings');
   }
 
+  /**
+   * Transform settings rows into a key-value object
+   * @param rows - Array of settings rows from the database
+   * @returns Key-value object of settings
+   */
   transformSettingsRows(rows: ISetting[]): Record<string, string> {
     return rows.reduce((acc, cur) => {
       let message = cur.message;
@@ -53,7 +58,7 @@ export class SettingService implements OnModuleInit {
   }
 
   /**
-   * Setting Management
+   * Sync settings to Redis cache
    */
   async syncSettingToCache(): Promise<void> {
     try {
@@ -71,6 +76,11 @@ export class SettingService implements OnModuleInit {
     }
   }
 
+  /**
+   * Get a specific setting by key
+   * @param key - The setting key to retrieve
+   * @returns The value of the setting or null if not found
+   */
   async getSetting(key: string): Promise<string | null> {
     const cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.Setting
@@ -90,6 +100,10 @@ export class SettingService implements OnModuleInit {
     return result ? result.value : null;
   }
 
+  /**
+   * Get all settings
+   * @returns All settings as a key-value object
+   */
   async findAllSetting(): Promise<Record<string, string>> {
     let cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.Setting
@@ -105,6 +119,10 @@ export class SettingService implements OnModuleInit {
     return cachedSettings ?? {};
   }
 
+  /**
+   * Get public settings
+   * @returns Public settings as a key-value object
+   */
   async setSetting(key: string, value: string): Promise<void> {
     const exists = await this.dbService.connection
       .table(SETTINGS_SCHEMA.TABLE)
@@ -125,6 +143,10 @@ export class SettingService implements OnModuleInit {
     await this.syncSettingToCache();
   }
 
+  /**
+   * Delete a specific setting by key
+   * @param key - The setting key to delete
+   */
   async deleteSetting(key: string): Promise<void> {
     await this.dbService.connection
       .table(SETTINGS_SCHEMA.TABLE)
@@ -134,7 +156,7 @@ export class SettingService implements OnModuleInit {
   }
 
   /**
-   * Web Setting Management
+   * Sync web settings to Redis cache
    */
   async syncWebSettingToCache(): Promise<void> {
     try {
@@ -155,6 +177,11 @@ export class SettingService implements OnModuleInit {
     }
   }
 
+  /**
+   * Get a specific web setting by key
+   * @param key - The web setting key to retrieve
+   * @returns The value of the web setting or null if not found
+   */
   async getWebSetting(key: string): Promise<string | null> {
     const cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
@@ -174,6 +201,10 @@ export class SettingService implements OnModuleInit {
     return result ? result.value : null;
   }
 
+  /**
+   * Get all web settings
+   * @returns All web settings as a key-value object
+   */
   async getAllWebSetting(): Promise<Record<string, string>> {
     let cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
@@ -189,6 +220,10 @@ export class SettingService implements OnModuleInit {
     return cachedSettings ?? {};
   }
 
+  /**
+   * Get public web settings
+   * @returns Public web settings as a key-value object
+   */
   async getPublicWebSetting(): Promise<Record<string, string>> {
     let cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
@@ -204,6 +239,11 @@ export class SettingService implements OnModuleInit {
     return cachedSettings ?? {};
   }
 
+  /**
+   * Set a web setting
+   * @param key - The web setting key to set
+   * @param value - The value to set for the web setting
+   */
   async setWebSetting(key: string, value: string): Promise<void> {
     const exists = await this.dbService.connection
       .table(WEB_SETTINGS_SCHEMA.TABLE)
@@ -224,6 +264,10 @@ export class SettingService implements OnModuleInit {
     await this.syncSettingToCache();
   }
 
+  /**
+   * Delete a specific web setting by key
+   * @param key - The web setting key to delete
+   */
   async deleteWebSetting(key: string): Promise<void> {
     await this.dbService.connection
       .table(WEB_SETTINGS_SCHEMA.TABLE)
