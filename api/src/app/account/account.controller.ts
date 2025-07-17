@@ -1,9 +1,11 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AccountService } from './account.service';
-import { AuthGuard } from '../../common/guards/auth.guard';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { AccountService } from './account.service';
 
 @Controller('/v2')
+@ApiBearerAuth()
 export class AccountController {
   constructor(private readonly accountService: AccountService) {}
 
