@@ -170,3 +170,36 @@ export enum WebSettingType {
   TelegramLinkFooter = 'telegram_link_footer',
   ShowRecommendationsWidget = 'show_recommendations_widget',
 }
+
+export const LOGO_TYPES = [
+  'favicon',
+  'header_logo',
+  'footer_logo',
+  'sticky_header_logo',
+  'quiz_zone_icon',
+  'daily_quiz_icon',
+  'true_false_icon',
+  'fun_learn_icon',
+  'quizzes_by_lan',
+  'self_challange_icon',
+  'contest_play_icon',
+  'one_one_battle_icon',
+  'group_battle_icon',
+  'audio_question_icon',
+  'math_mania_icon',
+  'exam_icon',
+  'guess_the_word_icon',
+] as const;
+
+export const IMAGE_TYPES = [
+  'section1_cover_image',
+  'section1_image_title_image1',
+  'section1_image_title_image2',
+  'section1_image_title_image3',
+  'section1_image_title_image4',
+  'section2_cover_image',
+  'section3_title_image_desc_image1',
+  'section3_title_image_desc_image2',
+  'section3_title_image_desc_image3',
+  'section3_title_image_desc_image4',
+] as const;

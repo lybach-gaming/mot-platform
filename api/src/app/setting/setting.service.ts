@@ -4,8 +4,13 @@ import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { SETTINGS_SCHEMA } from '../../core/database/schemas';
 import { ISetting } from '../../core/database/types';
-import { WebSettingType } from '../../common/constants/setting-key';
+import { LOGO_TYPES, IMAGE_TYPES } from '../../common/constants/setting-key';
 import { WEB_SETTINGS_SCHEMA } from '../../core/database/schemas/web-settings.schema';
+import {
+  BASE_URL,
+  WEB_HOME_SETTINGS_LOGO_PATH,
+  WEB_SETTINGS_LOGO_PATH,
+} from './../../common/constants/app';
 
 @Injectable()
 export class SettingService implements OnModuleInit {
@@ -27,7 +32,22 @@ export class SettingService implements OnModuleInit {
 
   transformSettingsRows(rows: ISetting[]): Record<string, string> {
     return rows.reduce((acc, cur) => {
-      acc[cur.type] = cur.message;
+      let message = cur.message;
+
+      // Transform logo URLs
+      if (LOGO_TYPES.includes(cur.type)) {
+        message = message
+          ? `${BASE_URL}${WEB_SETTINGS_LOGO_PATH}${message}`
+          : '';
+      }
+      // Transform image URLs
+      else if (IMAGE_TYPES.includes(cur.type)) {
+        message = message
+          ? `${BASE_URL}${WEB_HOME_SETTINGS_LOGO_PATH}${message}`
+          : '';
+      }
+
+      acc[cur.type] = message;
       return acc;
     }, {} as Record<string, string>);
   }
@@ -170,45 +190,6 @@ export class SettingService implements OnModuleInit {
   }
 
   async getPublicWebSetting(): Promise<Record<string, string>> {
-    const publicSettings = [
-      WebSettingType.FirebaseApiKey,
-      WebSettingType.FirebaseAuthDomain,
-      WebSettingType.FirebaseDatabaseUrl,
-      WebSettingType.FirebaseProjectId,
-      WebSettingType.FirebaseStorageBucket,
-      WebSettingType.FirebaseMessagerSenderId,
-      WebSettingType.FirebaseAppId,
-      WebSettingType.FirebaseMeasurementId,
-      WebSettingType.MetaDescription,
-      WebSettingType.MetaKeywords,
-      WebSettingType.RtlSupport,
-      WebSettingType.ShowRecommendationsWidget,
-      WebSettingType.FacebookLinkFooter,
-      WebSettingType.TwitterLinkFooter,
-      WebSettingType.TiktokLinkFooter,
-      WebSettingType.InstagramLinkFooter,
-      WebSettingType.LinkedinLinkFooter,
-      WebSettingType.YoutubeLinkFooter,
-      WebSettingType.TelegramLinkFooter,
-      WebSettingType.Favicon,
-      WebSettingType.HeaderLogo,
-      WebSettingType.FooterLogo,
-      WebSettingType.StickyHeaderLogo,
-      WebSettingType.QuizZoneIcon,
-      WebSettingType.DailyQuizIcon,
-      WebSettingType.TrueFalseIcon,
-      WebSettingType.FunLearnIcon,
-      WebSettingType.QuizzesByLan,
-      WebSettingType.SelfChallengeIcon,
-      WebSettingType.ContestPlayIcon,
-      WebSettingType.OneOneBattleIcon,
-      WebSettingType.GroupBattleIcon,
-      WebSettingType.AudioQuestionIcon,
-      WebSettingType.MathManiaIcon,
-      WebSettingType.ExamIcon,
-      WebSettingType.GuessTheWordIcon,
-    ];
-
     let cachedSettings = await this.redisService.get<Record<string, string>>(
       CacheKey.WebSetting
     );
@@ -219,14 +200,6 @@ export class SettingService implements OnModuleInit {
         CacheKey.WebSetting
       );
     }
-
-    // const filteredSettings: Record<string, string> = {};
-    // for (const key of publicSettings) {
-    //   filteredSettings[key] = '';
-    //   if (cachedSettings?.[key]) {
-    //     filteredSettings[key] = cachedSettings[key];
-    //   }
-    // }
 
     return cachedSettings ?? {};
   }
