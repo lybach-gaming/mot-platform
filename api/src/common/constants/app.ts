@@ -14,5 +14,4 @@ export const FE_URL = process.env.FE_URL ?? 'https://demo.mastersoftrivia.com/';
 
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
-export const SUBCATEGORY_LEVEL_THUMB_PATH =
-  'images/subcategory-level/thumb/100x100/';
+export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumb/100x100/';

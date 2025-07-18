@@ -1,4 +1,3 @@
-import { FE_URL, QUIZ_HQ_SLUG } from './../../common/constants/app';
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
@@ -12,6 +11,13 @@ import {
 } from '../../common/constants/app';
 import { SubcategoryLevelDetailDto } from './dto/subcategory-level.dto';
 import { transformToString } from '../../common/utils/transform.util';
+import {
+  SUBCATEGORY_LEVEL_SCHEMA,
+  CATEGORY_SCHEMA,
+  SUBCATEGORY_SCHEMA,
+  WEB_SEO_SCHEMA,
+  FAQ_SCHEMA,
+} from '../../core/database/schemas';
 
 @Injectable()
 export class SubcategoryLevelService {
@@ -37,36 +43,30 @@ export class SubcategoryLevelService {
       }
 
       // Try getting from cache first
-      const cacheKey = `${CacheKey.Detail_subcategory_level}language:${
-        params.languageId
-      }:id:${params.id || params.slug}`;
-      const cached = await this.redisService.get<SubcategoryLevelDetailDto>(
-        cacheKey
-      );
+      const cacheKey = `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${params.id || params.slug}`;
+      const cached = await this.redisService.get<SubcategoryLevelDetailDto>(cacheKey);
 
       if (cached) {
         this.logger.debug(`Cache hit for ${cacheKey}`);
         return cached;
       }
 
-      // Build base query
-      const query = this.dbService.connection
-        .select('sl.*')
-        .from('tbl_subcategory_level as sl')
-        .where('sl.status', 1);
-
-      // Add conditions
-      if (params.slug) {
-        query.where('sl.slug', params.slug);
-      }
-      if (params.id) {
-        query.where('sl.id', params.id);
-      }
-      if (params.languageId) {
-        query.where('sl.language_id', params.languageId);
-      }
-
-      const subcategoryLevel = await query.first();
+      // Get subcategory level detail
+      const subcategoryLevel = await this.dbService.connection
+        .table(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+        .where({ status: 1 })
+        .modify((queryBuilder) => {
+          if (params.slug) {
+            queryBuilder.where({ slug: params.slug });
+          }
+          if (params.id) {
+            queryBuilder.where({ id: params.id });
+          }
+          if (params.languageId) {
+            queryBuilder.where({ language_id: params.languageId });
+          }
+        })
+        .first();
 
       if (!subcategoryLevel) {
         return null;
@@ -76,32 +76,30 @@ export class SubcategoryLevelService {
       const [category, subcategory, webSeo, faq] = await Promise.all([
         // Get category slug
         this.dbService.connection
-          .select('slug')
-          .from('tbl_category')
-          .where('id', subcategoryLevel.maincat_id)
-          .first(),
+          .table(CATEGORY_SCHEMA.TABLE)
+          .where({ id: subcategoryLevel.maincat_id })
+          .first(CATEGORY_SCHEMA.FIELDS.SLUG),
 
         // Get subcategory slug
         this.dbService.connection
-          .select('slug')
-          .from('tbl_subcategory')
-          .where('id', subcategoryLevel.main_subcat_id)
-          .first(),
+          .table(SUBCATEGORY_SCHEMA.TABLE)
+          .where({ id: subcategoryLevel.main_subcat_id })
+          .first(SUBCATEGORY_SCHEMA.FIELDS.SLUG),
 
         // Get web SEO details
         this.dbService.connection
-          .select('w.*')
-          .from('tbl_web_seo as w')
-          .where('slug', subcategoryLevel.slug)
+          .table(WEB_SEO_SCHEMA.TABLE)
+          .where({ slug: subcategoryLevel.slug })
           .first(),
 
         // Get FAQ details
         this.dbService.connection
-          .select('*')
-          .from('tbl_faq as faq')
-          .where('type', 3)
-          .where('subcategory_level_id', subcategoryLevel.id)
-          .where('quizz_mode', 1),
+          .table(FAQ_SCHEMA.TABLE)
+          .where({
+            type: 3,
+            subcategory_level_id: subcategoryLevel.id,
+            quizz_mode: 1,
+          }),
       ]);
 
       // Transform data to match DTO
