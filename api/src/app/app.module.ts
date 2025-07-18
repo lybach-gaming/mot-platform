@@ -7,9 +7,17 @@ import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SettingModule } from './setting/setting.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
-  imports: [DatabaseModule, RedisModule, SettingModule, AccountModule, SubcategoryLevelModule],
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    SettingModule,
+    AccountModule,
+    SubcategoryLevelModule,
+    QuizModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
