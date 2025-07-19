@@ -22,7 +22,7 @@ interface SubcategoryLevelParams {
  * @param slug - Optional slug for the subcategory level.
  * @returns Subcategory level detail.
  */
-@Controller('/v2')
+@Controller('v2')
 @ApiTags('Subcategory Level')
 @ApiBearerAuth()
 export class SubcategoryLevelController {
