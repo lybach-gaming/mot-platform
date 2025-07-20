@@ -63,3 +63,5 @@ out
 # Patch files
 *.rej
 *.orig
+
+storybook-static
