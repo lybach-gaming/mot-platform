@@ -48,81 +48,125 @@ export class SubcategoryLevelService {
         : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${params.slug}`;
 
       // Try getting from cache first
-      const cached = await this.redisService.get<SubcategoryLevelDetailDto>(cacheKey);
+      const cached = await this.redisService.get<SubcategoryLevelDetailDto>(
+        cacheKey
+      );
 
       if (cached) {
         this.logger.debug(`Cache hit for ${cacheKey}`);
         return cached;
       }
 
-      // Get subcategory level detail
-      const subcategoryLevel = await this.dbService.connection
+      // Get subcategory level detail with joins
+      const query = this.dbService.connection
         .table(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
-        .where({ status: 1 })
-        .modify((queryBuilder) => {
-          if (params.slug) {
-            queryBuilder.where({ slug: params.slug });
-          }
-          if (params.id) {
-            queryBuilder.where({ id: params.id });
-          }
-          if (params.languageId) {
-            queryBuilder.where({ language_id: params.languageId });
-          }
-        })
+        .leftJoin(
+          CATEGORY_SCHEMA.TABLE,
+          `${CATEGORY_SCHEMA.TABLE}.${CATEGORY_SCHEMA.FIELDS.ID}`,
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAINCAT_ID}`
+        )
+        .leftJoin(
+          SUBCATEGORY_SCHEMA.TABLE,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`
+        )
+        .leftJoin(
+          WEB_SEO_SCHEMA.TABLE,
+          `${WEB_SEO_SCHEMA.TABLE}.${WEB_SEO_SCHEMA.FIELDS.SLUG}`,
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`
+        )
+        .where(
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.STATUS}`,
+          1
+        );
+
+      // Add dynamic filters
+      if (params.id) {
+        query.where(
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID}`,
+          params.id
+        );
+      }
+      if (params.slug) {
+        query.where(
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`,
+          params.slug
+        );
+      }
+      if (params.languageId) {
+        query.where(
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LANGUAGE_ID}`,
+          params.languageId
+        );
+      }
+
+      // Use JSON_OBJECT for web_seo fields to automatically group them
+      const data = await query
+        .select([
+          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.*`,
+          `${CATEGORY_SCHEMA.TABLE}.${CATEGORY_SCHEMA.FIELDS.SLUG} as slug_category`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.SLUG} as slug_subcategory`,
+          this.dbService.connection.raw(`
+            CAST(JSON_OBJECT(
+              'id', ${WEB_SEO_SCHEMA.TABLE}.id,
+              'language_id', ${WEB_SEO_SCHEMA.TABLE}.language_id,
+              'quizz_mode', ${WEB_SEO_SCHEMA.TABLE}.quizz_mode,
+              'type', ${WEB_SEO_SCHEMA.TABLE}.type,
+              'quizz_by_language_lan_id', ${WEB_SEO_SCHEMA.TABLE}.quizz_by_language_lan_id,
+              'maincat_id', ${WEB_SEO_SCHEMA.TABLE}.maincat_id,
+              'subcategory_id', ${WEB_SEO_SCHEMA.TABLE}.subcategory_id,
+              'subcategory_level_id', ${WEB_SEO_SCHEMA.TABLE}.subcategory_level_id,
+              'quizz_id', ${WEB_SEO_SCHEMA.TABLE}.quizz_id,
+              'title', ${WEB_SEO_SCHEMA.TABLE}.title,
+              'sub_heading', ${WEB_SEO_SCHEMA.TABLE}.sub_heading,
+              'slug', ${WEB_SEO_SCHEMA.TABLE}.slug,
+              'seo_block', ${WEB_SEO_SCHEMA.TABLE}.seo_block,
+              'meta_title', ${WEB_SEO_SCHEMA.TABLE}.meta_title,
+              'meta_description', ${WEB_SEO_SCHEMA.TABLE}.meta_description,
+              'meta_keyword', ${WEB_SEO_SCHEMA.TABLE}.meta_keyword,
+              'schema_markup', ${WEB_SEO_SCHEMA.TABLE}.schema_markup,
+              'sponsor_link', ${WEB_SEO_SCHEMA.TABLE}.sponsor_link,
+              'sponsor_name', ${WEB_SEO_SCHEMA.TABLE}.sponsor_name,
+              'description', ${WEB_SEO_SCHEMA.TABLE}.description,
+              'is_edit_slug', ${WEB_SEO_SCHEMA.TABLE}.is_edit_slug,
+              'sub_title', ${WEB_SEO_SCHEMA.TABLE}.sub_title,
+              'heading', ${WEB_SEO_SCHEMA.TABLE}.heading,
+              'enable_faq', ${WEB_SEO_SCHEMA.TABLE}.enable_faq
+            ) AS CHAR) as web_seo
+          `),
+        ])
         .first();
 
-      if (!subcategoryLevel) {
+      if (!data) {
         return null;
       }
 
-      // Get related data in parallel
-      const [category, subcategory, webSeo, faq] = await Promise.all([
-        // Get category slug
-        this.dbService.connection
-          .table(CATEGORY_SCHEMA.TABLE)
-          .where({ id: subcategoryLevel.maincat_id })
-          .first(CATEGORY_SCHEMA.FIELDS.SLUG),
+      // Parse web_seo JSON string to object
+      data.web_seo = JSON.parse(data.web_seo);
 
-        // Get subcategory slug
-        this.dbService.connection
-          .table(SUBCATEGORY_SCHEMA.TABLE)
-          .where({ id: subcategoryLevel.main_subcat_id })
-          .first(SUBCATEGORY_SCHEMA.FIELDS.SLUG),
-
-        // Get web SEO details
-        this.dbService.connection
-          .table(WEB_SEO_SCHEMA.TABLE)
-          .where({ slug: subcategoryLevel.slug })
-          .first(),
-
-        // Get FAQ details
-        this.dbService.connection
-          .table(FAQ_SCHEMA.TABLE)
-          .where({
-            type: 3,
-            subcategory_level_id: subcategoryLevel.id,
-            quizz_mode: 1,
-          }),
-      ]);
+      // Get FAQ data separately as it's a one-to-many relationship
+      const faq = await this.dbService.connection
+        .table(FAQ_SCHEMA.TABLE)
+        .where({
+          type: 3,
+          subcategory_level_id: data.id,
+          quizz_mode: 1,
+        });
 
       // Transform data to match DTO
       const result: SubcategoryLevelDetailDto = transformToString({
-        ...subcategoryLevel,
-        image: subcategoryLevel.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${subcategoryLevel.image}`
+        ...data,
+        image: data.image
+          ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${data.image}`
           : '',
-        thumb_image: subcategoryLevel.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH}${subcategoryLevel.image}`
+        thumb_image: data.image
+          ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH}${data.image}`
           : '',
-        slug_category: category?.slug,
-        slug_subcategory: subcategory?.slug,
-        web_seo: webSeo,
-        faq: faq,
+        faq,
         share_url: this.generateShareUrl(
-          category?.slug,
-          subcategory?.slug,
-          subcategoryLevel.slug,
+          data.slug_category,
+          data.slug_subcategory,
+          data.slug,
           params.languageId
         ),
       });
@@ -132,16 +176,18 @@ export class SubcategoryLevelService {
 
       // Cache with alternate key
       const altKey = params.id
-        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${subcategoryLevel.slug}`
-        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${subcategoryLevel.id}`;
+        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${data.slug}`
+        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${data.id}`;
       await this.redisService.set(altKey, result, 3600);
 
-      this.logger.debug(`Cached subcategory level data for ${cacheKey} and ${altKey}`);
+      this.logger.debug(
+        `Cached subcategory level data for ${cacheKey} and ${altKey}`
+      );
 
       return result;
     } catch (error) {
       this.logger.error('Failed to get subcategory level detail', error);
-      throw error;
+      return null;
     }
   }
 
