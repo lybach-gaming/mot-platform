@@ -42,8 +42,12 @@ export class SubcategoryLevelService {
         return null;
       }
 
+      // Generate cache key based on available parameter
+      const cacheKey = params.id
+        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${params.id}`
+        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${params.slug}`;
+
       // Try getting from cache first
-      const cacheKey = `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${params.id || params.slug}`;
       const cached = await this.redisService.get<SubcategoryLevelDetailDto>(cacheKey);
 
       if (cached) {
@@ -123,9 +127,16 @@ export class SubcategoryLevelService {
         ),
       });
 
-      // Cache the result
+      // Cache with both keys
       await this.redisService.set(cacheKey, result, 3600);
-      this.logger.debug(`Cached subcategory level data for ${cacheKey}`);
+
+      // Cache with alternate key
+      const altKey = params.id
+        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${subcategoryLevel.slug}`
+        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${subcategoryLevel.id}`;
+      await this.redisService.set(altKey, result, 3600);
+
+      this.logger.debug(`Cached subcategory level data for ${cacheKey} and ${altKey}`);
 
       return result;
     } catch (error) {
