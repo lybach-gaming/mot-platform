@@ -101,6 +101,7 @@ export class SubcategoryLevelService {
       }
 
       // Use JSON_OBJECT for web_seo fields to automatically group them
+      // To make sure we get the correct data structure which match the response data of PHP API
       const data = await query
         .select([
           `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.*`,
@@ -153,7 +154,7 @@ export class SubcategoryLevelService {
           quizz_mode: 1,
         });
 
-      // Transform data to match DTO
+      // Transform data to match DTO and response data of PHP API
       const result: SubcategoryLevelDetailDto = transformToString({
         ...data,
         image: data.image
