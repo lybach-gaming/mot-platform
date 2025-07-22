@@ -6,3 +6,4 @@ export * from './subcategory.schema';
 export * from './subcategory-level.schema';
 export * from './web-seo.schema';
 export * from './faq.schema';
+export * from './question.schema';

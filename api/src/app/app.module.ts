@@ -1,3 +1,4 @@
+import { CategoryModule } from './category/category.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { AttachUserMiddleware } from '../common/middlewares/attach-user.middleware';
@@ -9,7 +10,14 @@ import { AppService } from './app.service';
 import { SettingModule } from './setting/setting.module';
 
 @Module({
-  imports: [DatabaseModule, RedisModule, SettingModule, AccountModule, SubcategoryLevelModule],
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    SettingModule,
+    AccountModule,
+    CategoryModule,
+    SubcategoryLevelModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
