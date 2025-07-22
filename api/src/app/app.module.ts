@@ -1,3 +1,5 @@
+import { WebSeoModule } from './web-seo/web-seo.module';
+import { SubcategoryModule } from './subcategory/subcategory.module';
 import { CategoryModule } from './category/category.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { MiddlewareConsumer, Module } from '@nestjs/common';
@@ -16,7 +18,9 @@ import { SettingModule } from './setting/setting.module';
     SettingModule,
     AccountModule,
     CategoryModule,
+    SubcategoryModule,
     SubcategoryLevelModule,
+    WebSeoModule
   ],
   controllers: [AppController],
   providers: [AppService],
