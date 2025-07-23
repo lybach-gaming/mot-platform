@@ -54,26 +54,59 @@ export class QuizService {
       // return cached;
     }
 
-    // Build base query
-    let query = this.dbService.connection
+    // Fetch quiz details with related slugs and subqueries for no_of_que & is_played
+    const selectFields = [
+      'qz.*',
+      'cat.slug as slug_category',
+      'subcat.slug as slug_subcategory',
+      'sublevel.slug as slug_subcategory_level',
+      this.dbService.connection.raw(`(
+    SELECT COUNT(*) FROM ${QUESTION_SCHEMA.TABLE} q
+    WHERE q.${QUESTION_SCHEMA.FIELDS.LANGUAGE_ID} = qz.language_id
+      AND q.${QUESTION_SCHEMA.FIELDS.CATEGORY} = qz.maincat_id
+      AND q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY} = qz.main_subcat_id
+      AND q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY_LEVEL} = qz.main_subcat_level_id
+      AND q.${QUESTION_SCHEMA.FIELDS.QUIZZES} = qz.id
+  ) as no_of_que`),
+      this.dbService.connection.raw(`(
+    SELECT EXISTS (
+      SELECT 1 FROM ${QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE} qhl
+      WHERE qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.LANGUAGE_ID} = qz.language_id
+        AND qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID} = qz.id
+    )
+  ) as is_played`),
+    ];
+
+    // Fetch the main quiz record
+    const data = await this.dbService.connection
       .from({ qz: QUIZZ_SCHEMA.TABLE })
-      .select('qz.*')
-      .where(`qz.${QUIZZ_SCHEMA.FIELDS.STATUS}`, 1);
+      .leftJoin(`${CATEGORY_SCHEMA.TABLE} as cat`, 'cat.id', 'qz.maincat_id')
+      .leftJoin(
+        `${SUBCATEGORY_SCHEMA.TABLE} as subcat`,
+        'subcat.id',
+        'qz.main_subcat_id'
+      )
+      .leftJoin(
+        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE} as sublevel`,
+        'sublevel.id',
+        'qz.main_subcat_level_id'
+      )
+      .select(selectFields)
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.STATUS}`, 1)
+      .modify((qb) => {
+        // Apply filters based on DTO values
+        if (dto.slug_quizzes) {
+          qb.where(`qz.${QUIZZ_SCHEMA.FIELDS.SLUG}`, dto.slug_quizzes);
+        }
+        if (dto.id) {
+          qb.where(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, dto.id);
+        }
+        if (dto.language_id) {
+          qb.where(`qz.${QUIZZ_SCHEMA.FIELDS.LANGUAGE_ID}`, dto.language_id);
+        }
+      })
+      .first();
 
-    if (dto.slug_quizzes) {
-      query = query.where(`qz.${QUIZZ_SCHEMA.FIELDS.SLUG}`, dto.slug_quizzes);
-    }
-    if (dto.id) {
-      query = query.where(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, dto.id);
-    }
-    if (dto.language_id) {
-      query = query.where(
-        `qz.${QUIZZ_SCHEMA.FIELDS.LANGUAGE_ID}`,
-        dto.language_id
-      );
-    }
-
-    const data = await query.first();
     if (!data) {
       return {
         error: true,
@@ -82,111 +115,25 @@ export class QuizService {
       };
     }
 
-    const quiz_id = data.id;
-
-    /**
-     * Map related slugs for category, subcategory, and level
-     */
-    const slug_category = await this.dbService
-      .connection(CATEGORY_SCHEMA.TABLE)
-      .select(SUBCATEGORY_SCHEMA.FIELDS.SLUG)
-      .where(SUBCATEGORY_SCHEMA.FIELDS.ID, data.maincat_id)
+    // Fetch SEO details for the quiz
+    const webSeo = await this.dbService
+      .connection(WEB_SEO_SCHEMA.TABLE)
+      .where(WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID, data.id)
       .first();
-    data.slug_category = slug_category?.slug ?? null;
+    data.web_seo = webSeo ?? null;
 
-    const slug_subcategory = await this.dbService
-      .connection(SUBCATEGORY_SCHEMA.TABLE)
-      .select(SUBCATEGORY_SCHEMA.FIELDS.SLUG)
-      .where(SUBCATEGORY_SCHEMA.FIELDS.ID, data.main_subcat_id)
-      .first();
-    data.slug_subcategory = slug_subcategory?.slug ?? null;
-
-    const slug_subcategory_level = await this.dbService
-      .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
-      .select(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG)
-      .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, data.main_subcat_level_id)
-      .first();
-    data.slug_subcategory_level = slug_subcategory_level?.slug ?? null;
-
-    /**
-     * Format image URLs and thumbnails
-     */
-    const image = data.image;
-    data.image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
-    data.thumb_image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
-
-    /**
-     * Fetch SEO details and FAQs
-     */
-    const web_seo = await this.dbService
-      .connection(`${WEB_SEO_SCHEMA.TABLE} as w`)
-      .select('w.*')
-      .where(WEB_SEO_SCHEMA.FIELDS.SLUG, data.slug)
-      .first();
-    data.web_seo = web_seo ?? null;
-
+    // Fetch FAQ items related to the quiz
     const faq = await this.dbService
-      .connection(`${FAQ_SCHEMA.TABLE} as faq`)
+      .connection(FAQ_SCHEMA.TABLE)
       .where({
         [FAQ_SCHEMA.FIELDS.TYPE]: 4,
-        [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: quiz_id,
+        [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: data.id,
         [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: 1,
       })
       .select('*');
     data.faq = faq;
 
-    /**
-     * Build share URL for the quiz
-     */
-    const LANG_ENGLISH_ID = 14;
-    const prefix_lang =
-      +(dto?.language_id || 0) === LANG_ENGLISH_ID ? '/en' : '/en'; // Defaulting to English
-    data.share_url = urlJoin(
-      FE_URL,
-      prefix_lang,
-      QUIZ_HQ_SLUG,
-      data.slug_category,
-      data.slug_subcategory,
-      data.slug_subcategory_level,
-      data.slug
-    );
-
-    /**
-     * Count number of questions in this quiz
-     */
-    const no_of_que = await this.dbService
-      .connection(`${QUESTION_SCHEMA.TABLE} as q`)
-      .where({
-        [`q.${QUESTION_SCHEMA.FIELDS.LANGUAGE_ID}`]: data.language_id,
-        [`q.${QUESTION_SCHEMA.FIELDS.CATEGORY}`]: data.maincat_id,
-        [`q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY}`]: data.main_subcat_id,
-        [`q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY_LEVEL}`]:
-          data.main_subcat_level_id,
-        [`q.${QUESTION_SCHEMA.FIELDS.QUIZZES}`]: quiz_id,
-      })
-      .count('* as count')
-      .first();
-    data.no_of_que = no_of_que?.count ?? 0;
-
-    /**
-     * Check if quiz has been played or completed by user
-     */
-    const is_played = await this.dbService
-      .connection(`${QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE} as qhl`)
-      .where({
-        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.LANGUAGE_ID}`]:
-          data.language_id,
-        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.MAINCAT_ID}`]:
-          data.maincat_id,
-        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_ID}`]:
-          data.main_subcat_id,
-        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`]:
-          data.main_subcat_level_id,
-        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID}`]: quiz_id,
-      })
-      .first();
-    data.is_played = !!is_played;
-
+    // Check if user has completed this quiz
     let is_completed = false;
     if (dto.userId) {
       const completed = await this.dbService
@@ -199,25 +146,43 @@ export class QuizService {
             data.main_subcat_id,
           [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
             data.main_subcat_level_id,
-          [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID]: quiz_id,
+          [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID]: data.id,
         })
         .andWhere('percentage', '>=', 75)
         .count('id as count')
         .first();
-      if (completed?.count) {
+
+      if (completed) {
         is_completed = +completed?.count > 0;
       }
     }
     data.completed = is_completed;
 
-    /**
-     * Transform data to string-safe types and return response
-     */
+    // Format image URLs and thumbnail paths
+    const image = data.image;
+    data.image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
+    data.thumb_image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
+
+    // Build share URL for frontend usage
+    const LANG_ENGLISH_ID = 14;
+    const prefix_lang =
+      +(dto?.language_id || 0) === LANG_ENGLISH_ID ? '/en' : '/en';
+    data.share_url = urlJoin(
+      FE_URL,
+      prefix_lang,
+      QUIZ_HQ_SLUG,
+      data.slug_category,
+      data.slug_subcategory,
+      data.slug_subcategory_level,
+      data.slug
+    );
+
     const response = {
       error: false,
       data: {
         ...transformToString(data),
         no_of_que: +data?.no_of_que,
+        is_played: !!+data?.is_played,
       },
     };
 
