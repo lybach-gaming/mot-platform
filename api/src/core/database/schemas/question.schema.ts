@@ -1,0 +1,23 @@
+export const QUESTION_SCHEMA = {
+  TABLE: 'tbl_question',
+  FIELDS: {
+    ID: 'id',
+    CATEGORY: 'category',
+    SUBCATEGORY: 'subcategory',
+    SUBCATEGORY_LEVEL: 'subcategory_level',
+    QUIZZES: 'quizzes',
+    LANGUAGE_ID: 'language_id',
+    IMAGE: 'image',
+    QUESTION: 'question',
+    QUESTION_TYPE: 'question_type',
+    OPTION_A: 'optiona',
+    OPTION_B: 'optionb',
+    OPTION_C: 'optionc',
+    OPTION_D: 'optiond',
+    OPTION_E: 'optione',
+    ANSWER: 'answer',
+    LEVEL: 'level',
+    NOTE: 'note',
+    IS_PUBLIC: 'is_public',
+  },
+};
