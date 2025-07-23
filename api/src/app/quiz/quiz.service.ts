@@ -51,7 +51,7 @@ export class QuizService {
     const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
-      // return cached;
+      return cached;
     }
 
     // Fetch quiz details with related slugs and subqueries for no_of_que & is_played
