@@ -1,3 +1,4 @@
+import { WebSeoService } from './../web-seo/web-seo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
@@ -15,7 +16,6 @@ import {
   SUBCATEGORY_LEVEL_SCHEMA,
   CATEGORY_SCHEMA,
   SUBCATEGORY_SCHEMA,
-  WEB_SEO_SCHEMA,
   FAQ_SCHEMA,
 } from '../../core/database/schemas';
 
@@ -25,7 +25,8 @@ export class SubcategoryLevelService {
 
   constructor(
     private readonly dbService: DatabaseService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly webSeoService: WebSeoService
   ) {}
 
   /**
@@ -70,15 +71,16 @@ export class SubcategoryLevelService {
           `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
           `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`
         )
-        .leftJoin(
-          WEB_SEO_SCHEMA.TABLE,
-          `${WEB_SEO_SCHEMA.TABLE}.${WEB_SEO_SCHEMA.FIELDS.SLUG}`,
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`
-        )
         .where(
           `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.STATUS}`,
           1
         );
+
+      // Add web SEO join using service
+      this.webSeoService.addWebSeoJoin(
+        query,
+        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`
+      );
 
       // Add dynamic filters
       if (params.id) {
@@ -107,34 +109,7 @@ export class SubcategoryLevelService {
           `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.*`,
           `${CATEGORY_SCHEMA.TABLE}.${CATEGORY_SCHEMA.FIELDS.SLUG} as slug_category`,
           `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.SLUG} as slug_subcategory`,
-          this.dbService.connection.raw(`
-            CAST(JSON_OBJECT(
-              'id', ${WEB_SEO_SCHEMA.TABLE}.id,
-              'language_id', ${WEB_SEO_SCHEMA.TABLE}.language_id,
-              'quizz_mode', ${WEB_SEO_SCHEMA.TABLE}.quizz_mode,
-              'type', ${WEB_SEO_SCHEMA.TABLE}.type,
-              'quizz_by_language_lan_id', ${WEB_SEO_SCHEMA.TABLE}.quizz_by_language_lan_id,
-              'maincat_id', ${WEB_SEO_SCHEMA.TABLE}.maincat_id,
-              'subcategory_id', ${WEB_SEO_SCHEMA.TABLE}.subcategory_id,
-              'subcategory_level_id', ${WEB_SEO_SCHEMA.TABLE}.subcategory_level_id,
-              'quizz_id', ${WEB_SEO_SCHEMA.TABLE}.quizz_id,
-              'title', ${WEB_SEO_SCHEMA.TABLE}.title,
-              'sub_heading', ${WEB_SEO_SCHEMA.TABLE}.sub_heading,
-              'slug', ${WEB_SEO_SCHEMA.TABLE}.slug,
-              'seo_block', ${WEB_SEO_SCHEMA.TABLE}.seo_block,
-              'meta_title', ${WEB_SEO_SCHEMA.TABLE}.meta_title,
-              'meta_description', ${WEB_SEO_SCHEMA.TABLE}.meta_description,
-              'meta_keyword', ${WEB_SEO_SCHEMA.TABLE}.meta_keyword,
-              'schema_markup', ${WEB_SEO_SCHEMA.TABLE}.schema_markup,
-              'sponsor_link', ${WEB_SEO_SCHEMA.TABLE}.sponsor_link,
-              'sponsor_name', ${WEB_SEO_SCHEMA.TABLE}.sponsor_name,
-              'description', ${WEB_SEO_SCHEMA.TABLE}.description,
-              'is_edit_slug', ${WEB_SEO_SCHEMA.TABLE}.is_edit_slug,
-              'sub_title', ${WEB_SEO_SCHEMA.TABLE}.sub_title,
-              'heading', ${WEB_SEO_SCHEMA.TABLE}.heading,
-              'enable_faq', ${WEB_SEO_SCHEMA.TABLE}.enable_faq
-            ) AS CHAR) as web_seo
-          `),
+          this.webSeoService.getWebSeoSelectQuery(),
         ])
         .first();
 

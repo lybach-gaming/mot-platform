@@ -20,4 +20,4 @@ export const QUESTION_SCHEMA = {
     NOTE: 'note',
     IS_PUBLIC: 'is_public',
   },
-};
+} as const;

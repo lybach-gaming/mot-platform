@@ -14,6 +14,14 @@ export const QUIZ_HQ_SLUG = 'all-quizzes';
 
 export const FE_URL = process.env.FE_URL ?? 'https://demo.mastersoftrivia.com/';
 
+export const CATEGORY_IMAGE_PATH = 'images/category/';
+
+export const CATEGORY_THUMB_PATH = 'images/category/thumb/100x100/';
+
+export const SUBCATEGORY_IMAGE_PATH = 'images/subcategory/';
+
+export const SUBCATEGORY_THUMB_PATH = 'images/subcategory/thumb/100x100/';
+
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
 export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumb/100x100/';
