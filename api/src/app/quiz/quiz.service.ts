@@ -51,7 +51,7 @@ export class QuizService {
     const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
-      return cached;
+      // return cached;
     }
 
     // Build base query
@@ -174,13 +174,15 @@ export class QuizService {
     const is_played = await this.dbService
       .connection(`${QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE} as qhl`)
       .where({
-        [`q.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.ID}`]: data.language_id,
-        [`q.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.MAINCAT_ID}`]: data.maincat_id,
-        [`q.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_ID}`]:
+        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.LANGUAGE_ID}`]:
+          data.language_id,
+        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.MAINCAT_ID}`]:
+          data.maincat_id,
+        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_ID}`]:
           data.main_subcat_id,
-        [`q.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`]:
+        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`]:
           data.main_subcat_level_id,
-        [`q.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID}`]: quiz_id,
+        [`qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID}`]: quiz_id,
       })
       .first();
     data.is_played = !!is_played;

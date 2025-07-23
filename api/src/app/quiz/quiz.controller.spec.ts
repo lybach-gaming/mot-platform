@@ -31,11 +31,12 @@ describe('QuizController', () => {
   describe('getDetailQuizzes (GET)', () => {
     it('should return quiz details from GET endpoint', async () => {
       const dto: GetDetailQuizzesDto = { slug_quizzes: 'test-quiz' };
+      const userId = 1;
       const mockResponse = { error: false, data: { id: 1, name: 'Test Quiz' } };
 
       mockQuizService.getDetailQuizzes.mockResolvedValue(mockResponse);
 
-      const result = await controller.getDetailQuizzes(dto);
+      const result = await controller.getDetailQuizzes(dto, userId);
 
       expect(result).toEqual(mockResponse);
       expect(mockQuizService.getDetailQuizzes).toHaveBeenCalledWith(dto);
@@ -45,11 +46,12 @@ describe('QuizController', () => {
   describe('getDetailQuizzesPost (POST)', () => {
     it('should return quiz details from POST endpoint', async () => {
       const dto: GetDetailQuizzesDto = { slug_quizzes: 'test-quiz' };
+      const userId = 1;
       const mockResponse = { error: false, data: { id: 1, name: 'Test Quiz' } };
 
       mockQuizService.getDetailQuizzes.mockResolvedValue(mockResponse);
 
-      const result = await controller.getDetailQuizzesPost(dto);
+      const result = await controller.getDetailQuizzesPost(dto, userId);
 
       expect(result).toEqual(mockResponse);
       expect(mockQuizService.getDetailQuizzes).toHaveBeenCalledWith(dto);
