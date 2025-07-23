@@ -4,4 +4,5 @@ export enum CacheKey {
   Detail_category = 'detail_category:',
   Detail_subcategory = 'detail_subcategory:',
   Detail_subcategory_level = 'detail_subcategory_level:',
+  GetDetailQuizzes = 'get_detail_quizzes:',
 }

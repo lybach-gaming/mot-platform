@@ -10,6 +10,7 @@ import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SettingModule } from './setting/setting.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { SettingModule } from './setting/setting.module';
     CategoryModule,
     SubcategoryModule,
     SubcategoryLevelModule,
-    WebSeoModule
+    QuizModule,
+    WebSeoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
