@@ -154,7 +154,7 @@ export class CategoryService {
       await this.redisService.set(altKey, result, 3600);
 
       this.logger.debug(
-        `Cached subcategory level data for ${cacheKey} and ${altKey}`
+        `Cached category data for ${cacheKey} and ${altKey}`
       );
 
       return result;
