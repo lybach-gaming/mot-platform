@@ -4,6 +4,8 @@ export const USER_IMG_PATH = 'images/profile/';
 
 export const QUIZZES_IMG_PATH = 'images/quizzes/';
 
+export const QUESTION_IMG_PATH = 'images/questions/';
+
 export const WEB_SETTINGS_LOGO_PATH = 'images/web-settings/';
 
 export const WEB_HOME_SETTINGS_LOGO_PATH = 'images/web-home-settings/';
@@ -25,3 +27,5 @@ export const SUBCATEGORY_THUMB_PATH = 'images/subcategory/thumb/100x100/';
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
 export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumb/100x100/';
+
+export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code

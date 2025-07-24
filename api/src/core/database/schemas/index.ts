@@ -1,3 +1,4 @@
+export * from './bookmark.schema';
 export * from './category.schema';
 export * from './faq.schema';
 export * from './question.schema';
