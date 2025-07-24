@@ -10,6 +10,7 @@ import {
   SECRET_KEY_ANSWER,
 } from '../../common/constants/app';
 import { BOOKMARK_SCHEMA, QUESTION_SCHEMA } from '../../core/database/schemas';
+import { CacheKey } from '../../common/constants/cache-key';
 
 @Injectable()
 export class QuestionService {
@@ -28,6 +29,16 @@ export class QuestionService {
    */
   async getQuestionsQuizHd(dto: GetQuestionsQuizHdDto) {
     const { category, sub_cat, sub_cat_level, quizzes } = dto;
+
+    const cacheKey = `${CacheKey.GetQuestionsQuizHd}${JSON.stringify(dto)}`;
+
+    // Try getting from cache first
+    const cached = await this.redisService.get(cacheKey);
+
+    if (cached) {
+      this.logger.debug(`Cache hit for ${cacheKey}`);
+      return cached;
+    }
 
     const QUIZZ_MODE = 1;
     const secretKeyAnswer = SECRET_KEY_ANSWER;
@@ -81,6 +92,8 @@ export class QuestionService {
       error: false,
       data: transformToString(processedData),
     };
+
+    await this.redisService.set(cacheKey, response);
 
     return response;
   }
