@@ -193,6 +193,13 @@ export class QuizService {
   }
 
   async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
+    // Check cache
+    const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const dbService = this.dbService;
 
     if (!dto.slug_quizzes) {
@@ -330,6 +337,8 @@ export class QuizService {
         data: transformToString(finalData),
       };
     }
+
+    await this.redisService.set(cacheKey, response);
 
     return response;
   }
