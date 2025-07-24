@@ -192,6 +192,14 @@ export class QuizService {
     return response;
   }
 
+  /**
+ * Get more related quizzes based on a given quiz slug.
+ * Find up to 5 quizzes that share the same
+ * category, subcategory, and level as the original quiz.
+ *
+ * @param dto - DTO containing `slug_quizzes` to find similar quizzes
+ * @returns An object with error flag, optional message, and a list of related quizzes
+ */
   async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
     // Check cache
     const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
