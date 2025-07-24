@@ -21,6 +21,7 @@ import {
 } from '../../core/database/schemas';
 import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
+import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 
 @Injectable()
 export class QuizService {
@@ -187,6 +188,148 @@ export class QuizService {
     };
 
     await this.redisService.set(cacheKey, response);
+
+    return response;
+  }
+
+  async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
+    const dbService = this.dbService;
+
+    if (!dto.slug_quizzes) {
+      return { error: true, message: '101', data: [] };
+    }
+
+    const quizz = await this.dbService.connection
+      .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.SLUG}`, dto.slug_quizzes)
+      .first();
+
+    if (!quizz) {
+      return { error: true, message: '102', data: [] };
+    }
+
+    const maincat_id = quizz.maincat_id;
+    const main_subcat_id = quizz.main_subcat_id;
+    const main_subcat_level_id = quizz.main_subcat_level_id;
+
+    // fallback 1
+    let data = await this.dbService.connection
+      .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+      .select(
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+        'qz.*',
+        `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+        'w.*'
+      )
+      .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+        this.on(
+          `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+          '=',
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+        )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_level_id])
+          );
+      })
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+      .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+      .andWhere(
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`,
+        main_subcat_level_id
+      )
+      .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+
+    if (data.length < 5) {
+      data = await this.dbService.connection
+        .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+        .select(
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+          'qz.*',
+          `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+          'w.*'
+        )
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+          )
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+              '=',
+              dbService.connection.raw('?', [maincat_id])
+            )
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+              '=',
+              dbService.connection.raw('?', [main_subcat_id])
+            );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+    }
+
+    // fallback 2
+    if (data.length < 5) {
+      data = await this.dbService.connection
+        .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+        .select(
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+          'qz.*',
+          `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+          'w.*'
+        )
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+          ).andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+    }
+
+    let response: {
+      error: boolean;
+      message?: string;
+      data: Array<any>;
+    } = {
+      error: false,
+      message: '102',
+      data: [],
+    };
+
+    if (data.length > 0) {
+      const finalData = data.map((item) => ({
+        ...item,
+        image: item.image
+          ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, item.image)
+          : '',
+      }));
+
+      response = {
+        error: false,
+        data: transformToString(finalData),
+      };
+    }
 
     return response;
   }
