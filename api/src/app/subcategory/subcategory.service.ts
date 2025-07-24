@@ -152,13 +152,13 @@ export class SubcategoryService {
       });
 
       // Cache the result
-      await this.redisService.set(cacheKey, result, 3600);
+      await this.redisService.set(cacheKey, result);
 
       // Cache with alternate key
       const altKey = params.id
         ? `${CacheKey.Detail_subcategory}language:${params.languageId}:slug:${data.slug}`
         : `${CacheKey.Detail_subcategory}language:${params.languageId}:id:${data.id}`;
-      await this.redisService.set(altKey, result, 3600);
+      await this.redisService.set(altKey, result);
 
       this.logger.debug(
         `Cached subcategory data for ${cacheKey} and ${altKey}`

@@ -148,13 +148,13 @@ export class SubcategoryLevelService {
       });
 
       // Cache with both keys
-      await this.redisService.set(cacheKey, result, 3600);
+      await this.redisService.set(cacheKey, result);
 
       // Cache with alternate key
       const altKey = params.id
         ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${data.slug}`
         : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${data.id}`;
-      await this.redisService.set(altKey, result, 3600);
+      await this.redisService.set(altKey, result);
 
       this.logger.debug(
         `Cached subcategory level data for ${cacheKey} and ${altKey}`

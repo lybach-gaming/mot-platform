@@ -86,7 +86,7 @@ describe('CategoryService', () => {
       expect(result).toHaveProperty('faq');
       expect(result).toHaveProperty('share_url');
       expect(result.image).toContain('/category/');
-      expect(result.thumb_image).toContain('/category/thumb/');
+      expect(result.thumb_image).toContain('/category/thumbs/');
     });
 
     it('should return null and log error if query throws', async () => {
