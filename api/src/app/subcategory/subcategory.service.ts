@@ -167,7 +167,7 @@ export class SubcategoryService {
       return result;
     } catch (error) {
       this.logger.error('Failed to get subcategory detail', error);
-      throw error;
+      return null;
     }
   }
 

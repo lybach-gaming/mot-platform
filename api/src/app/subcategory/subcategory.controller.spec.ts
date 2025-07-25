@@ -1,75 +1,75 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CategoryController } from './category.controller';
-import { CategoryService } from './category.service';
+import { SubcategoryController } from './subcategory.controller';
+import { SubcategoryService } from './subcategory.service';
 
-describe('CategoryController', () => {
-  let controller: CategoryController;
-  let service: CategoryService;
+describe('SubcategoryController', () => {
+  let controller: SubcategoryController;
+  let service: SubcategoryService;
 
-  const mockCategoryService = {
-    getCategoryDetail: jest.fn(),
+  const mockSubcategoryService = {
+    getSubcategoryDetail: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [CategoryController],
+      controllers: [SubcategoryController],
       providers: [
         {
-          provide: CategoryService,
-          useValue: mockCategoryService,
+          provide: SubcategoryService,
+          useValue: mockSubcategoryService,
         },
       ],
     }).compile();
 
-    controller = module.get<CategoryController>(CategoryController);
-    service = module.get<CategoryService>(CategoryService);
+    controller = module.get<SubcategoryController>(SubcategoryController);
+    service = module.get<SubcategoryService>(SubcategoryService);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('getCategoryDetailGet', () => {
+  describe('getSubcategoryDetailGet', () => {
     it('should call service with GET query params and return data', async () => {
-      const mockResult = { id: 1, name: 'Math' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
+      const mockResult = { id: 21, name: 'Personal Finance' };
+      mockSubcategoryService.getSubcategoryDetail.mockResolvedValueOnce(mockResult);
 
-      const result = await controller.getCategoryDetailGet(1, 2, 'math');
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
-        id: 1,
-        languageId: 2,
-        slug: 'math',
+      const result = await controller.getSubcategoryDetailGet(21, 14, 'personal-finance');
+      expect(service.getSubcategoryDetail).toHaveBeenCalledWith({
+        id: 21,
+        languageId: 14,
+        slug: 'personal-finance',
       });
       expect(result).toEqual({ error: false, data: mockResult });
     });
   });
 
-  describe('getCategoryDetailPost', () => {
+  describe('getSubcategoryDetailPost', () => {
     it('should call service with POST body and return data', async () => {
-      const mockResult = { id: 2, name: 'English' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
+      const mockResult = { id: 21, name: 'Personal Finance' };
+      mockSubcategoryService.getSubcategoryDetail.mockResolvedValueOnce(mockResult);
 
       const postData = {
-        id: 2,
-        language_id: 1,
-        slug_category: 'english',
+        id: 21,
+        language_id: 14,
+        slug_subcategory: 'personal-finance',
       };
 
-      const result = await controller.getCategoryDetailPost(postData);
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
-        id: 2,
-        languageId: 1,
-        slug: 'english',
+      const result = await controller.getSubcategoryDetailPost(postData);
+      expect(service.getSubcategoryDetail).toHaveBeenCalledWith({
+        id: 21,
+        languageId: 14,
+        slug: 'personal-finance',
       });
       expect(result).toEqual({ error: false, data: mockResult });
     });
 
     it('should handle optional fields gracefully', async () => {
       const mockResult = { id: 3, name: 'History' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
+      mockSubcategoryService.getSubcategoryDetail.mockResolvedValueOnce(mockResult);
 
-      const result = await controller.getCategoryDetailPost({});
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
+      const result = await controller.getSubcategoryDetailPost({});
+      expect(service.getSubcategoryDetail).toHaveBeenCalledWith({
         id: undefined,
         languageId: undefined,
         slug: undefined,
