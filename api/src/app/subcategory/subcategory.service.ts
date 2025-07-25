@@ -7,21 +7,21 @@ import {
   BASE_URL,
   FE_URL,
   QUIZ_HQ_SLUG,
-  SUBCATEGORY_LEVEL_IMAGE_PATH,
-  SUBCATEGORY_LEVEL_THUMB_PATH,
+  SUBCATEGORY_IMAGE_PATH,
+  SUBCATEGORY_THUMB_PATH,
 } from '../../common/constants/app';
-import { SubcategoryLevelDetailDto } from './dto/subcategory-level.dto';
+import { SubcategoryDetailDto } from './dto/subcategory.dto';
 import { transformToString } from '../../common/utils/transform.util';
 import {
-  SUBCATEGORY_LEVEL_SCHEMA,
   CATEGORY_SCHEMA,
   SUBCATEGORY_SCHEMA,
   FAQ_SCHEMA,
+  QUESTION_SCHEMA,
 } from '../../core/database/schemas';
 
 @Injectable()
-export class SubcategoryLevelService {
-  private readonly logger = new Logger(SubcategoryLevelService.name);
+export class SubcategoryService {
+  private readonly logger = new Logger(SubcategoryService.name);
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -30,13 +30,13 @@ export class SubcategoryLevelService {
   ) {}
 
   /**
-   * Get subcategory level detail with related data
+   * Get subcategory detail with related data
    */
-  async getSubcategoryLevelDetail(params: {
+  async getSubcategoryDetail(params: {
     id?: number;
     slug?: string;
     languageId?: number;
-  }): Promise<{ error: boolean; data: SubcategoryLevelDetailDto | null }> {
+  }): Promise<{ error: boolean; data: SubcategoryDetailDto | null }> {
     try {
       // Validate required params
       if (!params.slug && !params.id) {
@@ -45,11 +45,11 @@ export class SubcategoryLevelService {
 
       // Generate cache key based on available parameter
       const cacheKey = params.id
-        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${params.id}`
-        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${params.slug}`;
+        ? `${CacheKey.Detail_subcategory}language:${params.languageId}:id:${params.id}`
+        : `${CacheKey.Detail_subcategory}language:${params.languageId}:slug:${params.slug}`;
 
       // Try getting from cache first
-      const cached = await this.redisService.get<SubcategoryLevelDetailDto>(
+      const cached = await this.redisService.get<SubcategoryDetailDto>(
         cacheKey
       );
 
@@ -58,46 +58,41 @@ export class SubcategoryLevelService {
         return cached;
       }
 
-      // Get subcategory level detail with joins
+      // Get subcategory detail
       const query = this.dbService.connection
-        .table(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+        .table(SUBCATEGORY_SCHEMA.TABLE)
         .leftJoin(
           CATEGORY_SCHEMA.TABLE,
           `${CATEGORY_SCHEMA.TABLE}.${CATEGORY_SCHEMA.FIELDS.ID}`,
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAINCAT_ID}`
-        )
-        .leftJoin(
-          SUBCATEGORY_SCHEMA.TABLE,
-          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID}`
         )
         .where(
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.STATUS}`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.STATUS}`,
           1
         );
 
       // Add web SEO join using service
       this.webSeoService.addWebSeoJoin(
         query,
-        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`
+        `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.SLUG}`
       );
 
       // Add dynamic filters
       if (params.id) {
         query.where(
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID}`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
           params.id
         );
       }
       if (params.slug) {
         query.where(
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.SLUG}`,
           params.slug
         );
       }
       if (params.languageId) {
         query.where(
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LANGUAGE_ID}`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.LANGUAGE_ID}`,
           params.languageId
         );
       }
@@ -106,9 +101,18 @@ export class SubcategoryLevelService {
       // To make sure we get the correct data structure which match the response data of PHP API
       const data = await query
         .select([
-          `${SUBCATEGORY_LEVEL_SCHEMA.TABLE}.*`,
+          `${SUBCATEGORY_SCHEMA.TABLE}.*`,
+          this.dbService.connection.raw(`(
+            SELECT COUNT(${QUESTION_SCHEMA.FIELDS.ID}) 
+            FROM ${QUESTION_SCHEMA.TABLE} 
+            WHERE ${QUESTION_SCHEMA.FIELDS.SUBCATEGORY} = ${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}
+          ) AS no_of_que`),
+          this.dbService.connection.raw(`(
+            SELECT MAX(CAST(${QUESTION_SCHEMA.FIELDS.LEVEL} AS DECIMAL)) 
+            FROM ${QUESTION_SCHEMA.TABLE} 
+            WHERE ${QUESTION_SCHEMA.FIELDS.SUBCATEGORY} = ${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.ID}
+          ) AS maxlevel`),
           `${CATEGORY_SCHEMA.TABLE}.${CATEGORY_SCHEMA.FIELDS.SLUG} as slug_category`,
-          `${SUBCATEGORY_SCHEMA.TABLE}.${SUBCATEGORY_SCHEMA.FIELDS.SLUG} as slug_subcategory`,
           this.webSeoService.getWebSeoSelectQuery(),
         ])
         .first();
@@ -124,59 +128,58 @@ export class SubcategoryLevelService {
       const faq = await this.dbService.connection
         .table(FAQ_SCHEMA.TABLE)
         .where({
-          type: 3,
-          subcategory_level_id: data.id,
+          type: 2,
+          subcategory_id: data.id,
           quizz_mode: 1,
         });
 
-      // Transform data to match DTO and response data of PHP API
-      const result: SubcategoryLevelDetailDto = transformToString({
+      // Transform data to match DTO
+      const result: SubcategoryDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${data.image}`
+          ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${data.image}`
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH}${data.image}`
+          ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH}${data.image}`
           : '',
+        has_unlocked: 0,
         faq,
         share_url: this.generateShareUrl(
           data.slug_category,
-          data.slug_subcategory,
           data.slug,
           params.languageId
         ),
       });
 
-      // Cache with both keys
+      // Cache the result
       await this.redisService.set(cacheKey, result, 3600);
 
       // Cache with alternate key
       const altKey = params.id
-        ? `${CacheKey.Detail_subcategory_level}language:${params.languageId}:slug:${data.slug}`
-        : `${CacheKey.Detail_subcategory_level}language:${params.languageId}:id:${data.id}`;
+        ? `${CacheKey.Detail_subcategory}language:${params.languageId}:slug:${data.slug}`
+        : `${CacheKey.Detail_subcategory}language:${params.languageId}:id:${data.id}`;
       await this.redisService.set(altKey, result, 3600);
 
       this.logger.debug(
-        `Cached subcategory level data for ${cacheKey} and ${altKey}`
+        `Cached subcategory data for ${cacheKey} and ${altKey}`
       );
 
       return result;
     } catch (error) {
-      this.logger.error('Failed to get subcategory level detail', error);
-      return null;
+      this.logger.error('Failed to get subcategory detail', error);
+      throw error;
     }
   }
 
   /**
-   * Generate share URL for subcategory level
+   * Generate share URL for subcategory
    */
   private generateShareUrl(
     categorySlug?: string,
     subcategorySlug?: string,
-    levelSlug?: string,
     languageId?: number
   ): string {
     const prefixLang = languageId === 14 ? 'en' : '';
-    return `${FE_URL}${prefixLang}/${QUIZ_HQ_SLUG}/${categorySlug}/${subcategorySlug}/${levelSlug}`;
+    return `${FE_URL}${prefixLang}/${QUIZ_HQ_SLUG}/${categorySlug}/${subcategorySlug}`;
   }
 }

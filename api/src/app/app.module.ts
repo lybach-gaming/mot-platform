@@ -1,3 +1,6 @@
+import { WebSeoModule } from './web-seo/web-seo.module';
+import { SubcategoryModule } from './subcategory/subcategory.module';
+import { CategoryModule } from './category/category.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { AttachUserMiddleware } from '../common/middlewares/attach-user.middleware';
@@ -7,9 +10,20 @@ import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SettingModule } from './setting/setting.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
-  imports: [DatabaseModule, RedisModule, SettingModule, AccountModule, SubcategoryLevelModule],
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    SettingModule,
+    AccountModule,
+    CategoryModule,
+    SubcategoryModule,
+    SubcategoryLevelModule,
+    QuizModule,
+    WebSeoModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

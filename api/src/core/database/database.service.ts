@@ -12,6 +12,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         uri: process.env.DATABASE_URI,
       },
       pool: { min: 5, max: 100 },
+      debug: process.env.NODE_ENV !== 'production',
     });
 
     if (await this.checkConnection()) {
