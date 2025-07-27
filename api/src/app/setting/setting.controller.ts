@@ -58,7 +58,7 @@ export class SettingController {
     schema: {
       type: 'object',
       properties: {
-        type: { type: 'string', required: false },
+        type: { type: 'string' },
       },
     },
   })
