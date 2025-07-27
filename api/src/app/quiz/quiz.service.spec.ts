@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { QUIZZES_IMG_PATH } from '../../common/constants/app';
+import { QUIZZES_IMAGE_PATH } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
@@ -101,7 +101,7 @@ describe('QuizService', () => {
       expect(result.data.slug_category).toBe('category-slug');
       expect(result.data.slug_subcategory).toBe('subcategory-slug');
       expect(result.data.slug_subcategory_level).toBe('level-slug');
-      expect(result.data.image).toContain(QUIZZES_IMG_PATH);
+      expect(result.data.image).toContain(QUIZZES_IMAGE_PATH);
       expect(result.data.web_seo).toBeDefined();
       expect(result.data.faq.length).toBeGreaterThan(0);
       expect(result.data.no_of_que).toBe(10);

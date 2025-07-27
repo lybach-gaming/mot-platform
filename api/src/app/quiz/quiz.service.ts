@@ -3,7 +3,8 @@ import {
   BASE_URL,
   FE_URL,
   QUIZ_HQ_SLUG,
-  QUIZZES_IMG_PATH,
+  QUIZZES_IMAGE_PATH,
+  QUIZZES_THUMB_PATH,
 } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
@@ -160,8 +161,8 @@ export class QuizService {
 
     // Format image URLs and thumbnail paths
     const image = data.image;
-    data.image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
-    data.thumb_image = image ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, image) : '';
+    data.image = image ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, image) : '';
+    data.thumb_image = image ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, image) : '';
 
     // Build share URL for frontend usage
     const LANG_ENGLISH_ID = 14;
