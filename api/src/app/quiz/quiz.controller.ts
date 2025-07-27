@@ -3,6 +3,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 
 @Controller('/v2')
@@ -24,6 +25,16 @@ export class QuizController {
     @CurrentUser('user_id') userId: number
   ) {
     return await this.quizService.getDetailQuizzes({ ...dto, userId });
+  }
+
+  @Get('/get_more_quizz_of_quizz_hq')
+  async getMoreQuizzOfQuizHq(@Query() dto: GetMoreQuizzOfQuizHqDto) {
+    return await this.quizService.getMoreQuizzOfQuizHq({ ...dto });
+  }
+
+  @Post('/get_more_quizz_of_quizz_hq')
+  async getMoreQuizzOfQuizHqPost(@Body() dto: GetMoreQuizzOfQuizHqDto) {
+    return await this.quizService.getMoreQuizzOfQuizHq({ ...dto });
   }
 
   @Get('/get_quiz_rule')

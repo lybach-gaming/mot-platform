@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   BASE_URL,
   FE_URL,
@@ -20,6 +20,9 @@ import {
   WEB_SEO_SCHEMA,
 } from '../../core/database/schemas';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
+import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
+
+const MAX_RELATED_QUIZZES = 5;
 import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { RedisService } from '../../core/redis/redis.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
@@ -27,8 +30,6 @@ import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 
 @Injectable()
 export class QuizService {
-  private readonly logger = new Logger(QuizService.name);
-
   constructor(
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService
@@ -164,7 +165,9 @@ export class QuizService {
     // Format image URLs and thumbnail paths
     const image = data.image;
     data.image = image ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, image) : '';
-    data.thumb_image = image ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, image) : '';
+    data.thumb_image = image
+      ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, image)
+      : '';
 
     // Build share URL for frontend usage
     const LANG_ENGLISH_ID = 14;
@@ -195,6 +198,176 @@ export class QuizService {
   }
 
   /**
+   * Get more related quizzes based on a given quiz slug.
+   * Find up to MAX_RELATED_QUIZZES quizzes that share the same
+   * category, subcategory, and level as the original quiz.
+   *
+   * @param dto - DTO containing `slug_quizzes` to find similar quizzes
+   * @returns An object with error flag, optional message, and a list of related quizzes
+   */
+  async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
+    // Check cache
+    const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const dbService = this.dbService;
+
+    if (!dto.slug_quizzes) {
+      return { error: true, message: '101', data: [] };
+    }
+
+    const quizz = await this.dbService.connection
+      .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.SLUG}`, dto.slug_quizzes)
+      .first();
+
+    if (!quizz) {
+      return { error: true, message: '102', data: [] };
+    }
+
+    const maincat_id = quizz.maincat_id;
+    const main_subcat_id = quizz.main_subcat_id;
+    const main_subcat_level_id = quizz.main_subcat_level_id;
+
+    const quizzes: any[] = [];
+
+    // fallback 1
+    const exactMatches = await this.dbService.connection
+      .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+      .select(
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+        'qz.*',
+        `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+        'w.*'
+      )
+      .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+        this.on(
+          `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+          '=',
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+        )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_level_id])
+          );
+      })
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+      .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+      .andWhere(
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`,
+        main_subcat_level_id
+      )
+      .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+      .limit(MAX_RELATED_QUIZZES);
+
+    quizzes.push(...exactMatches);
+
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const subcategoryMatches = await this.dbService.connection
+        .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+        .select(
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+          'qz.*',
+          `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+          'w.*'
+        )
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+          )
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+              '=',
+              dbService.connection.raw('?', [maincat_id])
+            )
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+              '=',
+              dbService.connection.raw('?', [main_subcat_id])
+            );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
+
+      quizzes.push(...subcategoryMatches);
+    }
+
+    // fallback 2
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const categoryMatches = await this.dbService.connection
+        .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
+        .select(
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
+          'qz.*',
+          `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
+          'w.*'
+        )
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+          ).andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
+
+      quizzes.push(...categoryMatches);
+    }
+
+    let response: {
+      error: boolean;
+      message?: string;
+      data: Array<any>;
+    } = {
+      error: false,
+      message: '102',
+      data: [],
+    };
+
+    if (quizzes.length > 0) {
+      const finalData = quizzes.map((item) => ({
+        ...item,
+        image: item.image
+          ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, item.image)
+          : '',
+      }));
+
+      response = {
+        error: false,
+        data: transformToString(finalData),
+      };
+    }
+
+    await this.redisService.set(cacheKey, response);
+
+    return response;
+  }
+
+  /**
    * Get quiz rules based on quiz mode
    *
    * @param dto - DTO containing quizz_mode for filtering rules
@@ -206,7 +379,6 @@ export class QuizService {
     const cached = await this.redisService.get(cacheKey);
 
     if (cached) {
-      this.logger.debug(`Cache hit for ${cacheKey}`);
       return cached;
     }
 
