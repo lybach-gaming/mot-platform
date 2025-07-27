@@ -10,18 +10,20 @@ import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import { DatabaseService } from '../../core/database/database.service';
-import { RedisService } from '../../core/redis/redis.service';
-import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import {
   CATEGORY_SCHEMA,
   FAQ_SCHEMA,
   QUIZ_HQ_LEADERBOARD_SCHEMA,
+  QUIZ_RULES_SCHEMA,
   SUBCATEGORY_LEVEL_SCHEMA,
   SUBCATEGORY_SCHEMA,
   WEB_SEO_SCHEMA,
 } from '../../core/database/schemas';
-import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
+import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
+import { RedisService } from '../../core/redis/redis.service';
+import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
+import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 
 @Injectable()
 export class QuizService {
@@ -186,6 +188,54 @@ export class QuizService {
         is_played: !!+data?.is_played,
       },
     };
+
+    await this.redisService.set(cacheKey, response);
+
+    return response;
+  }
+
+  /**
+   * Get quiz rules based on quiz mode
+   *
+   * @param dto - DTO containing quizz_mode for filtering rules
+   * @returns Quiz rule data or error response
+   */
+  async getQuizRules(dto: GetQuizRulesDto) {
+    // Check cache
+    const cacheKey = `${CacheKey.GetQuizRules}${JSON.stringify(dto)}`;
+    const cached = await this.redisService.get(cacheKey);
+
+    if (cached) {
+      this.logger.debug(`Cache hit for ${cacheKey}`);
+      return cached;
+    }
+
+    if (!dto.quizz_mode) {
+      return {
+        error: true,
+        message: '102',
+      };
+    }
+
+    const result = await this.dbService.connection
+      .table(QUIZ_RULES_SCHEMA.TABLE)
+      .select('*')
+      .where(QUIZ_RULES_SCHEMA.FIELDS.QUIZZ_MODE, dto.quizz_mode)
+      .first();
+
+    let response = {
+      error: true,
+      message: '104',
+      data: null,
+    };
+
+    if (result) {
+      response = {
+        error: false,
+        message: '103',
+        data: transformToString(result),
+      };
+    }
 
     await this.redisService.set(cacheKey, response);
 
