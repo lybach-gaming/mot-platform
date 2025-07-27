@@ -23,10 +23,10 @@ import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 
+const MAX_RELATED_QUIZZES = 5;
+
 @Injectable()
 export class QuizService {
-  private readonly logger = new Logger(QuizService.name);
-
   constructor(
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService
@@ -193,13 +193,13 @@ export class QuizService {
   }
 
   /**
- * Get more related quizzes based on a given quiz slug.
- * Find up to 5 quizzes that share the same
- * category, subcategory, and level as the original quiz.
- *
- * @param dto - DTO containing `slug_quizzes` to find similar quizzes
- * @returns An object with error flag, optional message, and a list of related quizzes
- */
+   * Get more related quizzes based on a given quiz slug.
+   * Find up to MAX_RELATED_QUIZZES quizzes that share the same
+   * category, subcategory, and level as the original quiz.
+   *
+   * @param dto - DTO containing `slug_quizzes` to find similar quizzes
+   * @returns An object with error flag, optional message, and a list of related quizzes
+   */
   async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
     // Check cache
     const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
@@ -227,8 +227,10 @@ export class QuizService {
     const main_subcat_id = quizz.main_subcat_id;
     const main_subcat_level_id = quizz.main_subcat_level_id;
 
+    const quizzes: any[] = [];
+
     // fallback 1
-    let data = await this.dbService.connection
+    const exactMatches = await this.dbService.connection
       .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
       .select(
         `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -264,10 +266,13 @@ export class QuizService {
         `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`,
         main_subcat_level_id
       )
-      .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+      .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+      .limit(MAX_RELATED_QUIZZES);
 
-    if (data.length < 5) {
-      data = await this.dbService.connection
+    quizzes.push(...exactMatches);
+
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const subcategoryMatches = await this.dbService.connection
         .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
         .select(
           `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -294,12 +299,15 @@ export class QuizService {
         })
         .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
         .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
-        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
+
+      quizzes.push(...subcategoryMatches);
     }
 
     // fallback 2
-    if (data.length < 5) {
-      data = await this.dbService.connection
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const categoryMatches = await this.dbService.connection
         .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
         .select(
           `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -319,7 +327,10 @@ export class QuizService {
           );
         })
         .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
-        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id);
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
+
+      quizzes.push(...categoryMatches);
     }
 
     let response: {
@@ -332,8 +343,8 @@ export class QuizService {
       data: [],
     };
 
-    if (data.length > 0) {
-      const finalData = data.map((item) => ({
+    if (quizzes.length > 0) {
+      const finalData = quizzes.map((item) => ({
         ...item,
         image: item.image
           ? urlJoin(BASE_URL, QUIZZES_IMG_PATH, item.image)
