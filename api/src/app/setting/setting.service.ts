@@ -40,13 +40,13 @@ export class SettingService implements OnModuleInit {
       let message = cur.message;
 
       // Transform logo URLs
-      if (LOGO_TYPES.includes(cur.type)) {
+      if (LOGO_TYPES.includes(cur.type as (typeof LOGO_TYPES)[number])) {
         message = message
           ? `${BASE_URL}${WEB_SETTINGS_LOGO_PATH}${message}`
           : '';
       }
       // Transform image URLs
-      else if (IMAGE_TYPES.includes(cur.type)) {
+      else if (IMAGE_TYPES.includes(cur.type as (typeof IMAGE_TYPES)[number])) {
         message = message
           ? `${BASE_URL}${WEB_HOME_SETTINGS_LOGO_PATH}${message}`
           : '';
