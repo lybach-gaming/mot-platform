@@ -11,6 +11,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SettingModule } from './setting/setting.module';
 import { QuizModule } from './quiz/quiz.module';
+import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middleware';
 
 @Module({
   imports: [
@@ -30,5 +31,6 @@ import { QuizModule } from './quiz/quiz.module';
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(AttachUserMiddleware).forRoutes('*');
+    consumer.apply(AdminGuardMiddleware).forRoutes('*');
   }
 }
