@@ -6,7 +6,6 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import '../env.js';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app/app.module';
 
