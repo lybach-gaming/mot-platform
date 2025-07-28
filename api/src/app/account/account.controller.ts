@@ -14,9 +14,4 @@ export class AccountController {
   getUserById(@CurrentUser('user_id') userId: number) {
     return this.accountService.getUserById(userId);
   }
-
-  @Get('/admin/test')
-  get(@CurrentUser('user_id') userId: number) {
-    return { success: true };
-  }
 }

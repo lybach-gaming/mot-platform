@@ -31,6 +31,9 @@ export class AdminGuardMiddleware implements NestMiddleware {
     const verifyUrl = `${process.env.LEGACY_API_URL}/api/verify_session?session_id=${sessionId}`;
     const response = await axios.get(verifyUrl, {
       validateStatus: () => true,
+      headers: {
+        Referer: process.env.LEGACY_API_URL,
+      },
     });
 
     // If session is invalid, block request
