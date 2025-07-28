@@ -49,11 +49,7 @@
     "jest-environment-node": "^29.7.0",
     "nx": "21.2.1",
     "prettier": "^2.6.2",
-<<<<<<< Updated upstream
     "storybook": "9.0.17",
-    "tailwindcss": "3.4.3",
-=======
->>>>>>> Stashed changes
     "ts-jest": "^29.1.0",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
