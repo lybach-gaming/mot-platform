@@ -52,7 +52,7 @@ export class QuestionService {
       .andWhere(`q.${QUESTION_SCHEMA.FIELDS.QUIZZES}`, quizzes)
       .orderByRaw('rand()');
 
-    if (!dto?.userId) {
+    if (dto?.userId) {
       query.select(
         this.dbService.connection.raw(
           `
