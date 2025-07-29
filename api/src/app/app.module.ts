@@ -12,6 +12,7 @@ import { SettingModule } from './setting/setting.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { SubcategoryModule } from './subcategory/subcategory.module';
 import { WebSeoModule } from './web-seo/web-seo.module';
+import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middleware';
 
 @Module({
   imports: [
@@ -32,5 +33,6 @@ import { WebSeoModule } from './web-seo/web-seo.module';
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(AttachUserMiddleware).forRoutes('*');
+    consumer.apply(AdminGuardMiddleware).forRoutes('*');
   }
 }

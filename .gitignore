@@ -59,6 +59,10 @@ out
 .env.db
 .env.redis
 .env.local
+.env.production
+.env.staging
+
+
 
 # Patch files
 *.rej

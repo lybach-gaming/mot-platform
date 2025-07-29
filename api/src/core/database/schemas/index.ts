@@ -2,6 +2,7 @@ export * from './bookmark.schema';
 export * from './category.schema';
 export * from './faq.schema';
 export * from './question.schema';
+export * from './quiz_rules.schema';
 export * from './quiz-hq-leaderboard.schema';
 export * from './quizz.schema';
 export * from './settings.schema';

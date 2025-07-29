@@ -5,8 +5,10 @@
 
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app/app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import { AppModule } from './app/app.module';
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +16,7 @@ async function bootstrap() {
   app.setGlobalPrefix(globalPrefix);
 
   app.enableCors();
+  app.use(cookieParser());
 
   const config = new DocumentBuilder()
     .setTitle('Master of Trivia API')
