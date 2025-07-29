@@ -6,6 +6,7 @@ import { transformToString } from '../../common/utils/transform.util';
 import { encryptData, urlJoin } from '../../common/utils/string.util';
 import {
   BASE_URL,
+  CACHE_TTL_DEFAULT,
   QUESTION_IMG_PATH,
   SECRET_KEY_ANSWER,
 } from '../../common/constants/app';
@@ -37,7 +38,7 @@ export class QuestionService {
 
     if (cached) {
       this.logger.debug(`Cache hit for ${cacheKey}`);
-      return cached;
+      // return cached;
     }
 
     const QUIZZ_MODE = 1;
@@ -85,7 +86,7 @@ export class QuestionService {
       optiond: q.optiond?.trim() || '',
       optione: q.optione ? q.optione.trim() : '',
       answer: encryptData(secretKeyAnswer, q.answer?.trim() || ''),
-      is_bookmark: dto?.userId ? '0' : q.is_bookmark,
+      is_bookmark: !dto?.userId ? '0' : q.is_bookmark,
     }));
 
     const response = {
@@ -93,7 +94,7 @@ export class QuestionService {
       data: transformToString(processedData),
     };
 
-    await this.redisService.set(cacheKey, response);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
 
     return response;
   }

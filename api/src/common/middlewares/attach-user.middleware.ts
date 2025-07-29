@@ -16,15 +16,15 @@ export class AttachUserMiddleware implements NestMiddleware {
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7).trim();
       try {
-        const jwtSecret = await this.settingService.getSetting(
-          SettingType.JwtKey
-        );
+        const jwtSecret = await this.settingService.getSetting({
+          type: SettingType.JwtKey,
+        });
         if (!jwtSecret) {
           this.logger.warn('⚠️ JWT secret not found in settings');
           return next();
         }
 
-        const decoded = jwt.verify(token, jwtSecret);
+        const decoded = jwt.verify(token, jwtSecret as string);
         req.user = decoded;
       } catch (err) {
         this.logger.debug('JWT verification failed:', err);

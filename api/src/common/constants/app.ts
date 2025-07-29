@@ -31,3 +31,5 @@ export const QUIZZES_IMAGE_PATH = 'images/quizzes/';
 export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
 
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
+
+export const CACHE_TTL_DEFAULT = 1 * 60 * 60 // 1 hour
