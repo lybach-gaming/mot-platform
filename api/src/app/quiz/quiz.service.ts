@@ -27,6 +27,7 @@ import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { RedisService } from '../../core/redis/redis.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
+import { CreateQuizDto } from './dto/create-quiz.dto';
 
 @Injectable()
 export class QuizService {
@@ -34,6 +35,176 @@ export class QuizService {
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService
   ) {}
+
+  /**
+   * Create a new quiz
+   *
+   * @param createQuizDto - Data for creating the quiz
+   * @returns Created quiz data or error response
+   */
+  async createQuiz(createQuizDto: CreateQuizDto) {
+    try {
+      
+      // Check featured quiz limit if quiz is featured
+      if (createQuizDto.is_featured) {
+        const featuredCount = await this.dbService
+          .connection(QUIZZ_SCHEMA.TABLE)
+          .where(QUIZZ_SCHEMA.FIELDS.IS_FEATURED, true)
+          .count('* as count')
+          .first();
+
+        if (parseInt(featuredCount?.count) >= 3) {
+          return {
+            error: true,
+            message:
+              'You can feature up to 3 quizzes. Please unfeature one before featuring another.',
+            data: null,
+          };
+        }
+      }
+
+      // Generate and format slug
+      if (createQuizDto.slug) {
+        // If slug is provided, format it
+        createQuizDto.slug = createQuizDto.slug
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      } else {
+        // Generate slug from quiz name
+        createQuizDto.slug = createQuizDto.quizz_name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      }
+
+      // Extract only the fields that belong to quiz table
+      const quizData = {
+        quizz_name: createQuizDto.quizz_name,
+        language_id: createQuizDto.language_id,
+        maincat_id: createQuizDto.maincat_id,
+        main_subcat_id: createQuizDto.main_subcat_id,
+        main_subcat_level_id: createQuizDto.main_subcat_level_id,
+        slug: createQuizDto.slug,
+        status: createQuizDto.status ?? 1,
+        is_premium: createQuizDto.is_premium ?? 0,
+        coins: createQuizDto.coins ?? 0,
+        enable_faq: createQuizDto.enable_faq ?? 1,
+        is_public: createQuizDto.is_public ?? 1,
+        is_featured: createQuizDto.is_featured ?? 0,
+        is_coming_soon: createQuizDto.is_coming_soon ?? 0,
+        is_pinned: createQuizDto.is_pinned ?? 0,
+        image: createQuizDto.image ?? '',
+        row_order: 0,
+      };
+
+      // Start transaction
+      const trx = await this.dbService.connection.transaction();
+
+      try {
+        // Insert the quiz
+        const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE)
+          .insert(quizData)
+          .returning(QUIZZ_SCHEMA.FIELDS.ID);
+
+        if (!insertedId) {
+          await trx.rollback();
+          return {
+            error: true,
+            message: 'Failed to create quiz',
+            data: null,
+          };
+        }
+
+        // Insert web SEO data
+        if (createQuizDto.web_seo) {
+          const webSeoData = {
+            language_id: createQuizDto.language_id,
+            maincat_id: createQuizDto.maincat_id,
+            subcategory_id: createQuizDto.main_subcat_id,
+            subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
+            quizz_id: insertedId,
+            quizz_mode: createQuizDto.quiz_mode,
+            type: 4,
+            slug: createQuizDto.slug,
+            ...createQuizDto.web_seo,
+          };
+
+          await trx(WEB_SEO_SCHEMA.TABLE).insert(webSeoData);
+        }
+
+        // Insert FAQ data if provided
+        if (
+          createQuizDto.enable_faq &&
+          createQuizDto.questions?.length &&
+          createQuizDto.answers?.length
+        ) {
+          // Filter out empty questions and answers
+          const questions = createQuizDto.questions.filter((q) => q.trim());
+          const answers = createQuizDto.answers.filter((a) => a.trim());
+
+          // Create FAQ entries by mapping questions with answers
+          const faqData = questions
+            .map((question, index) => {
+              const answer = answers[index];
+              if (!question || !answer) return null;
+
+              return {
+                language_id: createQuizDto.language_id,
+                maincat_id: createQuizDto.maincat_id,
+                subcategory_id: createQuizDto.main_subcat_id,
+                subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
+                quizz_id: insertedId,
+                quizz_mode: createQuizDto.type,
+                type: 4,
+                question: question,
+                answer: answer,
+              };
+            })
+            .filter(Boolean); // Remove null entries
+
+          if (faqData.length) {
+            await trx(FAQ_SCHEMA.TABLE).insert(faqData);
+          }
+        }
+
+        // Commit transaction
+        await trx.commit();
+
+        // Clear relevant caches
+        await this.redisService.del(CacheKey.GetDetailQuizzes);
+        if (createQuizDto.is_featured) {
+          await this.redisService.delByPattern('promoted_game'); // Clear featured quizzes cache
+        }
+
+        // TODO: Send notification if is_send_notice is true
+        // Will implement in separate notification service
+
+        // Fetch and return the created quiz
+        const createdQuiz = await this.dbService
+          .connection(QUIZZ_SCHEMA.TABLE)
+          .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
+          .first();
+
+        return {
+          error: false,
+          message: 'Quiz created successfully',
+          data: transformToString(createdQuiz),
+        };
+      } catch (trxError) {
+        await trx.rollback();
+        throw trxError;
+      }
+    } catch (error) {
+      return {
+        error: true,
+        message: error.message || 'Failed to create quiz',
+        data: null,
+      };
+    }
+  }
 
   /**
    * Get detailed information about a quiz

@@ -1,15 +1,26 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
+import { CreateQuizDto } from './dto/create-quiz.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('/v2')
 @ApiBearerAuth()
+@ApiTags('Quiz')
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
+
+  @Post('/admin/quizzes')
+  @UseInterceptors(FileInterceptor('image'))
+  async createQuiz(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createQuizDto: CreateQuizDto) {
+    return await this.quizService.createQuiz(createQuizDto);
+  }
 
   @Get('/get_detail_quizzes')
   async getDetailQuizzes(
