@@ -15,7 +15,7 @@ export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   @Post('/admin/quizzes')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image_file'))
   async createQuiz(
     @UploadedFile() file: Express.Multer.File,
     @Body() createQuizDto: CreateQuizDto) {

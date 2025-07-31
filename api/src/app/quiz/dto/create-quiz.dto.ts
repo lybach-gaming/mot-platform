@@ -11,6 +11,9 @@ import { Type } from 'class-transformer';
 import { WebSeoDto } from '../../web-seo/dto/web-seo.dto';
 
 export class CreateQuizDto {
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  image_file?: Express.Multer.File;
+
   @ApiProperty({ description: 'The language ID for the quiz' })
   @IsNumber()
   @IsNotEmpty()

@@ -10,6 +10,11 @@ import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import { DatabaseService } from '../../core/database/database.service';
+import { RedisService } from '../../core/redis/redis.service';
+import {
+  FileUploadService,
+  FileUploadOptions,
+} from '../../core/file-upload/file-upload.service';
 import {
   CATEGORY_SCHEMA,
   FAQ_SCHEMA,
@@ -20,21 +25,110 @@ import {
   WEB_SEO_SCHEMA,
 } from '../../core/database/schemas';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
-import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
-
-const MAX_RELATED_QUIZZES = 5;
 import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
-import { RedisService } from '../../core/redis/redis.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
+import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
+
+const MAX_RELATED_QUIZZES = 5;
 
 @Injectable()
 export class QuizService {
   constructor(
     private readonly dbService: DatabaseService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly fileUploadService: FileUploadService
   ) {}
+
+  /**
+   * Handle image upload for quiz
+   * @param file - The uploaded image file
+   * @returns The saved image filename
+   */
+  private async handleImageUpload(file: Express.Multer.File): Promise<string> {
+    try {
+      const options: FileUploadOptions = {
+        directory: QUIZZES_IMAGE_PATH,
+        generateThumbnail: true,
+        allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+        maxSize: 5 * 1024 * 1024, // 5MB
+      };
+
+      return await this.fileUploadService.uploadFile(file, options);
+    } catch (error) {
+      throw new Error(`Failed to upload quiz image: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create FAQ entries for a quiz
+   */
+  private async createFaqEntries(
+    trx: any,
+    quizId: number,
+    createQuizDto: CreateQuizDto
+  ) {
+    if (
+      !createQuizDto.enable_faq ||
+      !createQuizDto.questions?.length ||
+      !createQuizDto.answers?.length
+    ) {
+      return;
+    }
+
+    const questions = createQuizDto.questions.filter((q) => q.trim());
+    const answers = createQuizDto.answers.filter((a) => a.trim());
+
+    const faqData = questions
+      .map((question, index) => {
+        const answer = answers[index];
+        if (!question || !answer) return null;
+
+        return {
+          language_id: createQuizDto.language_id,
+          maincat_id: createQuizDto.maincat_id,
+          subcategory_id: createQuizDto.main_subcat_id,
+          subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
+          quizz_id: quizId,
+          quizz_mode: createQuizDto.type,
+          type: 4,
+          question: question,
+          answer: answer,
+        };
+      })
+      .filter(Boolean);
+
+    if (faqData.length) {
+      await trx(FAQ_SCHEMA.TABLE).insert(faqData);
+    }
+  }
+
+  /**
+   * Create web SEO entry for a quiz
+   */
+  private async createWebSeoEntry(
+    trx: any,
+    quizId: number,
+    createQuizDto: CreateQuizDto
+  ) {
+    if (!createQuizDto.web_seo) return;
+
+    const webSeoData = {
+      language_id: createQuizDto.language_id,
+      maincat_id: createQuizDto.maincat_id,
+      subcategory_id: createQuizDto.main_subcat_id,
+      subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
+      quizz_id: quizId,
+      quizz_mode: createQuizDto.quiz_mode,
+      type: 4,
+      slug: createQuizDto.slug,
+      title: createQuizDto.quizz_name,
+      ...createQuizDto.web_seo,
+    };
+
+    await trx(WEB_SEO_SCHEMA.TABLE).insert(webSeoData);
+  }
 
   /**
    * Create a new quiz
@@ -44,67 +138,70 @@ export class QuizService {
    */
   async createQuiz(createQuizDto: CreateQuizDto) {
     try {
-      
-      // Check featured quiz limit if quiz is featured
-      if (createQuizDto.is_featured) {
-        const featuredCount = await this.dbService
-          .connection(QUIZZ_SCHEMA.TABLE)
-          .where(QUIZZ_SCHEMA.FIELDS.IS_FEATURED, true)
-          .count('* as count')
-          .first();
-
-        if (parseInt(featuredCount?.count) >= 3) {
-          return {
-            error: true,
-            message:
-              'You can feature up to 3 quizzes. Please unfeature one before featuring another.',
-            data: null,
-          };
-        }
-      }
-
-      // Generate and format slug
-      if (createQuizDto.slug) {
-        // If slug is provided, format it
-        createQuizDto.slug = createQuizDto.slug
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
-      } else {
-        // Generate slug from quiz name
-        createQuizDto.slug = createQuizDto.quizz_name
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
-      }
-
-      // Extract only the fields that belong to quiz table
-      const quizData = {
-        quizz_name: createQuizDto.quizz_name,
-        language_id: createQuizDto.language_id,
-        maincat_id: createQuizDto.maincat_id,
-        main_subcat_id: createQuizDto.main_subcat_id,
-        main_subcat_level_id: createQuizDto.main_subcat_level_id,
-        slug: createQuizDto.slug,
-        status: createQuizDto.status ?? 1,
-        is_premium: createQuizDto.is_premium ?? 0,
-        coins: createQuizDto.coins ?? 0,
-        enable_faq: createQuizDto.enable_faq ?? 1,
-        is_public: createQuizDto.is_public ?? 1,
-        is_featured: createQuizDto.is_featured ?? 0,
-        is_coming_soon: createQuizDto.is_coming_soon ?? 0,
-        is_pinned: createQuizDto.is_pinned ?? 0,
-        image: createQuizDto.image ?? '',
-        row_order: 0,
-      };
-
       // Start transaction
       const trx = await this.dbService.connection.transaction();
 
       try {
-        // Insert the quiz
+        // Check featured quiz limit if quiz is featured
+        if (createQuizDto.is_featured) {
+          const featuredCount = await trx(QUIZZ_SCHEMA.TABLE)
+            .where(QUIZZ_SCHEMA.FIELDS.IS_FEATURED, true)
+            .count('* as count')
+            .first();
+
+          if (parseInt(featuredCount?.count) >= 3) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                'You can feature up to 3 quizzes. Please unfeature one before featuring another.',
+              data: null,
+            };
+          }
+        }
+
+        // Generate and format slug
+        if (createQuizDto.slug) {
+          // If slug is provided, format it
+          createQuizDto.slug = createQuizDto.slug
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        } else {
+          // Generate slug from quiz name
+          createQuizDto.slug = createQuizDto.quizz_name
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        }
+
+        // Handle image upload if present
+        let imageName = '';
+        if (createQuizDto.image_file) {
+          imageName = await this.handleImageUpload(createQuizDto.image_file);
+        }
+
+        // Extract only the fields that belong to quiz table
+        const quizData = {
+          quizz_name: createQuizDto.quizz_name,
+          language_id: createQuizDto.language_id,
+          maincat_id: createQuizDto.maincat_id,
+          main_subcat_id: createQuizDto.main_subcat_id,
+          main_subcat_level_id: createQuizDto.main_subcat_level_id,
+          slug: createQuizDto.slug,
+          status: createQuizDto.status ?? 1,
+          is_premium: createQuizDto.is_premium ?? 0,
+          coins: createQuizDto.coins ?? 0,
+          enable_faq: createQuizDto.enable_faq ?? 1,
+          is_public: createQuizDto.is_public ?? 1,
+          is_featured: createQuizDto.is_featured ?? 0,
+          is_coming_soon: createQuizDto.is_coming_soon ?? 0,
+          is_pinned: createQuizDto.is_pinned ?? 0,
+          image: imageName,
+          row_order: 0,
+        }; // Insert the quiz
         const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE)
           .insert(quizData)
           .returning(QUIZZ_SCHEMA.FIELDS.ID);
@@ -119,61 +216,20 @@ export class QuizService {
         }
 
         // Insert web SEO data
-        if (createQuizDto.web_seo) {
-          const webSeoData = {
-            language_id: createQuizDto.language_id,
-            maincat_id: createQuizDto.maincat_id,
-            subcategory_id: createQuizDto.main_subcat_id,
-            subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
-            quizz_id: insertedId,
-            quizz_mode: createQuizDto.quiz_mode,
-            type: 4,
-            slug: createQuizDto.slug,
-            ...createQuizDto.web_seo,
-          };
+        await this.createWebSeoEntry(trx, insertedId, createQuizDto);
 
-          await trx(WEB_SEO_SCHEMA.TABLE).insert(webSeoData);
-        }
+        // Create FAQ entries if enabled
+        await this.createFaqEntries(trx, insertedId, createQuizDto);
 
-        // Insert FAQ data if provided
-        if (
-          createQuizDto.enable_faq &&
-          createQuizDto.questions?.length &&
-          createQuizDto.answers?.length
-        ) {
-          // Filter out empty questions and answers
-          const questions = createQuizDto.questions.filter((q) => q.trim());
-          const answers = createQuizDto.answers.filter((a) => a.trim());
+        // Fetch the created quiz before committing
+        const createdQuiz = await trx(QUIZZ_SCHEMA.TABLE)
+          .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
+          .first();
 
-          // Create FAQ entries by mapping questions with answers
-          const faqData = questions
-            .map((question, index) => {
-              const answer = answers[index];
-              if (!question || !answer) return null;
-
-              return {
-                language_id: createQuizDto.language_id,
-                maincat_id: createQuizDto.maincat_id,
-                subcategory_id: createQuizDto.main_subcat_id,
-                subcategory_level_id: createQuizDto.main_subcat_level_id || 0,
-                quizz_id: insertedId,
-                quizz_mode: createQuizDto.type,
-                type: 4,
-                question: question,
-                answer: answer,
-              };
-            })
-            .filter(Boolean); // Remove null entries
-
-          if (faqData.length) {
-            await trx(FAQ_SCHEMA.TABLE).insert(faqData);
-          }
-        }
-
-        // Commit transaction
+        // Commit transaction after all operations are done
         await trx.commit();
 
-        // Clear relevant caches
+        // Clear relevant caches after successful commit
         await this.redisService.del(CacheKey.GetDetailQuizzes);
         if (createQuizDto.is_featured) {
           await this.redisService.delByPattern('promoted_game'); // Clear featured quizzes cache
@@ -181,12 +237,6 @@ export class QuizService {
 
         // TODO: Send notification if is_send_notice is true
         // Will implement in separate notification service
-
-        // Fetch and return the created quiz
-        const createdQuiz = await this.dbService
-          .connection(QUIZZ_SCHEMA.TABLE)
-          .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
-          .first();
 
         return {
           error: false,

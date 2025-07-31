@@ -7,7 +7,7 @@ export class WebSeoDto {
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  language_id: number;
+  language_id?: number;
 
   @ApiProperty({
     description: 'Quiz mode',
@@ -17,7 +17,7 @@ export class WebSeoDto {
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  quizz_mode: number;
+  quizz_mode?: number;
 
   @ApiProperty({ description: 'Quiz by Language category ID' })
   @IsNumber()
@@ -57,71 +57,71 @@ export class WebSeoDto {
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  type: number;
+  type?: number;
 
   @ApiProperty({
     description: 'SEO title, defaults to quiz name if not provided',
   })
   @IsString()
-  @IsNotEmpty()
-  title: string;
+  @IsOptional()
+  title?: string;
 
   @ApiProperty({
     description: 'SEO slug, used for URL generation',
   })
   @IsString()
   @IsOptional()
-  slug: string;
+  slug?: string;
 
-  @ApiProperty({ description: 'SEO subtitle' })
-  @IsString()
-  @IsNotEmpty()
-  sub_title: string;
-
-  @ApiProperty({ description: 'SEO sub heading' })
+  @ApiProperty({ description: 'SEO subtitle', default: '' })
   @IsString()
   @IsOptional()
-  sub_heading: string;
+  sub_title?: string = '';
 
-  @ApiProperty({ description: 'Sponsor link' })
-  @IsString()
-  @IsNotEmpty()
-  sponsor_link: string;
-
-  @ApiProperty({ description: 'Sponsor name' })
-  @IsString()
-  @IsNotEmpty()
-  sponsor_name: string;
-
-  @ApiProperty({ description: 'Meta title for SEO' })
+  @ApiProperty({ description: 'SEO sub heading', default: '' })
   @IsString()
   @IsOptional()
-  meta_title: string;
+  sub_heading?: string = '';
 
-  @ApiProperty({ description: 'Meta description for SEO' })
+  @ApiProperty({ description: 'Sponsor link', default: '' })
   @IsString()
   @IsOptional()
-  meta_description: string;
+  sponsor_link?: string = '';
 
-  @ApiProperty({ description: 'Meta keywords for SEO' })
+  @ApiProperty({ description: 'Sponsor name', default: '' })
   @IsString()
   @IsOptional()
-  meta_keyword: string;
+  sponsor_name?: string = '';
+
+  @ApiProperty({ description: 'Meta title for SEO', default: '' })
+  @IsString()
+  @IsOptional()
+  meta_title?: string = '';
+
+  @ApiProperty({ description: 'Meta description for SEO', default: '' })
+  @IsString()
+  @IsOptional()
+  meta_description?: string = '';
+
+  @ApiProperty({ description: 'Meta keywords for SEO', default: '' })
+  @IsString()
+  @IsOptional()
+  meta_keyword?: string = '';
 
   @ApiProperty({ description: 'Schema markup for SEO' })
   @IsString()
-  @IsOptional()
+  @IsNotEmpty()
   schema_markup: string;
 
-  @ApiProperty({ description: 'SEO block content' })
+  @ApiProperty({ description: 'SEO block content', default: '' })
   @IsString()
   @IsOptional()
-  seo_block?: string;
+  seo_block?: string = '';
 
-  @ApiProperty({ description: 'Description for SEO' })
+  @ApiProperty({ description: 'Description for SEO', default: '' })
   @IsString()
   @IsOptional()
-  description?: string;
+  description?: string = '';
 
   @ApiProperty({
     description: 'Is Edit Slug SEO',
@@ -131,16 +131,16 @@ export class WebSeoDto {
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  is_edit_slug: number;
+  is_edit_slug?: number = 1;
 
-  @ApiProperty({ description: 'SEO Heading' })
+  @ApiProperty({ description: 'SEO Heading', defult: '' })
   @IsString()
   @IsOptional()
-  heading?: string;
+  heading?: string = '';
 
   @ApiProperty({ description: 'FAQ check', default: 1, example: '0=no, 1=yes' })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  enable_faq: number;
+  enable_faq?: number = 1;
 }

@@ -71,7 +71,7 @@ export class FaqDto {
 
   @ApiProperty({ description: 'FAQ check', default: 1, example: '0=no, 1=yes' })
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
-  enable_faq: number;
+  enable_faq?: number = 1;
 }
