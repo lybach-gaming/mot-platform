@@ -21,17 +21,13 @@ const Checkbox = React.forwardRef<
       ref={ref}
       checked={indeterminate ? true : checked}
       className={cn(
-        'peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow ' +
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ' +
-          'disabled:cursor-not-allowed disabled:opacity-50 ' +
-          'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground ' +
-          'data-[indeterminate=true]:bg-primary data-[indeterminate=true]:text-primary-foreground',
+        'peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50  data-[state=checked]:bg-primary data-[state=checked]:border-[#f05387] data-[state=checked]:text-primary-foreground ',
         className
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator
-        className={cn('flex items-center justify-center text-current')}
+        className={cn('w-full h-full flex items-center justify-center text-current bg-[#f05387]')}
       >
         {indeterminate ? (
           <Minus className="h-4 w-4" />
