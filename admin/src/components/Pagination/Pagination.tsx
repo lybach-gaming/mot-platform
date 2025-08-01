@@ -10,15 +10,17 @@ import {
 } from './PaginationBase';
 
 interface PaginationProps {
-  page?: number; // 1-based
-  total?: number; // total pages
-  onPageChange?: (page: number) => void; // 1-based
+  page?: number;
+  total?: number;
+  onPageChange?: (page: number) => void;
+  className?: string;
 }
 
 export function Pagination({
   page = 1,
   total = 1,
   onPageChange,
+  className,
 }: PaginationProps) {
   const canGoPrevious = page > 1;
   const canGoNext = page < total;
@@ -106,7 +108,7 @@ export function Pagination({
   if (total <= 1) return null;
 
   return (
-    <BasePagination className="bg-white px-4 py-3">
+    <BasePagination className={className}>
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious

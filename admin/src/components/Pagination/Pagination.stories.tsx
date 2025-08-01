@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { Pagination } from './Pagination';
+import { PaginationSizeSelect } from './PaginationSizeSelect';
 
 const meta: Meta<typeof Pagination> = {
   title: 'UI/Pagination',
@@ -15,11 +16,7 @@ export const FewPages: Story = {
   render: () => {
     const [page, setPage] = useState(1);
     return (
-      <Pagination
-        page={page}
-        total={3}
-        onPageChange={(p) => setPage(p)}
-      />
+      <Pagination page={page} total={3} onPageChange={(p) => setPage(p)} />
     );
   },
 };
@@ -28,11 +25,7 @@ export const MiddlePage: Story = {
   render: () => {
     const [page, setPage] = useState(5);
     return (
-      <Pagination
-        page={page}
-        total={10}
-        onPageChange={(p) => setPage(p)}
-      />
+      <Pagination page={page} total={10} onPageChange={(p) => setPage(p)} />
     );
   },
 };
@@ -41,11 +34,7 @@ export const FirstPage: Story = {
   render: () => {
     const [page, setPage] = useState(1);
     return (
-      <Pagination
-        page={page}
-        total={10}
-        onPageChange={(p) => setPage(p)}
-      />
+      <Pagination page={page} total={10} onPageChange={(p) => setPage(p)} />
     );
   },
 };
@@ -54,11 +43,7 @@ export const LastPage: Story = {
   render: () => {
     const [page, setPage] = useState(10);
     return (
-      <Pagination
-        page={page}
-        total={10}
-        onPageChange={(p) => setPage(p)}
-      />
+      <Pagination page={page} total={10} onPageChange={(p) => setPage(p)} />
     );
   },
 };
@@ -84,6 +69,36 @@ export const PageChangeCallback: Story = {
           }}
         />
       </>
+    );
+  },
+};
+
+export const WithLimitSelect: Story = {
+  render: () => {
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const totalItem = 97;
+
+    const totalPage = Math.ceil(totalItem / limit);
+
+    return (
+      <div className="flex justify-between">
+        <PaginationSizeSelect
+          page={page}
+          limit={limit}
+          totalItem={totalItem}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1); // reset về trang đầu nếu đổi limit
+          }}
+        />
+        <Pagination
+          className="mx-0 inline-flex w-auto"
+          page={page}
+          total={totalPage}
+          onPageChange={(p) => setPage(p)}
+        />
+      </div>
     );
   },
 };
