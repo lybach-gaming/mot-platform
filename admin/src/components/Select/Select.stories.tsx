@@ -34,6 +34,7 @@ export const Default: Story = {
         options={simpleOptions}
         onValueChange={setValue}
         placeholder="Select option"
+        className='w-[180px]'
       />
     );
   },
@@ -57,6 +58,7 @@ export const CustomLabel: Story = {
           </div>
         )}
         getItemValue={(item) => item?.value || ''}
+        className='w-[180px]'
       />
     );
   },
@@ -79,6 +81,7 @@ export const WithCustomValueKey: Story = {
         getItemValue={(item) => item.slug}
         renderSelectItem={(item) => item.name}
         placeholder="Select platform"
+        className='w-[180px]'
       />
     );
   },

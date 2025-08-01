@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from './SelectBase';
 
 interface SelectProps<
   T = { label?: string; value?: string; [key: string]: any }
@@ -18,6 +18,7 @@ interface SelectProps<
   renderSelectItem?: (option: T) => React.ReactNode;
   getItemValue?: (option: T) => string;
   placeholder?: string;
+  className?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -27,10 +28,11 @@ export const Select: React.FC<SelectProps> = ({
   renderSelectItem = (option) => option?.label,
   getItemValue = (option) => option?.value,
   placeholder,
+  className,
 }) => {
   return (
     <BaseSelect value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="w-[180px] h-[calc(2.25rem+6px)] text-[14px] bg-[#fdfdfd] border-[#e4e6fc] shadow-none rounded-[0.25rem]">
+      <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} className="" />
       </SelectTrigger>
       <SelectContent>
