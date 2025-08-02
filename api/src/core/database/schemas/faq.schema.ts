@@ -1,0 +1,20 @@
+export const FAQ_SCHEMA = {
+  TABLE: 'tbl_faq',
+  FIELDS: {
+    ID: 'id',
+    LANGUAGE_ID: 'language_id',
+    QUIZZ_MODE: 'quizz_mode',
+    TYPE: 'type',
+    QUIZZ_BY_LANGUAGE_LAN_ID: 'quizz_by_language_lan_id',
+    MAINCAT_ID: 'maincat_id',
+    SUBCATEGORY_ID: 'subcategory_id',
+    SUBCATEGORY_LEVEL_ID: 'subcategory_level_id',
+    QUIZZ_ID: 'quizz_id',
+    QUESTION: 'question',
+    ANSWER: 'answer',
+    SEO_BLOCK: 'seo_block',
+    NOTE: 'note',
+    DESCRIPTION: 'description',
+    ENABLE_FAQ: 'enable_faq',
+  },
+} as const;

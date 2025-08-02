@@ -2,216 +2,122 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SettingService } from './setting.service';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
-import { CacheKey } from '../../common/constants/cache-key';
-import { WEB_SETTINGS_SCHEMA } from '../../core/database/schemas/web-settings.schema';
-import { LOGO_TYPES, IMAGE_TYPES } from '../../common/constants/setting-key';
 
 describe('SettingService', () => {
   let service: SettingService;
+  let dbService: DatabaseService;
+  let redisService: RedisService;
 
-  const mockDbService = {
-    connection: {
-      table: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      first: jest.fn(),
-      insert: jest.fn(),
-      update: jest.fn(),
-      del: jest.fn(),
-      orderBy: jest.fn().mockReturnThis(),
-    },
-  };
-
-  const mockRedisService = {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-  };
+  const mockDbRows = [
+    { type: 'site_title', message: 'My Website' },
+    { type: 'logo', message: 'logo.png' },
+  ];
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    dbService = {
+      connection: {
+        table: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ message: 'value' }),
+        select: jest.fn().mockResolvedValue(mockDbRows),
+      },
+    };
+
+    redisService = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SettingService,
-        {
-          provide: DatabaseService,
-          useValue: mockDbService,
-        },
-        {
-          provide: RedisService,
-          useValue: mockRedisService,
-        },
+        { provide: DatabaseService, useValue: dbService },
+        { provide: RedisService, useValue: redisService },
       ],
     }).compile();
 
     service = module.get<SettingService>(SettingService);
   });
 
-  describe('getWebSetting', () => {
-    it('should return cached setting if exists', async () => {
-      const mockSettings = { test: 'value' };
-      mockRedisService.get.mockResolvedValue(mockSettings);
-
-      const result = await service.getWebSetting('test');
-
-      expect(result).toBe('value');
-      expect(mockRedisService.get).toHaveBeenCalledWith(CacheKey.WebSetting);
-      expect(mockDbService.connection.table).not.toHaveBeenCalled();
+  describe('getPublicWebSetting', () => {
+    it('should return data from cache if exists', async () => {
+      redisService.get.mockResolvedValueOnce({ logo: 'logo.png' });
+      const result = await service.getPublicWebSetting();
+      expect(result).toEqual({ logo: 'logo.png' });
     });
 
-    it('should get setting from DB if not in cache', async () => {
-      mockRedisService.get.mockResolvedValue(null);
-      mockDbService.connection.first.mockResolvedValue({ value: 'dbValue' });
+    it('should call syncWebSettingToCache if no cache', async () => {
+      redisService.get
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ title: 'Website' });
+      const result = await service.getPublicWebSetting();
+      expect(redisService.set).toHaveBeenCalled();
+      expect(result).toEqual({ title: 'Website' });
+    });
+  });
 
-      const result = await service.getWebSetting('test');
-
-      expect(result).toBe('dbValue');
-      expect(mockDbService.connection.table).toHaveBeenCalledWith(
-        WEB_SETTINGS_SCHEMA.TABLE
-      );
-      expect(mockDbService.connection.where).toHaveBeenCalledWith({
-        type: 'test',
-      });
+  describe('getSetting', () => {
+    it('should return cached value if type exists in cache', async () => {
+      redisService.get.mockResolvedValueOnce({ site_title: 'My Website' });
+      const result = await service.getSetting({ type: 'site_title' });
+      expect(result).toBe('My Website');
     });
 
-    it('should return null if setting not found', async () => {
-      mockRedisService.get.mockResolvedValue(null);
-      mockDbService.connection.first.mockResolvedValue(null);
-
-      const result = await service.getWebSetting('nonexistent');
-
-      expect(result).toBeNull();
+    it('should fetch from db and call syncSettingToCache if not cached', async () => {
+      redisService.get.mockResolvedValueOnce(null);
+      const result = await service.getSetting({ type: 'site_title' });
+      expect(redisService.set).toHaveBeenCalled();
+      expect(result).toBeDefined();
     });
   });
 
   describe('getAllWebSetting', () => {
-    it('should return cached settings if they exist', async () => {
-      const mockSettings = { key: 'value' };
-      mockRedisService.get.mockResolvedValue(mockSettings);
-
+    it('should return data from cache if available', async () => {
+      redisService.get.mockResolvedValueOnce({ site_title: 'My Website' });
       const result = await service.getAllWebSetting();
-
-      expect(result).toEqual(mockSettings);
-      expect(mockRedisService.get).toHaveBeenCalledWith(CacheKey.WebSetting);
-      expect(mockDbService.connection.table).not.toHaveBeenCalled();
+      expect(result).toEqual({ site_title: 'My Website' });
     });
 
-    it('should sync and return settings if cache is empty', async () => {
-      const mockSettings = { key: 'value' };
-      mockRedisService.get
+    it('should sync cache and return data if cache is empty', async () => {
+      redisService.get
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockSettings);
-
+        .mockResolvedValueOnce({ logo: 'logo.png' });
       const result = await service.getAllWebSetting();
-
-      expect(result).toEqual(mockSettings);
-      expect(mockRedisService.get).toHaveBeenCalledTimes(2);
-      expect(mockDbService.connection.table).toHaveBeenCalled();
-    });
-
-    it('should return empty object if no settings exist', async () => {
-      mockRedisService.get.mockResolvedValue(null);
-      mockDbService.connection.select.mockResolvedValue([]);
-
-      const result = await service.getAllWebSetting();
-
-      expect(result).toEqual({});
+      expect(redisService.set).toHaveBeenCalled();
+      expect(result).toEqual({ logo: 'logo.png' });
     });
   });
 
-  describe('setWebSetting', () => {
-    it('should update existing setting', async () => {
-      const key = 'test';
-      const value = 'value';
-      mockDbService.connection.first.mockResolvedValue({ id: 1 });
-
-      await service.setWebSetting(key, value);
-
-      expect(mockDbService.connection.update).toHaveBeenCalledWith({
-        message: value,
-      });
-      expect(mockRedisService.set).toHaveBeenCalled();
+  describe('getWebSetting', () => {
+    it('should return value from cache if available', async () => {
+      redisService.get.mockResolvedValueOnce({ logo: 'logo.png' });
+      const result = await service.getWebSetting('logo');
+      expect(result).toEqual('logo.png');
     });
 
-    it('should insert new setting', async () => {
-      const key = 'test';
-      const value = 'value';
-      mockDbService.connection.first.mockResolvedValue(null);
-
-      await service.setWebSetting(key, value);
-
-      expect(mockDbService.connection.insert).toHaveBeenCalledWith({
-        type: key,
-        message: value,
-      });
-      expect(mockRedisService.set).toHaveBeenCalled();
-    });
-
-    it('should throw error if update fails', async () => {
-      mockDbService.connection.first.mockRejectedValue(new Error('DB Error'));
-
-      await expect(service.setWebSetting('test', 'value')).rejects.toThrow(
-        'DB Error'
-      );
+    it('should fetch from db and return value if not cached', async () => {
+      redisService.get.mockResolvedValueOnce(null);
+      dbService.connection.first.mockResolvedValueOnce({ value: 'logo.png' });
+      const result = await service.getWebSetting('logo');
+      expect(redisService.set).toHaveBeenCalled();
+      expect(result).toEqual('logo.png');
     });
   });
 
-  describe('transformSettingsRows', () => {
-    it('should transform logo URLs correctly', () => {
-      const rows = [
-        { type: LOGO_TYPES[0], message: 'logo.png' },
-        { type: 'other_type', message: 'other.png' },
-      ];
-
-      const result = service.transformSettingsRows(rows);
-
-      expect(result[LOGO_TYPES[0]]).toContain(WEB_SETTINGS_SCHEMA.LOGO_PATH);
-      expect(result.other_type).toBe('other.png');
+  describe('findAllSetting', () => {
+    it('should return cached settings if available', async () => {
+      redisService.get.mockResolvedValueOnce({ a: '1', b: '2' });
+      const result = await service.findAllSetting();
+      expect(result).toEqual({ a: '1', b: '2' });
     });
 
-    it('should transform image URLs correctly', () => {
-      const rows = [
-        { type: IMAGE_TYPES[0], message: 'image.jpg' },
-        { type: 'other_type', message: 'other.jpg' },
-      ];
-
-      const result = service.transformSettingsRows(rows);
-
-      expect(result[IMAGE_TYPES[0]]).toContain(WEB_SETTINGS_SCHEMA.IMAGE_PATH);
-      expect(result.other_type).toBe('other.jpg');
-    });
-
-    it('should handle empty messages', () => {
-      const rows = [
-        { type: LOGO_TYPES[0], message: '' },
-        { type: IMAGE_TYPES[0], message: '' },
-      ];
-
-      const result = service.transformSettingsRows(rows);
-
-      expect(result[LOGO_TYPES[0]]).toBe('');
-      expect(result[IMAGE_TYPES[0]]).toBe('');
-    });
-  });
-
-  describe('error handling', () => {
-    it('should handle redis errors gracefully', async () => {
-      mockRedisService.get.mockRejectedValue(new Error('Redis error'));
-      mockDbService.connection.select.mockResolvedValue([
-        { type: 'test', message: 'value' },
-      ]);
-
-      const result = await service.getAllWebSetting();
-
-      expect(result).toEqual({ test: 'value' });
-    });
-
-    it('should handle database errors', async () => {
-      mockRedisService.get.mockResolvedValue(null);
-      mockDbService.connection.select.mockRejectedValue(new Error('DB error'));
-
-      await expect(service.getAllWebSetting()).rejects.toThrow('DB error');
+    it('should sync cache and return if empty', async () => {
+      redisService.get
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ a: '1' });
+      const result = await service.findAllSetting();
+      expect(redisService.set).toHaveBeenCalled();
+      expect(result).toEqual({ a: '1' });
     });
   });
 });

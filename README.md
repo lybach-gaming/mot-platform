@@ -114,6 +114,46 @@ If using VS Code, install the [Nx Console Extension](https://marketplace.visuals
 
 ---
 
+## 🗄️ Database Migrations (Knex)
+
+### 🧱 Migration File Naming Convention
+
+All migration files must follow the naming pattern:
+
+- `YYYYMMDD` – current date (e.g., `20250723`)
+- `HHmm` – current local time in 24-hour format (e.g., `0903` for 09:03 AM`)
+- `description` – short, clear description of the migration purpose
+
+Example:
+
+```
+202507230903_add_idx_user_id_to_users_badges.js
+```
+
+```bash
+# Run latest migrations (local / development)
+npx knex migrate:latest
+
+# Roll back last batch of migrations (local / development)
+npx knex migrate:rollback
+
+# Run latest migrations (staging)
+npx knex migrate:latest --env staging
+
+# Roll back last batch of migrations (staging)
+npx knex migrate:rollback --env staging
+
+# Run DB connection test script under the local environment
+npx ts-node test-knex-connection.ts
+
+# Run DB connection test script with the staging environment (macOS/Linux, use:)
+NODE_ENV=staging npx ts-node test-knex-connection.ts
+
+# Run DB connection test script with the staging environment (Windows PowerShell syntax)
+$env:NODE_ENV = "staging"; npx ts-node test-knex-connection.ts
+```
+---
+
 ## 🌐 Community & Documentation
 
 - [Nx Documentation](https://nx.dev)

@@ -1,3 +1,5 @@
+import { SettingsDto } from './dto/settings.dto';
+import { transformToString } from '../../common/utils/transform.util';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CacheKey } from '../../common/constants/cache-key';
 import { DatabaseService } from '../../core/database/database.service';
@@ -22,31 +24,37 @@ export class SettingService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    this.logger.debug('🔄 Preloading all web settings into Redis cache...');
+    this.logger.debug(
+      '🔄 Preloading settings and web settings into Redis cache...'
+    );
+
     await Promise.all([
       this.syncSettingToCache(),
       this.syncWebSettingToCache(),
     ]);
-    this.logger.debug('✅ Redis cache populated with web settings');
+
+    this.logger.debug(
+      '✅ Redis cache populated with settings and web settings'
+    );
   }
 
   /**
-   * Transform settings rows into a key-value object
-   * @param rows - Array of settings rows from the database
+   * Transform web settings rows into a key-value object
+   * @param rows - Array of web settings rows from the database
    * @returns Key-value object of settings
    */
-  transformSettingsRows(rows: ISetting[]): Record<string, string> {
+  transformWebSettingsRows(rows: ISetting[]): Record<string, string> {
     return rows.reduce((acc, cur) => {
       let message = cur.message;
 
       // Transform logo URLs
-      if (LOGO_TYPES.includes(cur.type)) {
+      if (LOGO_TYPES.includes(cur.type as (typeof LOGO_TYPES)[number])) {
         message = message
           ? `${BASE_URL}${WEB_SETTINGS_LOGO_PATH}${message}`
           : '';
       }
       // Transform image URLs
-      else if (IMAGE_TYPES.includes(cur.type)) {
+      else if (IMAGE_TYPES.includes(cur.type as (typeof IMAGE_TYPES)[number])) {
         message = message
           ? `${BASE_URL}${WEB_HOME_SETTINGS_LOGO_PATH}${message}`
           : '';
@@ -59,17 +67,24 @@ export class SettingService implements OnModuleInit {
 
   /**
    * Sync settings to Redis cache
+   * @returns The updated settings map
    */
-  async syncSettingToCache(): Promise<void> {
+  async syncSettingToCache(): Promise<Record<string, SettingsDto>> {
     try {
       const rows: ISetting[] = await this.dbService.connection
         .table(SETTINGS_SCHEMA.TABLE)
-        .select(SETTINGS_SCHEMA.FIELDS.TYPE, SETTINGS_SCHEMA.FIELDS.MESSAGE);
+        .select('*');
 
-      const settings = this.transformSettingsRows(rows);
+      const transformed: SettingsDto[] = transformToString(rows);
 
-      await this.redisService.set(CacheKey.Setting, settings);
+      const settingMap: Record<string, SettingsDto> = Object.fromEntries(
+        transformed.map((row) => [row.type, row])
+      );
+
+      await this.redisService.set(CacheKey.Setting, settingMap);
+
       this.logger.debug('Settings successfully synced to Redis cache');
+      return settingMap;
     } catch (error) {
       this.logger.error('Failed to sync settings to Redis cache', error);
       throw error;
@@ -77,51 +92,83 @@ export class SettingService implements OnModuleInit {
   }
 
   /**
-   * Get a specific setting by key
-   * @param key - The setting key to retrieve
+   * Get a specific setting by type
+   * @param type - The setting type to retrieve
    * @returns The value of the setting or null if not found
    */
-  async getSetting(key: string): Promise<string | null> {
-    const cachedSettings = await this.redisService.get<Record<string, string>>(
-      CacheKey.Setting
-    );
+  async getSetting(params: {
+    type?: string;
+  }): Promise<string | SettingsDto[] | null> {
+    try {
+      this.logger.debug(
+        `Fetching ${
+          params.type ? `setting for type: ${params.type}` : 'all settings'
+        }`
+      );
 
-    if (cachedSettings && key in cachedSettings) {
-      return cachedSettings[key];
+      const cachedSettings = await this.redisService.get<
+        Record<string, SettingsDto>
+      >(CacheKey.Setting);
+
+      if (cachedSettings) {
+        if (params.type) {
+          const setting = cachedSettings[params.type];
+          if (setting) {
+            this.logger.debug(
+              `Returning cached setting for type: ${params.type}`
+            );
+            return setting.message;
+          }
+        } else {
+          this.logger.debug('Returning all cached settings');
+          return Object.values(cachedSettings);
+        }
+      }
+
+      const query = this.dbService.connection.table(SETTINGS_SCHEMA.TABLE);
+      if (params.type) {
+        query.where(
+          `${SETTINGS_SCHEMA.TABLE}.${SETTINGS_SCHEMA.FIELDS.TYPE}`,
+          params.type
+        );
+      }
+
+      const data = await query.select('*');
+      if (!data || data.length === 0) {
+        return null;
+      }
+
+      const settingsMap = await this.syncSettingToCache();
+
+      return params.type
+        ? settingsMap[params.type]?.message ?? null
+        : Object.values(settingsMap);
+    } catch (error) {
+      this.logger.error('Failed to get settings', error);
+      return null;
     }
-
-    const result = await this.dbService.connection
-      .table(SETTINGS_SCHEMA.TABLE)
-      .where({ type: key })
-      .first(SETTINGS_SCHEMA.FIELDS.MESSAGE);
-
-    await this.syncSettingToCache();
-
-    return result ? result.value : null;
   }
 
   /**
    * Get all settings
    * @returns All settings as a key-value object
    */
-  async findAllSetting(): Promise<Record<string, string>> {
-    let cachedSettings = await this.redisService.get<Record<string, string>>(
-      CacheKey.Setting
-    );
+  async findAllSetting(): Promise<Record<string, SettingsDto>> {
+    let cachedSettings = await this.redisService.get<
+      Record<string, SettingsDto>
+    >(CacheKey.Setting);
 
     if (!cachedSettings) {
-      await this.syncSettingToCache();
-      cachedSettings = await this.redisService.get<Record<string, string>>(
-        CacheKey.Setting
-      );
+      cachedSettings = await this.syncSettingToCache();
     }
 
     return cachedSettings ?? {};
   }
 
   /**
-   * Get public settings
-   * @returns Public settings as a key-value object
+   * Set a setting in the database and update the Redis cache
+   * @param key - The setting key to set
+   * @param value - The value to store for the setting
    */
   async setSetting(key: string, value: string): Promise<void> {
     const exists = await this.dbService.connection
@@ -132,7 +179,7 @@ export class SettingService implements OnModuleInit {
     if (exists) {
       await this.dbService.connection
         .table(SETTINGS_SCHEMA.TABLE)
-        .where({ key })
+        .where({ type: key })
         .update({ message: value });
     } else {
       await this.dbService.connection
@@ -167,10 +214,10 @@ export class SettingService implements OnModuleInit {
           WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE
         );
 
-      const settings = this.transformSettingsRows(rows);
+      const settings = this.transformWebSettingsRows(rows);
 
       await this.redisService.set(CacheKey.WebSetting, settings);
-      this.logger.debug('Settings successfully synced to Redis cache');
+      this.logger.debug('Web Settings successfully synced to Redis cache');
     } catch (error) {
       this.logger.error('Failed to sync settings to Redis cache', error);
       throw error;
@@ -196,7 +243,7 @@ export class SettingService implements OnModuleInit {
       .where({ type: key })
       .first(WEB_SETTINGS_SCHEMA.FIELDS.MESSAGE);
 
-    await this.syncSettingToCache();
+    await this.syncWebSettingToCache();
 
     return result ? result.value : null;
   }
@@ -211,7 +258,7 @@ export class SettingService implements OnModuleInit {
     );
 
     if (!cachedSettings) {
-      await this.syncSettingToCache();
+      await this.syncWebSettingToCache();
       cachedSettings = await this.redisService.get<Record<string, string>>(
         CacheKey.WebSetting
       );
@@ -230,7 +277,7 @@ export class SettingService implements OnModuleInit {
     );
 
     if (!cachedSettings) {
-      await this.syncSettingToCache();
+      await this.syncWebSettingToCache();
       cachedSettings = await this.redisService.get<Record<string, string>>(
         CacheKey.WebSetting
       );
@@ -261,7 +308,7 @@ export class SettingService implements OnModuleInit {
         .insert({ type: key, message: value });
     }
 
-    await this.syncSettingToCache();
+    await this.syncWebSettingToCache();
   }
 
   /**
@@ -273,6 +320,6 @@ export class SettingService implements OnModuleInit {
       .table(WEB_SETTINGS_SCHEMA.TABLE)
       .where({ type: key })
       .del();
-    await this.syncSettingToCache();
+    await this.syncWebSettingToCache();
   }
 }

@@ -6,21 +6,14 @@ describe('SettingController', () => {
   let controller: SettingController;
 
   const mockSettingService = {
-    getAllWebSetting: jest.fn(),
     getPublicWebSetting: jest.fn(),
-    setWebSetting: jest.fn(),
-    deleteWebSetting: jest.fn(),
+    getSetting: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SettingController],
-      providers: [
-        {
-          provide: SettingService,
-          useValue: mockSettingService,
-        },
-      ],
+      providers: [{ provide: SettingService, useValue: mockSettingService }],
     }).compile();
 
     controller = module.get<SettingController>(SettingController);
@@ -30,48 +23,62 @@ describe('SettingController', () => {
     jest.clearAllMocks();
   });
 
-  describe('getAllWebSettings', () => {
-    it('should return all web settings', async () => {
-      const mockSettings = { key: 'value' };
-      mockSettingService.getAllWebSetting.mockResolvedValue(mockSettings);
+  describe('getWebSettingGet', () => {
+    it('should return web settings via GET', async () => {
+      const mockData = { foo: 'bar' };
+      mockSettingService.getPublicWebSetting.mockResolvedValueOnce(mockData);
 
-      const result = await controller.getAllWebSettings();
-
-      expect(result).toEqual(mockSettings);
-      expect(mockSettingService.getAllWebSetting).toHaveBeenCalled();
-    });
-  });
-
-  describe('getPublicWebSettings', () => {
-    it('should return public web settings', async () => {
-      const mockSettings = { key: 'value' };
-      mockSettingService.getPublicWebSetting.mockResolvedValue(mockSettings);
-
-      const result = await controller.getPublicWebSettings();
-
-      expect(result).toEqual(mockSettings);
+      const result = await controller.getWebSettingGet();
+      expect(result).toEqual({ error: false, data: mockData });
       expect(mockSettingService.getPublicWebSetting).toHaveBeenCalled();
     });
   });
 
-  describe('updateWebSetting', () => {
-    it('should update web setting', async () => {
-      const key = 'test';
-      const value = 'value';
+  describe('getWebSettingPost', () => {
+    it('should return web settings via POST', async () => {
+      const mockData = { foo: 'bar' };
+      mockSettingService.getPublicWebSetting.mockResolvedValueOnce(mockData);
 
-      await controller.updateWebSetting(key, value);
-
-      expect(mockSettingService.setWebSetting).toHaveBeenCalledWith(key, value);
+      const result = await controller.getWebSettingPost();
+      expect(result).toEqual({ error: false, data: mockData });
+      expect(mockSettingService.getPublicWebSetting).toHaveBeenCalled();
     });
   });
 
-  describe('deleteWebSetting', () => {
-    it('should delete web setting', async () => {
-      const key = 'test';
+  describe('getSettingGet', () => {
+    it('should return setting with type query param', async () => {
+      const mockData = { type: 'about_us', message: 'Hello' };
+      mockSettingService.getSetting.mockResolvedValueOnce(mockData);
 
-      await controller.deleteWebSetting(key);
+      const result = await controller.getSettingGet('about_us');
+      expect(result).toEqual({ error: false, data: mockData });
+      expect(mockSettingService.getSetting).toHaveBeenCalledWith({
+        type: 'about_us',
+      });
+    });
 
-      expect(mockSettingService.deleteWebSetting).toHaveBeenCalledWith(key);
+    it('should return all settings when no type provided', async () => {
+      const mockData = [{ type: 'a' }, { type: 'b' }];
+      mockSettingService.getSetting.mockResolvedValueOnce(mockData);
+
+      const result = await controller.getSettingGet(undefined);
+      expect(result).toEqual({ error: false, data: mockData });
+      expect(mockSettingService.getSetting).toHaveBeenCalledWith({
+        type: undefined,
+      });
+    });
+  });
+
+  describe('getSettingPost', () => {
+    it('should return setting with type in body', async () => {
+      const mockData = { type: 'contact_us', message: 'Hi' };
+      mockSettingService.getSetting.mockResolvedValueOnce(mockData);
+
+      const result = await controller.getSettingPost({ type: 'contact_us' });
+      expect(result).toEqual({ error: false, data: mockData });
+      expect(mockSettingService.getSetting).toHaveBeenCalledWith({
+        type: 'contact_us',
+      });
     });
   });
 });
