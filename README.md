@@ -36,6 +36,16 @@ This will serve the dashboard at: http://localhost:3000
 
 ---
 
+#### Run Storybook for Admin
+
+```bash
+npx nx run @mot-platform/admin:storybook
+```
+
+This will serve the Storybook for the admin dashboard
+
+---
+
 ## 💡 Project Structure
 
 - `/api/`: NestJS API backend

@@ -7,16 +7,25 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import { AppModule } from './app/app.module';
 import { ValidationPipe } from '@nestjs/common';
+import '../env.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['log', 'warn', 'error']
+        : ['debug', 'log', 'warn', 'error'],
+  });
+
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
 
   app.enableCors();
   app.use(cookieParser());
+  app.use(compression({ threshold: 1024 }));
 
   app.useGlobalPipes(
     // Add any global validation pipes here if needed
@@ -40,9 +49,10 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3333;
-  await app.listen(port);
+  const host = process.env.HOST || '0.0.0.0';
+  await app.listen(port, host);
   Logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`
+    `🚀 Application is running on: http://${host}:${port}/${globalPrefix}`
   );
 }
 
