@@ -11,6 +11,7 @@ import compression from 'compression';
 import { AppModule } from './app/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import '../env.js';
+import * as basicAuth from 'express-basic-auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -41,7 +42,17 @@ async function bootstrap() {
     .addBearerAuth()
     .setVersion('1.0')
     .build();
+
   const swaggerDocument = SwaggerModule.createDocument(app, config);
+
+  app.use(
+    ['/api/swagger', '/api/swagger-json'],
+    basicAuth({
+      users: { admin: 'newmotbackend' },
+      challenge: true,
+    })
+  );
+
   SwaggerModule.setup('/api/swagger', app, swaggerDocument, {
     swaggerOptions: {
       persistAuthorization: true,
