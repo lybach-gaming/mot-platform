@@ -22,7 +22,7 @@ import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
 @Injectable()
 export class QuestionService {
   private readonly logger = new Logger(QuestionService.name);
-  private readonly MAX_BATCH_SIZE = 100; // Giới hạn số lượng questions/batch
+  private readonly MAX_BATCH_SIZE = 100; // Limit questions/batch
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -104,7 +104,7 @@ export class QuestionService {
       return result;
     }
 
-    // Format lại response cho single create để giữ backward compatibility
+    // Format response for single create
     return {
       error: false,
       message: 'Question created successfully',
@@ -118,6 +118,9 @@ export class QuestionService {
    * @returns Result of batch creation
    */
   async createQuestionBatch(dto: BatchCreateQuestionDto) {
+    if (!dto.questions || !Array.isArray(dto.questions)) {
+      throw new BadRequestException('Invalid questions payload');
+    }
     // Validate batch size
     if (dto.questions.length > this.MAX_BATCH_SIZE) {
       return {
@@ -132,82 +135,79 @@ export class QuestionService {
       const trx = await this.dbService.connection.transaction();
 
       try {
-        const batchResults = [];
-        const errors = [];
+        const succeeded = [];
+        const failed = [];
         const questionsToInsert = [];
+        const originalQuestions = [];
 
-        // First, prepare all questions data
+        // Prepare each question for insertion
         for (const [index, question] of dto.questions.entries()) {
           try {
-            const questionData = await this.prepareQuestionData(question);
-            questionsToInsert.push(questionData);
-          } catch (questionError) {
-            errors.push({
+            const prepared = await this.prepareQuestionData(question);
+            questionsToInsert.push(prepared);
+            originalQuestions.push(question); // keep original for response
+          } catch (error) {
+            failed.push({
               index,
               question: question.question,
-              error: questionError.message,
+              error: error.message,
             });
-            this.logger.error(
-              `Failed to prepare question: ${questionError.message}`,
-              {
-                question: question.question,
-                stack: questionError.stack,
-              }
-            );
+
+            this.logger.error(`Failed to prepare question`, {
+              question: question.question,
+              stack: error.stack,
+            });
           }
         }
 
-        // Then do a batch insert for all prepared questions
-        if (questionsToInsert.length > 0) {
-          // Use chunking if number of questions is large
-          const chunkSize = 100; // Adjust based on your DB performance
-          const chunks = [];
+        // Insert questions in chunks
+        for (
+          let i = 0;
+          i < questionsToInsert.length;
+          i += this.MAX_BATCH_SIZE
+        ) {
+          const chunk = questionsToInsert.slice(i, i + this.MAX_BATCH_SIZE);
+          const originalChunk = originalQuestions.slice(
+            i,
+            i + this.MAX_BATCH_SIZE
+          );
 
-          for (let i = 0; i < questionsToInsert.length; i += chunkSize) {
-            const chunk = questionsToInsert.slice(i, i + chunkSize);
-            chunks.push(chunk);
-          }
+          const result = await trx(QUESTION_SCHEMA.TABLE).insert(chunk);
+          const firstInsertId = Array.isArray(result) ? result[0] : result;
 
-          // Process chunks sequentially within the same transaction
-          for (const chunk of chunks) {
-            const insertedIds = await trx(QUESTION_SCHEMA.TABLE)
-              .insert(chunk)
-              .returning(QUESTION_SCHEMA.FIELDS.ID);
-
-            // Map results maintaining original question order
-            batchResults.push(
-              ...insertedIds.map((id, idx) => ({
-                id,
-                success: true,
-                question: dto.questions[batchResults.length + idx].question,
-              }))
-            );
+          for (let j = 0; j < chunk.length; j++) {
+            succeeded.push({
+              id: firstInsertId + j,
+              success: true,
+              question: originalChunk[j]?.question ?? '[unknown]',
+            });
           }
         }
 
-        if (batchResults.length > 0) {
+        // Commit transaction if all succeeded
+        if (succeeded.length > 0) {
           await trx.commit();
           await this.redisService.del(CacheKey.GetQuestionsQuizHd);
-
-          return {
-            error: false,
-            message: `Successfully created ${batchResults.length} questions${
-              errors.length > 0 ? ` with ${errors.length} errors` : ''
-            }`,
-            data: {
-              succeeded: batchResults,
-              failed: errors,
-              totalProcessed: dto.questions.length,
-            },
-          };
         } else {
           await trx.rollback();
-          return {
-            error: true,
-            message: 'Failed to create any questions in batch',
-            data: { errors },
-          };
         }
+
+        const total = dto.questions.length;
+
+        return {
+          error: failed.length > 0,
+          message:
+            succeeded.length === total
+              ? `Successfully created all ${total} questions`
+              : succeeded.length === 0
+              ? `Failed to create any questions`
+              : `Partially created ${succeeded.length} of ${total} questions`,
+          data: {
+            succeeded,
+            failed,
+            totalProcessed: total,
+          },
+        };
       } catch (trxError) {
         await trx.rollback();
         throw trxError;
