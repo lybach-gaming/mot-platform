@@ -11,7 +11,7 @@ import compression from 'compression';
 import { AppModule } from './app/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import '../env.js';
-import * as basicAuth from 'express-basic-auth';
+import basicAuth from 'express-basic-auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
