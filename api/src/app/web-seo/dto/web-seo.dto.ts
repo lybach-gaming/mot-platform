@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class WebSeoDto {
@@ -110,8 +110,8 @@ export class WebSeoDto {
 
   @ApiProperty({ description: 'Schema markup for SEO' })
   @IsString()
-  @IsNotEmpty()
-  schema_markup: string;
+  @IsOptional()
+  schema_markup?: string = '';
 
   @ApiProperty({ description: 'SEO block content', default: '' })
   @IsString()
