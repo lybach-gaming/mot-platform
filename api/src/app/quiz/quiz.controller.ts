@@ -18,7 +18,11 @@ export class QuizController {
   @UseInterceptors(FileInterceptor('image_file'))
   async createQuiz(
     @UploadedFile() file: Express.Multer.File,
-    @Body() createQuizDto: CreateQuizDto) {
+    @Body() createQuizDto: CreateQuizDto
+  ) {
+    if (file) {
+      createQuizDto.image_file = file;
+    }
     return await this.quizService.createQuiz(createQuizDto);
   }
 
