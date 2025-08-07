@@ -1,3 +1,5 @@
+import { OrderBy } from './../../common/constants/app';
+import { QuizSortBy } from './../../common/constants/quiz';
 import {
   Body,
   Controller,
@@ -15,6 +17,7 @@ import {
   ApiOperation,
   ApiConsumes,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
@@ -114,6 +117,59 @@ export class QuizController {
       editQuizDto.image_file = file;
     }
     return await this.quizService.editQuiz(+id, editQuizDto);
+  }
+
+  // [Admin] Endpoint to get all quizzes
+  @ApiOperation({ summary: '[Admin] Get all quizzes' })
+  @Get('/admin/quizzes')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of quizzes per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by title or description',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    enum: QuizSortBy,
+    default: QuizSortBy.ID,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    type: String,
+    enum: OrderBy,
+    default: OrderBy.DESC,
+    description: 'Sorting direction',
+  })
+  async getAllQuizzes(
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: QuizSortBy = QuizSortBy.ID,
+    @Query('order') order: OrderBy = OrderBy.DESC
+  ) {
+    return await this.quizService.getAllQuizzes({
+      limit,
+      offset,
+      search,
+      sortBy,
+      order,
+    });
   }
 
   @Get('/get_detail_quizzes')

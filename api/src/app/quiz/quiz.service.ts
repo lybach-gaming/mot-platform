@@ -1,3 +1,5 @@
+import { OrderBy} from './../../common/constants/app';
+import { QuizSortBy } from './../../common/constants/quiz';
 import { Injectable } from '@nestjs/common';
 import {
   BASE_URL,
@@ -525,6 +527,58 @@ export class QuizService {
         data: null,
       };
     }
+  }
+
+  /**
+   * Get all quizzes with pagination and optional search
+   * @param query - Query parameters for pagination and search
+   * @returns Paginated list of quizzes
+   */
+  async getAllQuizzes(query: {
+    limit: number;
+    offset: number;
+    search?: string;
+    sortBy?: string;
+    order?: OrderBy.DESC | OrderBy.ASC;
+  }) {
+    const {
+      limit = 20,
+      offset = 0,
+      search,
+      sortBy = QuizSortBy.ID,
+      order = OrderBy.DESC,
+    } = query;
+
+    const validSortFields = Object.values(QuizSortBy);
+    const sortField = validSortFields.includes(sortBy) ? sortBy : QuizSortBy.ID;
+
+    const db = this.dbService.connection(QUIZZ_SCHEMA.TABLE).select('*');
+
+    // Search by quiz name or slug
+    if (search) {
+      db.where((builder) => {
+        builder
+          .where(QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME, 'like', `%${search}%`)
+          .orWhere(QUIZZ_SCHEMA.FIELDS.SLUG, 'like', `%${search}%`);
+      });
+    }
+
+    const totalQuery = db.clone(); // Clone the query for total count
+
+    // Apply sort, limit, offset
+    const results = await db
+      .orderBy(sortField, order)
+      .limit(limit)
+      .offset(offset);
+
+    const total = await totalQuery.clearSelect().count({ count: '*' }).first();
+
+    return {
+      total: Number(total?.count || 0),
+      limit,
+      offset,
+      quizzes: results,
+    };
   }
 
   /**

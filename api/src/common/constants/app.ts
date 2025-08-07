@@ -1,4 +1,4 @@
-export const BASE_URL = process.env.BASE_URL ?? '';
+export const BASE_URL = process.env.BASE_URL ?? 'https://admin.mastersoftrivia.com/';
 
 export const FE_URL = process.env.FE_URL ?? 'https://mastersoftrivia.com/';
 
@@ -33,3 +33,8 @@ export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
 export const CACHE_TTL_DEFAULT = 1 * 60 * 60 // 1 hour
+
+export enum OrderBy {
+  ASC = 'asc',
+  DESC = 'desc',
+}
