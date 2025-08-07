@@ -11,3 +11,4 @@ export * from './subcategory.schema';
 export * from './users-badges.schema';
 export * from './users.schema';
 export * from './web-seo.schema';
+export * from './language.schema';

@@ -1,4 +1,3 @@
-import { OrderBy} from './../../common/constants/app';
 import { QuizSortBy } from './../../common/constants/quiz';
 import { Injectable } from '@nestjs/common';
 import {
@@ -7,6 +6,8 @@ import {
   QUIZ_HQ_SLUG,
   QUIZZES_IMAGE_PATH,
   QUIZZES_THUMB_PATH,
+  QUIZZES_THUMB_PATH_SMALL,
+  OrderBy,
 } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
@@ -25,6 +26,7 @@ import {
   SUBCATEGORY_LEVEL_SCHEMA,
   SUBCATEGORY_SCHEMA,
   WEB_SEO_SCHEMA,
+  LANGUAGE_SCHEMA,
 } from '../../core/database/schemas';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
 import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
@@ -552,24 +554,76 @@ export class QuizService {
     const validSortFields = Object.values(QuizSortBy);
     const sortField = validSortFields.includes(sortBy) ? sortBy : QuizSortBy.ID;
 
-    const db = this.dbService.connection(QUIZZ_SCHEMA.TABLE).select('*');
+    const db = this.dbService
+      .connection(QUIZZ_SCHEMA.TABLE + ' as q')
+      .leftJoin(`${LANGUAGE_SCHEMA.TABLE} as l`, 'l.id', 'q.language_id')
+      .leftJoin(`${CATEGORY_SCHEMA.TABLE} as c`, 'c.id', 'q.maincat_id')
+      .leftJoin(`${SUBCATEGORY_SCHEMA.TABLE} as s`, 's.id', 'q.main_subcat_id')
+      .leftJoin(
+        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE} as sl`,
+        'sl.id',
+        'q.main_subcat_level_id'
+      )
+      .leftJoin(
+        function () {
+          // Subquery to count number of questions
+          this.select('quizzes')
+            .count('* as no_of_que')
+            .from(`${QUESTION_SCHEMA.TABLE}`)
+            .groupBy('quizzes')
+            .as('qq');
+        },
+        'qq.quizzes',
+        'q.id'
+      )
+      .select(
+        'q.*',
+        'l.language as language_name',
+        'c.category_name',
+        'c.slug as category_slug',
+        's.subcategory_name',
+        's.slug as subcategory_slug',
+        'sl.subcategory_level_name',
+        'sl.slug as subcategory_level_slug',
+        this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
+      );
 
     // Search by quiz name or slug
     if (search) {
       db.where((builder) => {
         builder
-          .where(QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME, 'like', `%${search}%`)
-          .orWhere(QUIZZ_SCHEMA.FIELDS.SLUG, 'like', `%${search}%`);
+          .where(`q.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}`, 'like', `%${search}%`)
+          .orWhere(`q.${QUIZZ_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
       });
     }
 
     const totalQuery = db.clone(); // Clone the query for total count
 
     // Apply sort, limit, offset
-    const results = await db
+    const quizzes = await db
       .orderBy(sortField, order)
       .limit(limit)
       .offset(offset);
+
+    const results = quizzes.map((quiz) => {
+      const image = quiz.image
+        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+        : null;
+
+      const thumbnail = quiz.image
+        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
+        : null;
+
+      const prefixLang = quiz.language_id === 14 ? '/en' : '/en'; // Default to English for now
+      const shareUrl = `${FE_URL}${prefixLang}/${QUIZ_HQ_SLUG}/${quiz.category_slug}/${quiz.subcategory_slug}/${quiz.subcategory_level_slug}/${quiz.slug}`;
+
+      return {
+        ...quiz,
+        image_url: image,
+        thumbnail_url: thumbnail,
+        share_url: shareUrl,
+      };
+    });
 
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 

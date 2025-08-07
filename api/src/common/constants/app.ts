@@ -18,17 +18,25 @@ export const CATEGORY_IMAGE_PATH = 'images/category/';
 
 export const CATEGORY_THUMB_PATH = 'images/category/thumbs/100x100/';
 
+export const CATEGORY_THUMB_PATH_SMALL = 'images/category/thumbs/50x50/';
+
 export const SUBCATEGORY_IMAGE_PATH = 'images/subcategory/';
 
 export const SUBCATEGORY_THUMB_PATH = 'images/subcategory/thumbs/100x100/';
+
+export const SUBCATEGORY_THUMB_PATH_SMALL = 'images/subcategory/thumbs/50x50/';
 
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
 export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumbs/100x100/';
 
+export const SUBCATEGORY_LEVEL_THUMB_PATH_SMALL = 'images/subcategory-level/thumbs/50x50/';
+
 export const QUIZZES_IMAGE_PATH = 'images/quizzes/';
 
 export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
+
+export const QUIZZES_THUMB_PATH_SMALL = 'images/quizzes/thumbs/50x50/';
 
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
