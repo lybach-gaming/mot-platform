@@ -19,17 +19,17 @@ import {
   FileUploadOptions,
 } from '../../core/file-upload/file-upload.service';
 import {
+  LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
-  FAQ_SCHEMA,
+  SUBCATEGORY_SCHEMA,
+  SUBCATEGORY_LEVEL_SCHEMA,
+  QUIZZ_SCHEMA,
+  QUESTION_SCHEMA,
   QUIZ_HQ_LEADERBOARD_SCHEMA,
   QUIZ_RULES_SCHEMA,
-  SUBCATEGORY_LEVEL_SCHEMA,
-  SUBCATEGORY_SCHEMA,
   WEB_SEO_SCHEMA,
-  LANGUAGE_SCHEMA,
+  FAQ_SCHEMA,
 } from '../../core/database/schemas';
-import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
-import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -118,21 +118,23 @@ export class QuizService {
     const { edit_faq_ids = [], questions = [], answers = [] } = dto;
 
     const faqIdList = (dto.edit_faq_ids || []).map((id) => Number(id));
-    console.log('edit_faq_ids', faqIdList);
 
     // Get all existing FAQs for this quiz
     const allFaqInDb = await trx(FAQ_SCHEMA.TABLE)
-      .where({ quizz_id: quizId, type: 4 })
-      .select('id');
+      .where({
+        [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
+        [FAQ_SCHEMA.FIELDS.TYPE]: 4,
+      })
+      .select(`${FAQ_SCHEMA.FIELDS.ID}`);
 
     const idsToDelete = allFaqInDb
       .filter((faq) => !faqIdList.includes(faq.id))
       .map((faq) => faq.id);
 
-    console.log('idsToDelete', idsToDelete);
-
     if (idsToDelete.length > 0) {
-      await trx(FAQ_SCHEMA.TABLE).whereIn('id', idsToDelete).delete();
+      await trx(FAQ_SCHEMA.TABLE)
+        .whereIn(`${FAQ_SCHEMA.FIELDS.ID}`, idsToDelete)
+        .delete();
     }
 
     const cleanQuestions = questions.filter((q) => q && q.trim());
@@ -169,7 +171,9 @@ export class QuizService {
 
       if (i < idCount) {
         const faqId = edit_faq_ids[i];
-        await trx(FAQ_SCHEMA.TABLE).where('id', faqId).update(faqData);
+        await trx(FAQ_SCHEMA.TABLE)
+          .where(`${FAQ_SCHEMA.FIELDS.ID}`, faqId)
+          .update(faqData);
       } else {
         await trx(FAQ_SCHEMA.TABLE).insert(faqData);
       }
@@ -214,7 +218,10 @@ export class QuizService {
     if (!dto.slug && !dto.web_seo) return;
 
     const existing = await trx(WEB_SEO_SCHEMA.TABLE)
-      .where({ quizz_id: quizId, type: 4 })
+      .where({
+        [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
+        [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
+      })
       .first();
 
     if (!existing) {
@@ -245,7 +252,10 @@ export class QuizService {
     };
 
     await trx(WEB_SEO_SCHEMA.TABLE)
-      .where({ quizz_id: quizId, type: 4 })
+      .where({
+        [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
+        [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
+      })
       .update(updatedSeo);
   }
 
@@ -344,7 +354,7 @@ export class QuizService {
   }
 
   /**
-   * Create a new quiz
+   * [Admin] Create a new quiz
    *
    * @param createQuizDto - Data for creating the quiz
    * @returns Created quiz data or error response
@@ -447,7 +457,7 @@ export class QuizService {
   }
 
   /**
-   * Edit an existing quiz
+   * [Admin] Edit an existing quiz
    *
    * @param id - ID of the quiz to edit
    * @param editQuizDto - Data for editing the quiz
@@ -456,7 +466,9 @@ export class QuizService {
   async editQuiz(id: number, dto: EditQuizDto) {
     const trx = await this.dbService.connection.transaction();
     try {
-      const existing = await trx(QUIZZ_SCHEMA.TABLE).where('id', id).first();
+      const existing = await trx(QUIZZ_SCHEMA.TABLE)
+        .where(`${QUIZZ_SCHEMA.FIELDS.ID}`, id)
+        .first();
       if (!existing) {
         await trx.rollback();
         return { error: true, message: 'Quiz not found', data: null };
@@ -499,7 +511,9 @@ export class QuizService {
 
       // Update quiz
       if (Object.keys(quizData).length > 0) {
-        await trx(QUIZZ_SCHEMA.TABLE).where('id', id).update(quizData);
+        await trx(QUIZZ_SCHEMA.TABLE)
+          .where(`${QUIZZ_SCHEMA.FIELDS.ID}`, id)
+          .update(quizData);
       }
 
       // SEO + FAQ
@@ -508,7 +522,9 @@ export class QuizService {
         await this.updateFaqEntries(trx, id, dto);
       }
 
-      const updatedQuiz = await trx(QUIZZ_SCHEMA.TABLE).where('id', id).first();
+      const updatedQuiz = await trx(QUIZZ_SCHEMA.TABLE)
+        .where(`${QUIZZ_SCHEMA.FIELDS.ID}`, id)
+        .first();
       await trx.commit();
 
       await this.redisService.del(CacheKey.GetDetailQuizzes);
@@ -532,7 +548,7 @@ export class QuizService {
   }
 
   /**
-   * Get all quizzes with pagination and optional search
+   * [Admin] Get all quizzes with pagination and optional search
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of quizzes
    */
@@ -633,6 +649,89 @@ export class QuizService {
       offset,
       quizzes: results,
     };
+  }
+
+  /**
+   * [Admin] Get detailed information about a quiz
+   * @param id - ID of the quiz to retrieve
+   * @returns Detailed quiz information or error response
+   */
+  async getQuizDetails(id: number) {
+    if (!id) {
+      return {
+        error: true,
+        message: 'Quiz ID is required',
+        data: null,
+      };
+    }
+    const trx = await this.dbService.connection.transaction();
+    try {
+      // Fetch quiz details
+      const quiz = await trx(QUIZZ_SCHEMA.TABLE)
+        .where(`${QUIZZ_SCHEMA.FIELDS.ID}`, id)
+        .first();
+      if (!quiz) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Quiz not found',
+          data: null,
+        };
+      }
+
+      // Fetch related web SEO data
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where({
+          [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: id,
+          [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
+        })
+        .first();
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Quiz SEO data not found',
+          data: null,
+        };
+      }
+      quiz.web_seo = webSeo || null;
+
+      // Fetch FAQ entries related to this quiz
+      const faq = await trx(FAQ_SCHEMA.TABLE)
+        .where({
+          [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: id,
+          [FAQ_SCHEMA.FIELDS.TYPE]: 4,
+        })
+        .select('*');
+      if (faq) {
+        quiz.faq = faq;
+      }
+
+      // Format image URLs
+      const image = quiz.image
+        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+        : null;
+      const thumbnail = quiz.image
+        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
+        : null;
+      quiz.image_url = image;
+      quiz.thumbnail_url = thumbnail;
+
+      // Return formatted quiz data
+      await trx.commit();
+      return {
+        error: false,
+        message: 'Quiz details retrieved successfully',
+        data: transformToString(quiz),
+      };
+    } catch (error) {
+      await trx.rollback();
+      return {
+        error: true,
+        message: error.message || 'Failed to retrieve quiz details',
+        data: null,
+      };
+    }
   }
 
   /**

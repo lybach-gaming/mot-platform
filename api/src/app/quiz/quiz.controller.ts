@@ -172,6 +172,13 @@ export class QuizController {
     });
   }
 
+  // [Admin] Endpoint to get quiz details
+  @ApiOperation({ summary: '[Admin] Get quiz details' })
+  @Get('/admin/quizzes/:id')
+  async getQuizDetails(@Param('id') id: number) {
+    return await this.quizService.getQuizDetails(+id);
+  }
+
   @Get('/get_detail_quizzes')
   async getDetailQuizzes(
     @Query() dto: GetDetailQuizzesDto,
