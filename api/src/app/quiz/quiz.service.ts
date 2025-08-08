@@ -7,6 +7,7 @@ import {
   QUIZZES_IMAGE_PATH,
   QUIZZES_THUMB_PATH,
   QUIZZES_THUMB_PATH_SMALL,
+  QUESTION_IMG_PATH,
   OrderBy,
 } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
@@ -333,8 +334,9 @@ export class QuizService {
   }
 
   /**
-   * Delete an image file from the server
-   * @param imageName - The name of the image file to delete
+   * Check if the number of featured quizzes exceeds the limit
+   * @param trx - Database transaction object
+   * @param quizId - Optional quiz ID to exclude from the count
    */
   private async checkFeaturedLimit(
     trx: Knex.Transaction,
@@ -430,9 +432,11 @@ export class QuizService {
         await trx.commit();
 
         // Clear relevant caches after successful commit
-        await this.redisService.del(CacheKey.GetDetailQuizzes);
+        await this.redisService.deleteByPattern(
+          `${CacheKey.GetDetailQuizzes}*`
+        );
         if (createQuizDto.is_featured) {
-          await this.redisService.delByPattern('promoted_game'); // Clear featured quizzes cache
+          await this.redisService.deleteByPattern('promoted_game'); // Clear featured quizzes cache
         }
 
         // TODO: Send notification if is_send_notice is true
@@ -516,10 +520,35 @@ export class QuizService {
           .update(quizData);
       }
 
-      // SEO + FAQ
+      // Update SEO + FAQ
       await this.updateWebSeoEntry(trx, id, dto);
       if (dto.enable_faq !== undefined) {
         await this.updateFaqEntries(trx, id, dto);
+      }
+
+      // Update questions of the quiz if category or subcategory or subcategory level changed
+      if (
+        dto.language_id !== undefined ||
+        dto.maincat_id !== undefined ||
+        dto.main_subcat_id !== undefined ||
+        dto.main_subcat_level_id !== undefined
+      ) {
+        await trx(QUESTION_SCHEMA.TABLE)
+          .where(QUESTION_SCHEMA.FIELDS.QUIZZES, id)
+          .update({
+            [QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [QUESTION_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+            [QUESTION_SCHEMA.FIELDS.SUBCATEGORY]: dto.main_subcat_id
+              ? dto.main_subcat_id
+              : existing.main_subcat_id,
+            [QUESTION_SCHEMA.FIELDS.SUBCATEGORY_LEVEL]: dto.main_subcat_level_id
+              ? dto.main_subcat_level_id
+              : existing.main_subcat_level_id,
+          });
       }
 
       const updatedQuiz = await trx(QUIZZ_SCHEMA.TABLE)
@@ -527,9 +556,9 @@ export class QuizService {
         .first();
       await trx.commit();
 
-      await this.redisService.del(CacheKey.GetDetailQuizzes);
+      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
       if (dto.is_featured) {
-        await this.redisService.delByPattern('promoted_game');
+        await this.redisService.deleteByPattern('promoted_game');
       }
 
       return {
@@ -729,6 +758,148 @@ export class QuizService {
       return {
         error: true,
         message: error.message || 'Failed to retrieve quiz details',
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * [Admin] Delete quizzes by IDs
+   * @param ids - Array of quiz IDs to delete
+   * @returns Success or error response
+   */
+  private readonly THUMB_SIZES = ['100x100', '64x64', '50x50'];
+
+  private async deleteQuizImages(imageName?: string) {
+    if (!imageName) return;
+    // Main image
+    await this.fileUploadService.deleteFile(imageName, QUIZZES_IMAGE_PATH);
+    // Thumbnail
+    for (const size of this.THUMB_SIZES) {
+      // Depending on the size, delete the corresponding thumbnail
+      await this.fileUploadService.deleteFile(
+        `thumbs/${size}/${imageName}`,
+        QUIZZES_IMAGE_PATH
+      );
+    }
+  }
+
+  private async deleteQuestionImages(imageName?: string) {
+    if (!imageName) return;
+    await this.fileUploadService.deleteFile(imageName, QUESTION_IMG_PATH);
+    for (const size of this.THUMB_SIZES) {
+      await this.fileUploadService.deleteFile(
+        `thumbs/${size}/${imageName}`,
+        QUESTION_IMG_PATH
+      );
+    }
+  }
+
+  async deleteQuizzes(ids: number[]) {
+    const trx = await this.dbService.connection.transaction();
+    try {
+      // 1) Get data to delete
+      const quizzes = await trx(QUIZZ_SCHEMA.TABLE)
+        .whereIn(QUIZZ_SCHEMA.FIELDS.ID, ids)
+        .select(
+          QUIZZ_SCHEMA.FIELDS.ID,
+          QUIZZ_SCHEMA.FIELDS.IMAGE,
+          QUIZZ_SCHEMA.FIELDS.IS_FEATURED
+        );
+
+      if (quizzes.length === 0) {
+        await trx.rollback();
+        return { error: true, message: 'Quiz not found', data: { ids } };
+      }
+
+      const existingIds = new Set(
+        quizzes.map((q) => Number(q[QUIZZ_SCHEMA.FIELDS.ID]))
+      );
+      const missing = ids.filter((id) => !existingIds.has(Number(id)));
+
+      // 2) Get all questions related to these quizzes
+      const questions = await trx(QUESTION_SCHEMA.TABLE)
+        .whereIn(QUESTION_SCHEMA.FIELDS.QUIZZES, [...existingIds])
+        .select(
+          QUESTION_SCHEMA.FIELDS.ID,
+          QUESTION_SCHEMA.FIELDS.IMAGE,
+          QUESTION_SCHEMA.FIELDS.QUIZZES
+        );
+
+      // 3) Delete data related to quizze
+      // 3.1) Delete questions (rows)
+      await trx(QUESTION_SCHEMA.TABLE)
+        .whereIn(QUESTION_SCHEMA.FIELDS.QUIZZES, [...existingIds])
+        .del();
+
+      // 3.2) Delete quizzes (rows)
+      await trx(QUIZZ_SCHEMA.TABLE)
+        .whereIn(QUIZZ_SCHEMA.FIELDS.ID, [...existingIds])
+        .del();
+
+      // 3.3) Delete web_seo (type=4, quizz_mode ∈ [1,2,3,4])
+      const quizzModes = [1, 2, 3, 4];
+      await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(WEB_SEO_SCHEMA.FIELDS.TYPE, 4)
+        .whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID, [...existingIds])
+        .whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE, quizzModes)
+        .del();
+
+      // 3.4) Delete faq (type=4, quizz_mode ∈ [1,2,3,4])
+      await trx(FAQ_SCHEMA.TABLE)
+        .where(FAQ_SCHEMA.FIELDS.TYPE, 4)
+        .whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_ID, [...existingIds])
+        .whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_MODE, quizzModes)
+        .del();
+
+      // 4) Commit transaction
+      await trx.commit();
+
+      // 5) After commit, delete images and cache
+      await Promise.all(
+        questions.map(async (q) => {
+          try {
+            await this.deleteQuestionImages(q[QUESTION_SCHEMA.FIELDS.IMAGE]);
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete question image failed (qId=${q.id}): ${e?.message}`
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        quizzes.map(async (qz) => {
+          try {
+            await this.deleteQuizImages(qz[QUIZZ_SCHEMA.FIELDS.IMAGE]);
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete quiz image failed (quizId=${qz.id}): ${e?.message}`
+            );
+          }
+        })
+      );
+
+      // 6) Cache
+      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+
+      const hasFeatured = quizzes.some(
+        (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
+      );
+      if (hasFeatured) {
+        await this.redisService.deleteByPattern('promoted_game');
+      }
+
+      return {
+        error: false,
+        message: `Deleted ${existingIds.size} quiz(es)`,
+        data: { deleted: [...existingIds], missing },
+      };
+    } catch (e) {
+      await trx.rollback();
+      return {
+        error: true,
+        message: e.message || 'Failed to delete quizzes',
         data: null,
       };
     }
