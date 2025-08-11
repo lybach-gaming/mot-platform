@@ -1,4 +1,3 @@
-import { CreateQuestionDto } from './dto/create-question.dto';
 import { Injectable, Logger } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
@@ -17,7 +16,9 @@ import {
   FileUploadService,
   FileUploadOptions,
 } from '../../core/file-upload/file-upload.service';
+import { CreateQuestionDto } from './dto/create-question.dto';
 import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
+import { EditQuestionDto } from './dto/edit-question.dto';
 
 @Injectable()
 export class QuestionService {
@@ -86,6 +87,22 @@ export class QuestionService {
       return await this.fileUploadService.uploadFile(file, options);
     } catch (error) {
       throw new Error(`Failed to upload question image: ${error.message}`);
+    }
+  }
+
+  // Removes main file + thumbs (100x100, 64x64, 50x50)
+  private readonly QUESTION_THUMB_SIZES = ['100x100', '64x64', '50x50'];
+
+  private async deleteQuestionImages(imageName: string): Promise<void> {
+    if (!imageName) return;
+    // main
+    await this.fileUploadService.deleteFile(imageName, QUESTION_IMG_PATH);
+    // thumbs
+    for (const size of this.QUESTION_THUMB_SIZES) {
+      await this.fileUploadService.deleteFile(
+        `thumbs/${size}/${imageName}`,
+        QUESTION_IMG_PATH
+      );
     }
   }
 
@@ -218,6 +235,245 @@ export class QuestionService {
         message: error.message || 'Failed to process question batch',
         data: null,
       };
+    }
+  }
+
+  /**
+   * Prepare data for updating a question
+   * @param dto - EditQuestionDto containing fields to update
+   * @param existing - Current question data from the database
+   * @returns Prepared payload and old image name if applicable
+   */
+  private async prepareQuestionUpdateData(
+    dto: EditQuestionDto, // extends PartialType(CreateQuestionDto) + optional remove_image
+    existing: any // current DB row
+  ): Promise<{ payload: any; oldImageToDelete?: string }> {
+    const F = QUESTION_SCHEMA.FIELDS;
+    const payload: Record<string, any> = {};
+    let oldImageToDelete: string | undefined;
+
+    // Utility: set field only if provided (including 0)
+    const setIf = (val: any, field: string, transform?: (v: any) => any) => {
+      if (val !== undefined) payload[field] = transform ? transform(val) : val;
+    };
+
+    // 1) Image: upload new or remove
+    const removeImage =
+      (dto as any).remove_image === true ||
+      (dto as any).remove_image === 1 ||
+      (dto as any).remove_image === '1' ||
+      (dto as any).remove_image === 'true';
+
+    if (dto.image_file) {
+      const newName = await this.handleImageUpload(dto.image_file); // ✅ reuse
+      payload[F.IMAGE] = newName;
+      if (existing[F.IMAGE]) oldImageToDelete = existing[F.IMAGE];
+    } else if (removeImage) {
+      payload[F.IMAGE] = '';
+      if (existing[F.IMAGE]) oldImageToDelete = existing[F.IMAGE];
+    }
+    // If no image change is provided, leave the image field untouched.
+
+    // 2) Primitive fields — only set when provided
+    setIf(dto.language_id, F.LANGUAGE_ID, Number);
+    setIf(dto.category, F.CATEGORY, Number);
+    setIf(dto.subcategory, F.SUBCATEGORY, Number);
+    setIf(dto.subcategory_level, F.SUBCATEGORY_LEVEL, (v) =>
+      v ? Number(v) : null
+    );
+    setIf(dto.quizzes, F.QUIZZES, Number);
+
+    setIf(dto.question?.trim(), F.QUESTION);
+    setIf(dto.question_type, F.QUESTION_TYPE, Number);
+    setIf(dto.optiona?.trim(), F.OPTION_A);
+    setIf(dto.optionb?.trim(), F.OPTION_B);
+    setIf(dto.optionc?.trim(), F.OPTION_C);
+    setIf(dto.optiond?.trim(), F.OPTION_D);
+    setIf(dto.optione?.trim(), F.OPTION_E);
+    setIf(dto.answer?.trim(), F.ANSWER);
+    setIf(dto.level, F.LEVEL, Number);
+    setIf(dto.note?.trim(), F.NOTE);
+    setIf(dto.is_public, F.IS_PUBLIC, Number);
+
+    // 3) Enforce options based on question_type
+    const effectiveType =
+      dto.question_type !== undefined
+        ? Number(dto.question_type)
+        : Number(existing[F.QUESTION_TYPE]);
+
+    if (effectiveType !== 1) {
+      // For non-multiple-choice types, ensure C/D/E are empty.
+      payload[F.OPTION_C] = '';
+      payload[F.OPTION_D] = '';
+      payload[F.OPTION_E] = '';
+    } // If effectiveType === 1, C/D/E are updated only if provided above.
+
+    return { payload, oldImageToDelete };
+  }
+
+  /**
+   * Edit an existing question by ID
+   *
+   * @param id - Question ID to edit
+   * @param editQuestionDto - Data for editing the question
+   * @returns Updated question data or error response
+   */
+  async editQuestion(id: number, dto: EditQuestionDto) {
+    const trx = await this.dbService.connection.transaction();
+    let oldImageToDelete: string | undefined;
+
+    try {
+      const F = QUESTION_SCHEMA.FIELDS;
+
+      // Load current row
+      const existing = await trx(QUESTION_SCHEMA.TABLE).where(F.ID, id).first();
+
+      if (!existing) {
+        await trx.rollback();
+        return { error: true, message: 'Question not found', data: null };
+      }
+
+      // Build partial update (reuses handleImageUpload internally)
+      const { payload, oldImageToDelete: toDelete } =
+        await this.prepareQuestionUpdateData(dto, existing);
+
+      if (!Object.keys(payload).length) {
+        await trx.rollback();
+        return {
+          error: false,
+          message: 'Nothing to update',
+          data: transformToString(existing),
+        };
+      }
+
+      await trx(QUESTION_SCHEMA.TABLE).where(F.ID, id).update(payload);
+
+      const updated = await trx(QUESTION_SCHEMA.TABLE).where(F.ID, id).first();
+
+      await trx.commit();
+
+      // Post-commit: delete old image (if any), outside the transaction
+      oldImageToDelete = toDelete;
+      if (oldImageToDelete) {
+        try {
+          await this.deleteQuestionImages(oldImageToDelete); // should remove main + thumbs
+        } catch (e: any) {
+          this.logger?.warn?.(
+            `Failed to delete old question image "${oldImageToDelete}": ${e?.message}`
+          );
+        }
+      }
+
+      // Invalidate cache
+      if ((this.redisService as any).deleteByPattern) {
+        await (this.redisService as any).deleteByPattern(
+          `${CacheKey.GetQuestionsQuizHd}*`
+        );
+      } else {
+        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
+      }
+
+      return {
+        error: false,
+        message: 'Question updated successfully',
+        data: transformToString(updated),
+      };
+    } catch (err: any) {
+      await trx.rollback();
+      return {
+        error: true,
+        message: err.message || 'Failed to update question',
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Delete questions by IDs
+   *
+   * @param dto - DTO containing question IDs to delete
+   * @returns Result of deletion operation
+   */
+  async deleteQuestions(ids: number[]) {
+    // normalize & guard
+    const uniqueIds = [...new Set(ids.map(Number).filter(Number.isFinite))];
+    if (uniqueIds.length === 0) {
+      return {
+        error: true,
+        message: 'No valid question IDs provided',
+        data: null,
+      };
+    }
+
+    const trx = await this.dbService.connection.transaction();
+    try {
+      const F = QUESTION_SCHEMA.FIELDS;
+
+      // 1) Fetch current rows (to know images & build "missing")
+      const rows: Array<{ [k: string]: any }> = await trx(QUESTION_SCHEMA.TABLE)
+        .whereIn(F.ID, uniqueIds)
+        .select(F.ID, F.IMAGE, F.QUIZZES);
+
+      if (rows.length === 0) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Questions not found',
+          data: { deleted: [], missing: uniqueIds },
+        };
+      }
+
+      const foundIds = rows.map((r) => Number(r[F.ID]));
+      const foundSet = new Set(foundIds);
+      const missing = uniqueIds.filter((id) => !foundSet.has(id));
+
+      // 2) Delete rows
+      await trx(QUESTION_SCHEMA.TABLE).whereIn(F.ID, foundIds).del();
+
+      await trx.commit();
+
+      // 3) Post-commit: delete images (main + thumbs). Do not throw if missing on disk
+      await Promise.all(
+        rows.map(async (r) => {
+          const image = r[F.IMAGE] as string | undefined;
+          if (!image) return;
+          try {
+            await this.deleteQuestionImages(image); // should remove /thumbs/100x100, 64x64, 50x50 too
+          } catch (e: any) {
+            this.logger?.warn?.(
+              `Failed to delete question image "${image}" (qId=${r[F.ID]}): ${
+                e?.message
+              }`
+            );
+          }
+        })
+      );
+
+      // 4) Invalidate cache (broad prefix; refine later if you track keys per quiz)
+      if (
+        (
+          this.redisService as unknown as {
+            deleteByPattern?: (p: string) => Promise<number>;
+          }
+        ).deleteByPattern
+      ) {
+        await (this.redisService as any).deleteByPattern(
+          `${CacheKey.GetQuestionsQuizHd}*`
+        );
+      } else {
+        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
+      }
+
+      return {
+        error: false,
+        message: `Deleted ${foundIds.length} question(s)`,
+        data: { deleted: foundIds, missing },
+      };
+    } catch (err: unknown) {
+      await trx.rollback();
+      const message =
+        err instanceof Error ? err.message : 'Failed to delete questions';
+      return { error: true, message, data: null };
     }
   }
 

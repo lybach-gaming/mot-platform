@@ -39,7 +39,6 @@ export class CreateQuestionDto {
   @ApiProperty({
     description: 'Image file for the quiz',
     type: 'string',
-    format: 'binary',
   })
   @IsOptional()
   image?: string;
@@ -55,7 +54,7 @@ export class CreateQuestionDto {
     example: '1=Normal, 2=True/False',
   })
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   question_type?: number = 1;
 
@@ -72,12 +71,12 @@ export class CreateQuestionDto {
 
   @ApiProperty({ description: 'Option C of the question', default: '' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   optionc?: string = '';
 
   @ApiProperty({ description: 'Option D of the question', default: '' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   optiond?: string = '';
 
   @ApiProperty({ description: 'Option E of the question', required: false })
