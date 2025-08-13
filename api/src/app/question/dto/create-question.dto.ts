@@ -10,19 +10,19 @@ export class CreateQuestionDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  language_id: number;
+  language_id!: number;
 
   @ApiProperty({ description: 'The main category ID of the question' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  category: number;
+  category!: number;
 
   @ApiProperty({ description: 'The main subcategory ID of the question' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  subcategory: number;
+  subcategory!: number;
 
   @ApiProperty({ description: 'The main subcategory level ID of the question' })
   @IsNumber()
@@ -34,7 +34,7 @@ export class CreateQuestionDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  quizzes: number;
+  quizzes!: number;
 
   @ApiProperty({
     description: 'Image file for the quiz',
@@ -46,7 +46,7 @@ export class CreateQuestionDto {
   @ApiProperty({ description: 'The content of the question' })
   @IsString()
   @IsNotEmpty()
-  question: string;
+  question!: string;
 
   @ApiProperty({
     description: 'The type of the question',
@@ -62,22 +62,22 @@ export class CreateQuestionDto {
   @ApiProperty({ description: 'Option A of the question' })
   @IsString()
   @IsNotEmpty()
-  optiona: string;
+  optiona!: string;
 
   @ApiProperty({ description: 'Option B of the question' })
   @IsString()
   @IsNotEmpty()
-  optionb: string;
+  optionb!: string;
 
-  @ApiProperty({ description: 'Option C of the question', default: '' })
+  @ApiProperty({ description: 'Option C of the question' })
   @IsString()
   @IsOptional()
-  optionc?: string = '';
+  optionc?: string;
 
-  @ApiProperty({ description: 'Option D of the question', default: '' })
+  @ApiProperty({ description: 'Option D of the question' })
   @IsString()
   @IsOptional()
-  optiond?: string = '';
+  optiond?: string;
 
   @ApiProperty({ description: 'Option E of the question', required: false })
   @IsString()
@@ -87,7 +87,7 @@ export class CreateQuestionDto {
   @ApiProperty({ description: 'The correct answer of the question' })
   @IsString()
   @IsNotEmpty()
-  answer: string;
+  answer!: string;
 
   @ApiProperty({
     description: 'Whether the question is public',
@@ -99,10 +99,10 @@ export class CreateQuestionDto {
   @Type(() => Number)
   is_public?: number = 1;
 
-  @ApiProperty({ description: 'The note of the question', default: '' })
+  @ApiProperty({ description: 'The note of the question'})
   @IsString()
   @IsOptional()
-  note?: string = '';
+  note?: string;
 
   @ApiProperty({
     description: 'The difficulty level of the question',

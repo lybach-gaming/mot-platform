@@ -108,7 +108,7 @@ export class QuestionController {
     if (file) {
       body.image_file = file;
     }
-    const dto = plainToInstance(CreateQuestionDto, body);
+    const dto = plainToInstance(EditQuestionDto, body);
     await validateOrReject(dto);
     return this.questionService.editQuestion(id, dto);
   }

@@ -8,7 +8,7 @@ export class BatchCreateQuestionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateQuestionDto)
-  questions: CreateQuestionDto[];
+  questions!: CreateQuestionDto[];
 
   @ApiProperty({ required: false })
   @IsOptional()

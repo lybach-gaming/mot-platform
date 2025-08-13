@@ -8,6 +8,7 @@ import {
   BASE_URL,
   CACHE_TTL_DEFAULT,
   QUESTION_IMG_PATH,
+  QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
 } from '../../common/constants/app';
 import { BOOKMARK_SCHEMA, QUESTION_SCHEMA } from '../../core/database/schemas';
@@ -136,7 +137,7 @@ export class QuestionService {
    */
   async createQuestionBatch(dto: BatchCreateQuestionDto) {
     if (!dto.questions || !Array.isArray(dto.questions)) {
-      throw new BadRequestException('Invalid questions payload');
+      throw new Error('Invalid questions payload');
     }
     // Validate batch size
     if (dto.questions.length > this.MAX_BATCH_SIZE) {
