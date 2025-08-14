@@ -1,3 +1,7 @@
+import {
+  QuestionSortBy,
+  QuestionOrderBy,
+} from './../../common/constants/question';
 import { Injectable, Logger } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
@@ -11,7 +15,15 @@ import {
   QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
 } from '../../common/constants/app';
-import { BOOKMARK_SCHEMA, QUESTION_SCHEMA } from '../../core/database/schemas';
+import {
+  BOOKMARK_SCHEMA,
+  QUESTION_SCHEMA,
+  LANGUAGE_SCHEMA,
+  CATEGORY_SCHEMA,
+  SUBCATEGORY_SCHEMA,
+  SUBCATEGORY_LEVEL_SCHEMA,
+  QUIZZ_SCHEMA,
+} from '../../core/database/schemas';
 import { CacheKey } from '../../common/constants/cache-key';
 import {
   FileUploadService,
@@ -387,6 +399,127 @@ export class QuestionService {
         data: null,
       };
     }
+  }
+
+  /**
+   * [Admin] Get all questions with pagination and search
+   * @param offset - Pagination offset
+   * @param limit - Number of questions per page
+   * @param search - Search term for question title or description
+   * @param sortBy - Field to sort by
+   * @param order - Sorting direction (ASC/DESC)
+   * @returns Paginated list of questions
+   * @throws Error if database query fails
+   */
+  async getAllQuestions(query: {
+    offset: number;
+    limit: number;
+    search?: string;
+    sortBy?: string;
+    order?: QuestionOrderBy.DESC | QuestionOrderBy.ASC;
+  }) {
+    const {
+      offset = 0,
+      limit = 20,
+      search,
+      sortBy = QuestionSortBy.ID,
+      order = QuestionOrderBy.DESC,
+    } = query;
+
+    const validSortFields = Object.values(QuestionSortBy);
+    const sortField = validSortFields.includes(sortBy)
+      ? sortBy
+      : QuestionSortBy.ID;
+
+    const db = this.dbService
+      .connection(QUESTION_SCHEMA.TABLE + ' as q')
+      .leftJoin(`${LANGUAGE_SCHEMA.TABLE} as l`, 'l.id', 'q.language_id')
+      .leftJoin(`${CATEGORY_SCHEMA.TABLE} as c`, 'c.id', 'q.category')
+      .leftJoin(`${SUBCATEGORY_SCHEMA.TABLE} as s`, 's.id', 'q.subcategory')
+      .leftJoin(
+        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE} as sl`,
+        'sl.id',
+        'q.subcategory_level'
+      )
+      .leftJoin(`${QUIZZ_SCHEMA.TABLE} as quiz`, 'quiz.id', 'q.quizzes')
+      .select(
+        'q.*',
+        'l.language as language',
+        'q.category as category_id',
+        'c.category_name as category',
+        'q.subcategory as subcategory_id',
+        's.subcategory_name as subcategory',
+        'q.subcategory_level as subcategory_level_id',
+        'sl.subcategory_level_name as subcategory_level',
+        'q.quizzes as quiz_id',
+        'quiz.quizz_name as quiz'
+      );
+
+    // Search by question name or slug
+    if (search) {
+      db.where((builder) => {
+        builder
+          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${search}%`)
+          .orWhere(
+            `q.${QUESTION_SCHEMA.FIELDS.OPTION_A}`,
+            'like',
+            `%${search}%`
+          )
+          .orWhere(
+            `q.${QUESTION_SCHEMA.FIELDS.OPTION_B}`,
+            'like',
+            `%${search}%`
+          )
+          .orWhere(
+            `q.${QUESTION_SCHEMA.FIELDS.OPTION_C}`,
+            'like',
+            `%${search}%`
+          )
+          .orWhere(
+            `q.${QUESTION_SCHEMA.FIELDS.OPTION_D}`,
+            'like',
+            `%${search}%`
+          )
+          .orWhere(
+            `q.${QUESTION_SCHEMA.FIELDS.OPTION_E}`,
+            'like',
+            `%${search}%`
+          );
+      });
+    }
+
+    const totalQuery = db.clone(); // Clone the query for total count
+
+    // Apply sort, limit, offset
+    const questions = await db
+      .orderBy(sortField, order)
+      .limit(limit)
+      .offset(offset);
+
+    const results = questions.map((question) => {
+      const image = question.image
+        ? `${BASE_URL}${QUESTION_IMG_PATH}${question.image}`
+        : null;
+
+      const thumbnail = question.image
+        ? `${BASE_URL}${QUESTION_IMG_PATH}thumbs/100x100/${question.image}`
+        : null;
+
+      return {
+        ...question,
+        image_url: image,
+        thumbnail_url: thumbnail,
+      };
+    });
+
+    const total = await totalQuery.clearSelect().count({ count: '*' }).first();
+
+    return {
+      total: Number(total?.count || 0),
+      limit,
+      offset,
+      questions: results,
+    };
   }
 
   /**
