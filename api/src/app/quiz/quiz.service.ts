@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   BASE_URL,
   FE_URL,
+  LANG_ENGLISH_ID,
   QUIZ_HQ_SLUG,
   QUIZZES_IMAGE_PATH,
   QUIZZES_THUMB_PATH,
@@ -26,6 +27,8 @@ import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetListQuizDto } from './dto/get-list-quiz.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
+import { IListQuizItemResponse } from './types';
+import { IApiListResponse } from '../../common/types/response.type';
 
 const MAX_RELATED_QUIZZES = 5;
 
@@ -173,7 +176,6 @@ export class QuizService {
       : '';
 
     // Build share URL for frontend usage
-    const LANG_ENGLISH_ID = 14;
     const prefix_lang =
       +(dto?.language_id || 0) === LANG_ENGLISH_ID ? '/en' : '/en';
     data.share_url = urlJoin(
@@ -423,7 +425,9 @@ export class QuizService {
    * @param dto - DTO containing quiz lookup parameters
    * @returns Detailed quiz info or error response
    */
-  async getListQuiz(dto: GetListQuizDto) {
+  async getListQuiz(
+    dto: GetListQuizDto
+  ): Promise<IApiListResponse<IListQuizItemResponse>> {
     // Check cache
     const cacheKey = `${CacheKey.getListQuiz}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
@@ -438,21 +442,8 @@ export class QuizService {
       'cat.slug as slug_category',
       'subcat.slug as slug_subcategory',
       'sublevel.slug as slug_subcategory_level',
-      this.dbService.connection.raw(`(
-    SELECT COUNT(*) FROM ${QUESTION_SCHEMA.TABLE} q
-    WHERE q.${QUESTION_SCHEMA.FIELDS.LANGUAGE_ID} = qz.language_id
-      AND q.${QUESTION_SCHEMA.FIELDS.CATEGORY} = qz.maincat_id
-      AND q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY} = qz.main_subcat_id
-      AND q.${QUESTION_SCHEMA.FIELDS.SUBCATEGORY_LEVEL} = qz.main_subcat_level_id
-      AND q.${QUESTION_SCHEMA.FIELDS.QUIZZES} = qz.id
-  ) as no_of_que`),
-      this.dbService.connection.raw(`(
-    SELECT EXISTS (
-      SELECT 1 FROM ${QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE} qhl
-      WHERE qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.LANGUAGE_ID} = qz.language_id
-        AND qhl.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID} = qz.id
-    )
-  ) as is_played`),
+      this.dbService.connection.raw('COALESCE(qc.no_of_que, 0) as no_of_que'),
+      this.dbService.connection.raw('COALESCE(qhlb.is_played, 0) as is_played'),
     ];
 
     // Fetch the main quiz record
@@ -461,14 +452,34 @@ export class QuizService {
       .leftJoin(`${CATEGORY_SCHEMA.TABLE} as cat`, 'cat.id', 'qz.maincat_id')
       .leftJoin(
         `${SUBCATEGORY_SCHEMA.TABLE} as subcat`,
-        'subcat.id',
-        'qz.main_subcat_id'
+        `subcat.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`
       )
       .leftJoin(
         `${SUBCATEGORY_LEVEL_SCHEMA.TABLE} as sublevel`,
-        'sublevel.id',
-        'qz.main_subcat_level_id'
+        `sublevel.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`
       )
+      .leftJoin(
+        this.dbService.connection
+          .from({ q: QUESTION_SCHEMA.TABLE })
+          .select('q.quizzes')
+          .count('* as no_of_que')
+          .groupBy('q.quizzes')
+          .as('qc'),
+        'qc.quizzes',
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+      )
+      .leftJoin(
+        this.dbService.connection
+          .from({ qhl: QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE })
+          .distinct('qhl.quizz_id')
+          .select(this.dbService.connection.raw('1 as is_played'))
+          .as('qhlb'),
+        `qhlb.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+      )
+
       .where(`qz.${QUIZZ_SCHEMA.FIELDS.STATUS}`, 1)
       .modify((qb) => {
         if (dto.languageId) {
@@ -510,7 +521,7 @@ export class QuizService {
     const totalRow = await baseQuery.clone().count({ total: '*' }).first();
     const total = Number(totalRow?.total || 0);
 
-    let quizzes = await baseQuery
+    let quizzes: IListQuizItemResponse[] = await baseQuery
       .clone()
       .select(selectFields)
       .limit(dto.limit)
@@ -526,7 +537,6 @@ export class QuizService {
         : '';
 
       // Build share URL for frontend usage
-      const LANG_ENGLISH_ID = 14;
       const prefix_lang =
         +(dto?.languageId || 0) === LANG_ENGLISH_ID ? '/en' : '/en';
       quiz.share_url = urlJoin(
@@ -551,7 +561,9 @@ export class QuizService {
       data: quizzes,
     };
 
-    await this.redisService.set(cacheKey, response);
+    if (!dto.search) {
+      await this.redisService.set(cacheKey, response);
+    }
 
     return response;
   }
