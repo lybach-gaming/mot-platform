@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   BASE_URL,
+  CACHE_TTL_DEFAULT,
   FE_URL,
   LANG_ENGLISH_ID,
   QUIZ_HQ_SLUG,
@@ -430,19 +431,21 @@ export class QuizService {
   ): Promise<IApiListResponse<IListQuizItemResponse>> {
     // Check cache
     const cacheKey = `${CacheKey.getListQuiz}${JSON.stringify(dto)}`;
-    const cached = await this.redisService.get(cacheKey);
-    if (cached) {
-      this.logger.debug(`Cache hit for ${cacheKey}`);
-      return cached;
+    if (!dto.search) {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached) {
+        this.logger.debug(`Cache hit for ${cacheKey}`);
+        return cached;
+      }
     }
 
-    // Fetch quiz details with related slugs and subqueries for no_of_que & is_played
+    // Fetch quiz details with related slugs and subqueries for no_of_question & is_played
     const selectFields = [
       'qz.*',
       'cat.slug as slug_category',
       'subcat.slug as slug_subcategory',
       'sublevel.slug as slug_subcategory_level',
-      this.dbService.connection.raw('COALESCE(qc.no_of_que, 0) as no_of_que'),
+      this.dbService.connection.raw('COALESCE(qc.no_of_question, 0) as no_of_question'),
       this.dbService.connection.raw('COALESCE(qhlb.is_played, 0) as is_played'),
     ];
 
@@ -562,7 +565,7 @@ export class QuizService {
     };
 
     if (!dto.search) {
-      await this.redisService.set(cacheKey, response);
+      await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
     }
 
     return response;
