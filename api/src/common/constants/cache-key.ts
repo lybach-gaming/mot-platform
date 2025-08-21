@@ -8,4 +8,8 @@ export enum CacheKey {
   GetQuestionsQuizHd = 'get_questions_quiz_hd:',
   GetMoreQuizzOfQuizHq = 'get_more_quizz_of_quizz_hq:',
   GetQuizRules = 'get_quiz_rules:',
+  GetListQuizzes = 'get_list_quizzes:',
+  GetListSubcategoryLevels = 'get_list_subcategory_levels:',
+  GetListSubcategories = 'get_list_subcategories:',
+  GetListCategories = 'get_list_categories:',
 }

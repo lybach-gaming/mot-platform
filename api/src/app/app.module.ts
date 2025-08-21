@@ -12,12 +12,15 @@ import { SettingModule } from './setting/setting.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { SubcategoryModule } from './subcategory/subcategory.module';
 import { WebSeoModule } from './web-seo/web-seo.module';
+import { FaqModule } from './faq/faq.module';
 import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middleware';
+import { FileUploadModule } from '../core/file-upload/file-upload.module';
 
 @Module({
   imports: [
     DatabaseModule,
     RedisModule,
+    FileUploadModule,
     SettingModule,
     AccountModule,
     CategoryModule,
@@ -26,6 +29,7 @@ import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middlewa
     QuizModule,
     WebSeoModule,
     QuestionModule,
+    FaqModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -46,3 +46,31 @@ export enum OrderBy {
   ASC = 'asc',
   DESC = 'desc',
 }
+
+// Enum for type modes in game (using for FAQs and Web Seo)
+export enum TypeModeGame {
+  QUIZ_BY_LANGUAGE = 6,
+  COMMON = 5,
+  QUIZ = 4,
+  SUBCATEGORY_LEVEL = 3,
+  SUBCATEGORY = 2,
+  CATEGORY = 1,
+  ALL = 0,
+}
+
+// Enum for quiz modes (using for FAQs and Web Seo)
+export enum QuizMode {
+  QUIZ_HD = 1,
+  FUND_N_LEARN = 2,
+  GUESS_THE_WORD = 3,
+  AUDIO_QUESTION = 4,
+  MATH_MANIA = 5,
+  TRUE_FALSE = 6,
+  DAILY_QUIZZ = 7,
+  CONTEST = 8,
+  EXAM = 9,
+  BATTLE_1X1 = 10,
+  BATTLE_GROUP = 11,
+  QUIZ_BY_LANGUAGE = 12,
+  COMMON_PAGE = 15,
+}

@@ -1,4 +1,3 @@
-import { QuizSortBy } from './../../common/constants/quiz';
 import { Injectable } from '@nestjs/common';
 import {
   BASE_URL,
@@ -9,6 +8,7 @@ import {
   QUIZZES_THUMB_PATH_SMALL,
   QUESTION_IMG_PATH,
   OrderBy,
+  TypeModeGame,
 } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
@@ -19,6 +19,8 @@ import {
   FileUploadService,
   FileUploadOptions,
 } from '../../core/file-upload/file-upload.service';
+import { FaqService } from '../faq/faq.service';
+import { WebSeoService } from '../web-seo/web-seo.service';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -36,7 +38,9 @@ import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
+import { QuizSortBy } from './../../common/constants/quiz';
 import { generateSlug } from '../../common/utils/generateSlug.util';
+import { Knex } from 'knex';
 
 const MAX_RELATED_QUIZZES = 5;
 
@@ -45,7 +49,9 @@ export class QuizService {
   constructor(
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService,
-    private readonly fileUploadService: FileUploadService
+    private readonly fileUploadService: FileUploadService,
+    private readonly faqService: FaqService,
+    private readonly webSeoService: WebSeoService
   ) {}
 
   /**
@@ -69,195 +75,19 @@ export class QuizService {
   }
 
   /**
-   * Create FAQ entries for a quiz
+   * Upload new image and delete old one if exists
+   * @param newFile - The new image file to upload
+   * @param oldImage - The old image filename to delete
+   * @returns The new image filename
    */
-  private async createFaqEntries(
-    trx: any,
-    quizId: number,
-    createQuizDto: CreateQuizDto
-  ) {
-    if (
-      !createQuizDto.enable_faq ||
-      !createQuizDto.questions?.length ||
-      !createQuizDto.answers?.length
-    ) {
-      return;
+  private async uploadNewImageAndDeleteOld(
+    newFile: Express.Multer.File,
+    oldImage?: string
+  ): Promise<string> {
+    if (oldImage) {
+      await this.fileUploadService.deleteFile(oldImage, QUIZZES_IMAGE_PATH);
     }
-
-    const questions = createQuizDto.questions.filter((q) => q.trim());
-    const answers = createQuizDto.answers.filter((a) => a.trim());
-
-    const faqData = questions
-      .map((question, index) => {
-        const answer = answers[index];
-        if (!question || !answer) return null;
-
-        return {
-          [FAQ_SCHEMA.FIELDS.LANGUAGE_ID]: createQuizDto.language_id,
-          [FAQ_SCHEMA.FIELDS.MAINCAT_ID]: createQuizDto.maincat_id,
-          [FAQ_SCHEMA.FIELDS.SUBCATEGORY_ID]: createQuizDto.main_subcat_id,
-          [FAQ_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
-            createQuizDto.main_subcat_level_id || 0,
-          [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-          [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: createQuizDto.quiz_mode,
-          [FAQ_SCHEMA.FIELDS.TYPE]: 4,
-          [FAQ_SCHEMA.FIELDS.QUESTION]: question,
-          [FAQ_SCHEMA.FIELDS.ANSWER]: answer,
-        };
-      })
-      .filter(Boolean);
-
-    if (faqData.length) {
-      await trx(FAQ_SCHEMA.TABLE).insert(faqData);
-    }
-  }
-
-  /**
-   * Update FAQ entries for a quiz
-   */
-  private async updateFaqEntries(trx: any, quizId: number, dto: EditQuizDto) {
-    const { edit_faq_ids = [], questions = [], answers = [] } = dto;
-
-    const faqIdList = (dto.edit_faq_ids || []).map((id) => Number(id));
-
-    // Get all existing FAQs for this quiz
-    const allFaqInDb = await trx(FAQ_SCHEMA.TABLE)
-      .where({
-        [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-        [FAQ_SCHEMA.FIELDS.TYPE]: 4,
-      })
-      .select(`${FAQ_SCHEMA.FIELDS.ID}`);
-
-    const idsToDelete = allFaqInDb
-      .filter((faq) => !faqIdList.includes(faq.id))
-      .map((faq) => faq.id);
-
-    if (idsToDelete.length > 0) {
-      await trx(FAQ_SCHEMA.TABLE)
-        .whereIn(`${FAQ_SCHEMA.FIELDS.ID}`, idsToDelete)
-        .delete();
-    }
-
-    const cleanQuestions = questions.filter((q) => q && q.trim());
-    const cleanAnswers = answers.filter((a) => a && a.trim());
-
-    const faqArray = cleanQuestions
-      .map((question, index) => {
-        const answer = cleanAnswers[index];
-        if (!question || !answer) return null;
-
-        return {
-          [FAQ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id,
-          [FAQ_SCHEMA.FIELDS.MAINCAT_ID]: dto.maincat_id,
-          [FAQ_SCHEMA.FIELDS.SUBCATEGORY_ID]: dto.main_subcat_id,
-          [FAQ_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
-            dto.main_subcat_level_id || 0,
-          [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-          [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: dto.quiz_mode,
-          [FAQ_SCHEMA.FIELDS.TYPE]: 4,
-          [FAQ_SCHEMA.FIELDS.QUESTION]: question.trim(),
-          [FAQ_SCHEMA.FIELDS.ANSWER]: answer.trim(),
-        };
-      })
-      .filter(Boolean);
-
-    if (faqArray.length === 0) return;
-
-    // Insert/update following the edit_faq_ids order
-    const faqCount = faqArray.length;
-    const idCount = edit_faq_ids.length;
-
-    for (let i = 0; i < faqCount; i++) {
-      const faqData = faqArray[i];
-
-      if (i < idCount) {
-        const faqId = edit_faq_ids[i];
-        await trx(FAQ_SCHEMA.TABLE)
-          .where(`${FAQ_SCHEMA.FIELDS.ID}`, faqId)
-          .update(faqData);
-      } else {
-        await trx(FAQ_SCHEMA.TABLE).insert(faqData);
-      }
-    }
-  }
-
-  /**
-   * Create web SEO entry for a quiz
-   */
-  private async createWebSeoEntry(
-    trx: any,
-    quizId: number,
-    createQuizDto: CreateQuizDto
-  ) {
-    if (!createQuizDto.web_seo) return;
-
-    const webSeoData = {
-      [WEB_SEO_SCHEMA.FIELDS.LANGUAGE_ID]: createQuizDto.language_id,
-      [WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID]: createQuizDto.maincat_id,
-      [WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID]: createQuizDto.main_subcat_id,
-      [WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
-        createQuizDto.main_subcat_level_id || 0,
-      [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-      [WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE]: createQuizDto.quiz_mode,
-      [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
-      [WEB_SEO_SCHEMA.FIELDS.SLUG]: createQuizDto.slug,
-      [WEB_SEO_SCHEMA.FIELDS.TITLE]: createQuizDto.quizz_name,
-      ...createQuizDto.web_seo,
-    };
-
-    await trx(WEB_SEO_SCHEMA.TABLE).insert(webSeoData);
-  }
-
-  /**
-   * Update web SEO entry for a quiz
-   */
-  private async updateWebSeoEntry(
-    trx: any,
-    quizId: number,
-    dto: Partial<CreateQuizDto | EditQuizDto>
-  ) {
-    if (!dto.slug && !dto.web_seo) return;
-
-    const existing = await trx(WEB_SEO_SCHEMA.TABLE)
-      .where({
-        [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-        [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
-      })
-      .first();
-
-    if (!existing) {
-      await trx.rollback();
-      return {
-        error: true,
-        message: 'Quiz is missing associated SEO entry.',
-        data: null,
-      };
-    }
-
-    const updatedSeo = {
-      ...(existing || {}),
-      ...dto.web_seo,
-      [WEB_SEO_SCHEMA.FIELDS.SLUG]: dto.slug ?? existing?.slug,
-      [WEB_SEO_SCHEMA.FIELDS.TITLE]: dto.quizz_name ?? existing?.title,
-      [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-      [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
-      [WEB_SEO_SCHEMA.FIELDS.LANGUAGE_ID]:
-        dto.language_id ?? existing?.language_id,
-      [WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID]:
-        dto.maincat_id ?? existing?.maincat_id,
-      [WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID]:
-        dto.main_subcat_id ?? existing?.subcategory_id,
-      [WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
-        dto.main_subcat_level_id ?? existing?.subcategory_level_id,
-      [WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE]: dto.quiz_mode ?? existing?.quizz_mode,
-    };
-
-    await trx(WEB_SEO_SCHEMA.TABLE)
-      .where({
-        [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: quizId,
-        [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
-      })
-      .update(updatedSeo);
+    return this.handleImageUpload(newFile);
   }
 
   /**
@@ -315,22 +145,6 @@ export class QuizService {
     }
 
     return quizData;
-  }
-
-  /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, QUIZZES_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
   }
 
   /**
@@ -418,10 +232,21 @@ export class QuizService {
         }
 
         // Insert web SEO data
-        await this.createWebSeoEntry(trx, insertedId, createQuizDto);
+        await this.webSeoService.createWebSeoEntry(
+          trx,
+          insertedId,
+          TypeModeGame.QUIZ,
+          createQuizDto,
+          QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME // Use 'quizz_name' as title field
+        );
 
         // Create FAQ entries if enabled
-        await this.createFaqEntries(trx, insertedId, createQuizDto);
+        await this.faqService.createFaqEntries(
+          trx,
+          insertedId,
+          TypeModeGame.QUIZ,
+          createQuizDto
+        );
 
         // Fetch the created quiz before committing
         const createdQuiz = await trx(QUIZZ_SCHEMA.TABLE)
@@ -432,9 +257,7 @@ export class QuizService {
         await trx.commit();
 
         // Clear relevant caches after successful commit
-        await this.redisService.deleteByPattern(
-          `${CacheKey.GetDetailQuizzes}*`
-        );
+        await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
         if (createQuizDto.is_featured) {
           await this.redisService.deleteByPattern('promoted_game'); // Clear featured quizzes cache
         }
@@ -521,9 +344,15 @@ export class QuizService {
       }
 
       // Update SEO + FAQ
-      await this.updateWebSeoEntry(trx, id, dto);
+      await this.webSeoService.updateWebSeoEntry(
+        trx,
+        id,
+        TypeModeGame.QUIZ,
+        dto,
+        QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME // Use 'quizz_name' as title field
+      );
       if (dto.enable_faq !== undefined) {
-        await this.updateFaqEntries(trx, id, dto);
+        await this.faqService.updateFaqEntries(trx, id, TypeModeGame.QUIZ, dto);
       }
 
       // Update questions of the quiz if category or subcategory or subcategory level changed
@@ -557,6 +386,7 @@ export class QuizService {
       await trx.commit();
 
       await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
       if (dto.is_featured) {
         await this.redisService.deleteByPattern('promoted_game');
       }
@@ -846,11 +676,11 @@ export class QuizService {
         .del();
 
       // 3.4) Delete faq (type=4, quizz_mode ∈ [1,2,3,4])
-      await trx(FAQ_SCHEMA.TABLE)
-        .where(FAQ_SCHEMA.FIELDS.TYPE, 4)
-        .whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_ID, [...existingIds])
-        .whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_MODE, quizzModes)
-        .del();
+      await this.faqService.deleteFaqsByItem(trx, {
+        type: TypeModeGame.QUIZ,
+        itemIds: [...existingIds],
+        quizModes: quizzModes,
+      });
 
       // 4) Commit transaction
       await trx.commit();

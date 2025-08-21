@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { QuizController } from './quiz.controller';
-import { FileUploadModule } from '../../core/file-upload/file-upload.module';
+import { FaqModule } from '../faq/faq.module';
+import { WebSeoModule } from './../web-seo/web-seo.module';
 
 @Module({
-  imports: [FileUploadModule], 
+  imports: [FaqModule, WebSeoModule],
   controllers: [QuizController],
   providers: [QuizService],
   exports: [QuizService],
