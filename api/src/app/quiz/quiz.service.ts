@@ -464,7 +464,7 @@ export class QuizService {
         this.dbService.connection
           .from({ q: QUESTION_SCHEMA.TABLE })
           .select('q.quizzes')
-          .count('* as no_of_que')
+          .count('* as no_of_question')
           .groupBy('q.quizzes')
           .as('qc'),
         'qc.quizzes',
@@ -549,7 +549,7 @@ export class QuizService {
         quiz.slug
       );
 
-      quiz.no_of_que = +quiz?.no_of_que;
+      quiz.no_of_question = +quiz?.no_of_question;
       quiz.is_played = !!+quiz?.is_played;
 
       return quiz;
