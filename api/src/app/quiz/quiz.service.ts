@@ -476,7 +476,7 @@ export class QuizService {
           .distinct('qhl.quizz_id')
           .select(this.dbService.connection.raw('1 as is_played'))
           .as('qhlb'),
-        `qhlb.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.ID}`,
+        `qhlb.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID}`,
         `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
       )
 
