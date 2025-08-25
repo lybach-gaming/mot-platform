@@ -3,15 +3,14 @@
  * This is only a minimal backend to get started.
  */
 
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app/app.module';
-import { ValidationPipe } from '@nestjs/common';
-import '../env.js';
 import basicAuth from 'express-basic-auth';
+import cookieParser from 'cookie-parser';
+import '../env.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -23,6 +22,14 @@ async function bootstrap() {
 
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    })
+  );
 
   app.enableCors();
   app.use(cookieParser());

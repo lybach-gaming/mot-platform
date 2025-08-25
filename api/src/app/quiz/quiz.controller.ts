@@ -24,6 +24,8 @@ import {
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
+import { GetListQuizDto } from './dto/get-list-quiz.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -234,5 +236,10 @@ export class QuizController {
   @Post('/get_quiz_rule')
   async getQuizRulesPost(@Body() dto: GetQuizRulesDto) {
     return await this.quizService.getQuizRules({ ...dto });
+  }
+
+  @Get('/quizzes')
+  async getListQuiz(@Query() dto: GetListQuizDto) {
+    return await this.quizService.getListQuiz({ ...dto });
   }
 }

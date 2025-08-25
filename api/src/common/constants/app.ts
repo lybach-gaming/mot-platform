@@ -1,4 +1,5 @@
-export const BASE_URL = process.env.BASE_URL ?? 'https://admin.mastersoftrivia.com/';
+export const BASE_URL =
+  process.env.BASE_URL ?? 'https://admin.mastersoftrivia.com/';
 
 export const FE_URL = process.env.FE_URL ?? 'https://mastersoftrivia.com/';
 
@@ -28,9 +29,11 @@ export const SUBCATEGORY_THUMB_PATH_SMALL = 'images/subcategory/thumbs/50x50/';
 
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
-export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumbs/100x100/';
+export const SUBCATEGORY_LEVEL_THUMB_PATH =
+  'images/subcategory-level/thumbs/100x100/';
 
-export const SUBCATEGORY_LEVEL_THUMB_PATH_SMALL = 'images/subcategory-level/thumbs/50x50/';
+export const SUBCATEGORY_LEVEL_THUMB_PATH_SMALL =
+  'images/subcategory-level/thumbs/50x50/';
 
 export const QUIZZES_IMAGE_PATH = 'images/quizzes/';
 
@@ -40,7 +43,7 @@ export const QUIZZES_THUMB_PATH_SMALL = 'images/quizzes/thumbs/50x50/';
 
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
-export const CACHE_TTL_DEFAULT = 1 * 60 * 60 // 1 hour
+export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
 
 export enum OrderBy {
   ASC = 'asc',
@@ -74,3 +77,7 @@ export enum QuizMode {
   QUIZ_BY_LANGUAGE = 12,
   COMMON_PAGE = 15,
 }
+
+export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
+
+export const LANG_ENGLISH_ID = 14;
