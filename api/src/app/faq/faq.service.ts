@@ -56,8 +56,6 @@ export class FaqService {
   ) {
     try {
       if (!dto.enable_faq || !dto.questions?.length || !dto.answers?.length) {
-        // Rollback
-        trx.rollback();
         return;
       }
 
@@ -110,7 +108,6 @@ export class FaqService {
         await trx(FAQ_SCHEMA.TABLE).insert(faqData);
       }
     } catch (error) {
-      trx.rollback();
       this.logger.error(
         `Failed to create FAQ entries for ${type}:${itemId}`,
         error
@@ -131,15 +128,11 @@ export class FaqService {
     try {
       // Get existing item's details
       if (!isValidFaqItemTableType(type)) {
-        // Rollback
-        trx.rollback();
         throw new Error(`Invalid type for FAQ item table: ${type}`);
       }
       const itemTable = FAQ_TYPE_ID_ITEM_TABLE_MAPPING[type];
       const existingItem = await trx(itemTable).where('id', itemId).first();
       if (!existingItem) {
-        // Rollback to avoid creating FAQs for non-existing items
-        trx.rollback();
         throw new Error(
           `Item not found for FAQ update: ${type} with ID ${itemId}`
         );
@@ -218,6 +211,64 @@ export class FaqService {
         return; // Nothing more to do
       }
 
+      // Get all child FAQs need tobe update based on ItemId and QuizMode
+      const quizMode =
+        dto.quiz_mode !== undefined && dto.quiz_mode !== null
+          ? dto.quiz_mode
+          : null;
+      console.log('dto', dto);
+      const excludeIds = (faqIdList ?? [])
+        .map(Number)
+        .filter((n) => Number.isFinite(n));
+
+      const queryUpdate: any = {
+        [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: quizMode,
+      };
+
+      if (isValidFaqType(type)) {
+        const idField = FAQ_TYPE_ID_FIELD_MAPPING[type];
+        if (idField) {
+          queryUpdate[idField] = itemId;
+        }
+      }
+      const faqRecordsToUpdate = await trx(FAQ_SCHEMA.TABLE)
+        .where(queryUpdate)
+        .modify(
+          (q) =>
+            faqIdList?.length && q.whereNotIn(FAQ_SCHEMA.FIELDS.ID, faqIdList)
+        )
+        .select(FAQ_SCHEMA.FIELDS.ID, FAQ_SCHEMA.FIELDS.TYPE);
+
+      for (const record of faqRecordsToUpdate) {
+        const recordType = record.type;
+        // Prepare ID field updates for all types
+        const existingChild = await trx(FAQ_SCHEMA.TABLE)
+          .where(FAQ_SCHEMA.FIELDS.ID, record.id)
+          .first();
+        if (!existingChild) continue;
+        const idFieldUpdatesForChilds: Record<string, number | null> = {};
+        Object.entries(FAQ_TYPE_ID_FIELD_MAPPING).forEach(
+          ([typeKey, fieldName]) => {
+            const currentType = Number(typeKey);
+            if (currentType !== recordType) {
+              const dtoField = this.getDtoFieldForType(
+                currentType,
+                dto,
+                existingChild
+              );
+              idFieldUpdatesForChilds[fieldName] =
+                dtoField ?? existingChild?.[fieldName] ?? null;
+            }
+          }
+        );
+
+        // log to check
+        console.log('Updating FAQ ID:', record.id, idFieldUpdatesForChilds);
+        await trx(FAQ_SCHEMA.TABLE)
+          .where(FAQ_SCHEMA.FIELDS.ID, record.id)
+          .update(idFieldUpdatesForChilds);
+      }
+
       type FaqRow = Record<string, string | number | null>;
       const faqArray: FaqRow[] = cleanQuestions
         .map((question: string, index: number): FaqRow | null => {
@@ -288,7 +339,6 @@ export class FaqService {
         error
       );
       throw error;
-      trx.rollback();
     }
   }
 
@@ -306,11 +356,22 @@ export class FaqService {
       type: TypeModeGame;
       itemIds?: number | number[];
       quizModes?: number[];
+      childType?: TypeModeGame | TypeModeGame[]; // Optional child type for more specific deletions
     }
   ): Promise<void> {
     try {
-      const { type, itemIds, quizModes } = options;
-      const query = trx(FAQ_SCHEMA.TABLE).where(FAQ_SCHEMA.FIELDS.TYPE, type);
+      const { type, itemIds, quizModes, childType } = options;
+      // Merge childType into type if provided
+      const typesToDelete = Array.isArray(childType)
+        ? [type, ...childType]
+        : childType
+        ? [type, childType]
+        : [type];
+
+      const query = trx(FAQ_SCHEMA.TABLE).whereIn(
+        FAQ_SCHEMA.FIELDS.TYPE,
+        typesToDelete
+      );
 
       // If quizModes are provided, filter by them
       if (quizModes?.length) {

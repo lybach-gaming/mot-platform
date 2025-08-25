@@ -92,7 +92,26 @@ export class WebSeoService {
       }
     });
 
-    await trx(WEB_SEO_SCHEMA.TABLE).insert(webSeoData);
+    try {
+      const [webSeoID] = await trx(WEB_SEO_SCHEMA.TABLE)
+        .insert(webSeoData)
+        .returning(WEB_SEO_SCHEMA.FIELDS.ID);
+      // if unsuccessful, need to throw error to rollback transaction
+      if (!webSeoID) {
+        await trx.rollback();
+        throw new Error('Failed to create Web SEO entry');
+      }
+    } catch (error) {
+      try {
+        await trx.rollback();
+      } catch (rollbackError) {
+        this.logger.error(
+          'Failed to rollback transaction after Web SEO creation failure',
+          rollbackError
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -149,7 +168,88 @@ export class WebSeoService {
       }
     });
 
-    await trx(WEB_SEO_SCHEMA.TABLE).where(query).update(updatedSeo);
+    // Get all web seo record needs to be updated based on ItemId and QuizMode
+    const queryUpdate: any = {
+      [WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE]: dto.quiz_mode ?? existing?.quizz_mode,
+    };
+    if (isValidWebSeoType(type)) {
+      const idField = TYPE_ID_FIELD_MAPPING[type];
+      if (idField) {
+        queryUpdate[idField] = itemId;
+      }
+    }
+    const webSeoRecordsToUpdate = await trx(WEB_SEO_SCHEMA.TABLE)
+      .where(queryUpdate)
+      .select(WEB_SEO_SCHEMA.FIELDS.ID, WEB_SEO_SCHEMA.FIELDS.TYPE)
+      .whereNot(WEB_SEO_SCHEMA.FIELDS.ID, existing.id); // Exclude the current record
+
+    // Base on the web seo records fetched, update the relevant ID fields
+    for (const record of webSeoRecordsToUpdate) {
+      const recordType = record.type;
+      // Get the existing record for this ID
+      const existingChild = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(WEB_SEO_SCHEMA.FIELDS.ID, record.id)
+        .first();
+      if (existingChild) {
+        const updateSeoChild = {
+          ...(existingChild || {}),
+          [WEB_SEO_SCHEMA.FIELDS.LANGUAGE_ID]:
+            dto.language_id ?? existingChild?.language_id,
+        };
+
+        Object.entries(TYPE_ID_FIELD_MAPPING).forEach(
+          ([typeKey, fieldName]) => {
+            if (Number(typeKey) !== recordType) {
+              const dtoField = this.getDtoFieldForType(Number(typeKey), dto);
+              updateSeoChild[fieldName] =
+                dtoField ?? existingChild?.[fieldName] ?? null;
+            }
+          }
+        );
+
+        try {
+          const affectedChild = await trx(WEB_SEO_SCHEMA.TABLE)
+            .where(WEB_SEO_SCHEMA.FIELDS.ID, record.id)
+            .update(updateSeoChild);
+
+          if (!affectedChild) {
+            await trx.rollback();
+            throw new Error('Update Web SEO failed: record not found');
+          }
+        } catch (e) {
+          try {
+            await trx.rollback();
+          } catch (rollbackError) {
+            this.logger.error(
+              'Failed to rollback transaction after Web SEO update failure',
+              rollbackError
+            );
+          }
+          throw e;
+        }
+      }
+    }
+
+    try {
+      const affected = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(query)
+        .update(updatedSeo);
+
+      if (!affected) {
+        await trx.rollback();
+        throw new Error('Update Web SEO failed: record not found');
+      }
+    } catch (e) {
+      try {
+        await trx.rollback();
+      } catch (rollbackError) {
+        this.logger.error(
+          'Failed to rollback transaction after Web SEO update failure',
+          rollbackError
+        );
+      }
+      throw e;
+    }
   }
 
   /**
@@ -166,13 +266,22 @@ export class WebSeoService {
       type: TypeModeGame;
       itemIds?: number | number[];
       quizModes?: number[];
+      childType?: TypeModeGame | TypeModeGame[]; // Optional child type for more specific deletions
     }
   ): Promise<void> {
     try {
-      const { type, itemIds, quizModes } = options;
-      const query = trx(WEB_SEO_SCHEMA.TABLE).where(
+      const { type, itemIds, quizModes, childType } = options;
+
+      // Merge type and childType into an array of types to delete
+      const typesToDelete = Array.isArray(childType)
+        ? [type, ...childType]
+        : childType
+        ? [type, childType]
+        : [type];
+
+      const query = trx(WEB_SEO_SCHEMA.TABLE).whereIn(
         WEB_SEO_SCHEMA.FIELDS.TYPE,
-        type
+        typesToDelete
       );
 
       // If quizModes are provided, filter by them
