@@ -6,18 +6,18 @@ export class FaqDto {
   @ApiProperty({ description: 'Question for the FAQ' })
   @IsString()
   @IsNotEmpty()
-  question: string;
+  question!: string;
 
   @ApiProperty({ description: 'Answer for the FAQ' })
   @IsString()
   @IsNotEmpty()
-  answer: string;
+  answer!: string;
 
   @ApiProperty({ description: 'Language ID' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  language_id: number;
+  language_id!: number;
 
   @ApiProperty({
     description: 'Quiz mode',
@@ -27,7 +27,7 @@ export class FaqDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  quizz_mode: number;
+  quizz_mode!: number;
 
   @ApiProperty({
     description: 'Type',
@@ -37,7 +37,7 @@ export class FaqDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  type: number;
+  type!: number;
 
   @ApiProperty({ description: 'Quiz by Language category ID' })
   @IsNumber()

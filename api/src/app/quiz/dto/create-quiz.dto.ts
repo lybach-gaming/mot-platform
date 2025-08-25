@@ -18,7 +18,7 @@ export class CreateQuizDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  language_id: number;
+  language_id!: number;
 
   @ApiProperty({
     description: 'Quiz mode',
@@ -28,19 +28,19 @@ export class CreateQuizDto {
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  quiz_mode: number;
+  quiz_mode!: number;
 
   @ApiProperty({ description: 'The main category ID of the quiz' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  maincat_id: number;
+  maincat_id!: number;
 
   @ApiProperty({ description: 'The main subcategory ID of the quiz' })
   @IsNumber()
   @IsNotEmpty()
   @Type(() => Number)
-  main_subcat_id: number;
+  main_subcat_id!: number;
 
   @ApiProperty({ description: 'The main subcategory level ID of the quiz' })
   @IsNumber()
@@ -51,7 +51,7 @@ export class CreateQuizDto {
   @ApiProperty({ description: 'The name of the quiz' })
   @IsString()
   @IsNotEmpty()
-  quizz_name: string;
+  quizz_name!: string;
 
   @ApiProperty({
     description: 'Image file for the quiz',
@@ -99,7 +99,7 @@ export class CreateQuizDto {
   @ApiProperty({ description: 'The URL-friendly slug for the quiz' })
   @IsString()
   @IsNotEmpty()
-  slug: string;
+  slug!: string;
 
   @ApiProperty({
     description: 'Whether FAQ is enabled for this quiz',

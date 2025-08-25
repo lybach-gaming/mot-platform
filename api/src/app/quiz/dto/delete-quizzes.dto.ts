@@ -11,5 +11,5 @@ export class DeleteQuizzesDto {
   @ArrayNotEmpty()
   @Type(() => Number)
   @IsInt({ each: true })
-  ids: number[];
+  ids!: number[];
 }

@@ -133,7 +133,7 @@ export class WebSeoDto {
   @Type(() => Number)
   is_edit_slug?: number = 1;
 
-  @ApiProperty({ description: 'SEO Heading', defult: '' })
+  @ApiProperty({ description: 'SEO Heading', default: '' })
   @IsString()
   @IsOptional()
   heading?: string = '';

@@ -317,9 +317,11 @@ export class QuizService {
         }
       }
 
-      // Slug
+      // Slug: If has no changes, keep existing slug
       if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (dto.quizz_name) dto.slug = generateSlug(dto.quizz_name);
+      else if (!existing.slug && dto.quizz_name) {
+        dto.slug = generateSlug(dto.quizz_name);
+      } else dto.slug = existing.slug;
 
       // Image
       let imageName = existing.image;
@@ -669,11 +671,11 @@ export class QuizService {
 
       // 3.3) Delete web_seo (type=4, quizz_mode ∈ [1,2,3,4])
       const quizzModes = [1, 2, 3, 4];
-      await trx(WEB_SEO_SCHEMA.TABLE)
-        .where(WEB_SEO_SCHEMA.FIELDS.TYPE, 4)
-        .whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID, [...existingIds])
-        .whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE, quizzModes)
-        .del();
+      await this.webSeoService.deleteWebSEOByItem(trx, {
+        type: TypeModeGame.QUIZ,
+        itemIds: [...existingIds],
+        quizModes: quizzModes,
+      });
 
       // 3.4) Delete faq (type=4, quizz_mode ∈ [1,2,3,4])
       await this.faqService.deleteFaqsByItem(trx, {

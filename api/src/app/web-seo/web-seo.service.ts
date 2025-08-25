@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { WEB_SEO_SCHEMA } from '../../core/database/schemas';
 import { getWebSeoJsonObjectSql } from '../../utils/web-seo-json-object';
 import { Knex } from 'knex';
 import { TypeModeGame, QuizMode } from '../../common/constants/app';
-import { WebSeoBaseDto } from './interface/faq.interface';
+import { WebSeoBaseDto } from './interface/web-seo.interface';
 
 const TYPE_ID_FIELD_MAPPING = {
   [TypeModeGame.QUIZ]: WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID,
@@ -15,8 +15,18 @@ const TYPE_ID_FIELD_MAPPING = {
     WEB_SEO_SCHEMA.FIELDS.QUIZZ_BY_LANGUAGE_LAN_ID,
 } as const;
 
+// Define valid types based on the mapping keys
+type ValidWebSeoType = keyof typeof TYPE_ID_FIELD_MAPPING;
+
+// Check if type exists in mapping
+function isValidWebSeoType(type: TypeModeGame): type is ValidWebSeoType {
+  return type in TYPE_ID_FIELD_MAPPING;
+}
+
 @Injectable()
 export class WebSeoService {
+  private readonly logger = new Logger(WebSeoService.name);
+
   constructor(private readonly dbService: DatabaseService) {}
 
   /**
@@ -106,22 +116,19 @@ export class WebSeoService {
       [WEB_SEO_SCHEMA.FIELDS.TYPE]: type,
     };
 
-    const idField = TYPE_ID_FIELD_MAPPING[type];
-    if (idField) {
-      query[idField] = itemId;
+    if (isValidWebSeoType(type)) {
+      const idField = TYPE_ID_FIELD_MAPPING[type];
+      if (idField) {
+        query[idField] = itemId;
+      }
     }
-
-    if (dto.slug) query[WEB_SEO_SCHEMA.FIELDS.SLUG] = dto.slug;
 
     const existing = await trx(WEB_SEO_SCHEMA.TABLE).where(query).first();
 
     if (!existing) {
-      await trx.rollback();
-      return {
-        error: true,
-        message: 'Item is missing associated SEO entry.',
-        data: null,
-      };
+      // Create new entry if it doesn't exist
+      await this.createWebSeoEntry(trx, itemId, type, dto, titleField);
+      return;
     }
 
     const updatedSeo = {
@@ -163,30 +170,41 @@ export class WebSeoService {
   ): Promise<void> {
     try {
       const { type, itemIds, quizModes } = options;
-      let query = trx(WEB_SEO_SCHEMA.TABLE).where(
+      const query = trx(WEB_SEO_SCHEMA.TABLE).where(
         WEB_SEO_SCHEMA.FIELDS.TYPE,
         type
       );
 
       // If quizModes are provided, filter by them
       if (quizModes?.length) {
-        query = query.whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE, quizModes);
+        query.whereIn(WEB_SEO_SCHEMA.FIELDS.QUIZZ_MODE, quizModes);
       }
 
       // Add ID field based on type if itemIds is provided
-      if (itemIds) {
+      if (itemIds !== undefined) {
         const ids = Array.isArray(itemIds) ? itemIds : [itemIds];
+        if (ids.length === 0) {
+          // If itemIds is an empty array, nothing to delete
+          return;
+        }
 
-        const idField = TYPE_ID_FIELD_MAPPING[type];
-        if (idField) {
-          query = query.whereIn(idField, ids);
+        if (isValidWebSeoType(type)) {
+          const idField = TYPE_ID_FIELD_MAPPING[type];
+          if (idField) {
+            query.whereIn(idField, ids);
+          }
         }
       }
 
-      await trx(WEB_SEO_SCHEMA.TABLE).where(query).delete();
+      const affected = await query.delete();
+      return affected;
     } catch (error) {
       this.logger.error(
-        `Failed to delete Web SEO for ${type}:${itemId}`,
+        `Failed to delete Web SEOs | type: ${
+          options.type
+        } | itemIds: ${JSON.stringify(
+          options.itemIds
+        )} | quizModes: ${JSON.stringify(options.quizModes)}`,
         error
       );
       throw error;

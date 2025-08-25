@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../../core/database/database.service';
-import { FAQ_SCHEMA } from '../../core/database/schemas';
+import {
+  FAQ_SCHEMA,
+  CATEGORY_SCHEMA,
+  SUBCATEGORY_SCHEMA,
+  SUBCATEGORY_LEVEL_SCHEMA,
+  QUIZZ_SCHEMA,
+} from '../../core/database/schemas';
 import { Knex } from 'knex';
 import { TypeModeGame, QuizMode } from '../../common/constants/app';
 import { FaqBaseDto } from './interface/faq.interface';
@@ -13,11 +18,32 @@ const FAQ_TYPE_ID_FIELD_MAPPING = {
   [TypeModeGame.QUIZ_BY_LANGUAGE]: FAQ_SCHEMA.FIELDS.QUIZZ_BY_LANGUAGE_LAN_ID,
 } as const;
 
+// Define valid types based on the mapping keys
+type ValidFaqType = keyof typeof FAQ_TYPE_ID_FIELD_MAPPING;
+
+// Check if type exists in mapping
+function isValidFaqType(type: TypeModeGame): type is ValidFaqType {
+  return type in FAQ_TYPE_ID_FIELD_MAPPING;
+}
+
+const FAQ_TYPE_ID_ITEM_TABLE_MAPPING = {
+  [TypeModeGame.QUIZ]: QUIZZ_SCHEMA.TABLE,
+  [TypeModeGame.CATEGORY]: CATEGORY_SCHEMA.TABLE,
+  [TypeModeGame.SUBCATEGORY]: SUBCATEGORY_SCHEMA.TABLE,
+  [TypeModeGame.SUBCATEGORY_LEVEL]: SUBCATEGORY_LEVEL_SCHEMA.TABLE,
+} as const;
+
+type ValidFaqItemTableType = keyof typeof FAQ_TYPE_ID_ITEM_TABLE_MAPPING;
+
+function isValidFaqItemTableType(
+  type: TypeModeGame
+): type is ValidFaqItemTableType {
+  return type in FAQ_TYPE_ID_ITEM_TABLE_MAPPING;
+}
+
 @Injectable()
 export class FaqService {
   private readonly logger = new Logger(FaqService.name);
-
-  constructor(private readonly dbService: DatabaseService) {}
 
   /**
    * Create FAQ entries for an item
@@ -30,26 +56,29 @@ export class FaqService {
   ) {
     try {
       if (!dto.enable_faq || !dto.questions?.length || !dto.answers?.length) {
+        // Rollback
+        trx.rollback();
         return;
       }
 
-      const questions = dto.questions.filter((q) => q && q.trim());
-      const answers = dto.answers.filter((a) => a && a.trim());
+      type FaqRow = Record<string, string | number | null>;
+      const questions = dto.questions.filter((q: string) => q && q.trim());
+      const answers = dto.answers.filter((a: string) => a && a.trim());
 
-      const faqData = questions
-        .map((question, index) => {
+      const faqData: FaqRow[] = questions
+        .map((question: string, index: number): FaqRow | null => {
           const answer = answers[index];
           if (!question || !answer) return null;
 
-          const data = {
+          const data: FaqRow = {
             [FAQ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id,
             [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: dto.quiz_mode,
             [FAQ_SCHEMA.FIELDS.TYPE]: type,
             [FAQ_SCHEMA.FIELDS.QUESTION]: question.trim(),
             [FAQ_SCHEMA.FIELDS.ANSWER]: answer.trim(),
-            [FAQ_SCHEMA.FIELDS.SEO_BLOCK]: dto.seo_block || '',
-            [FAQ_SCHEMA.FIELDS.NOTE]: dto.note || '',
-            [FAQ_SCHEMA.FIELDS.DESCRIPTION]: dto.description || '',
+            [FAQ_SCHEMA.FIELDS.SEO_BLOCK]: '',
+            [FAQ_SCHEMA.FIELDS.NOTE]: '',
+            [FAQ_SCHEMA.FIELDS.DESCRIPTION]: '',
             [FAQ_SCHEMA.FIELDS.ENABLE_FAQ]: dto.enable_faq ? 1 : 0,
           };
 
@@ -81,6 +110,7 @@ export class FaqService {
         await trx(FAQ_SCHEMA.TABLE).insert(faqData);
       }
     } catch (error) {
+      trx.rollback();
       this.logger.error(
         `Failed to create FAQ entries for ${type}:${itemId}`,
         error
@@ -99,17 +129,35 @@ export class FaqService {
     dto: FaqBaseDto
   ) {
     try {
+      // Get existing item's details
+      if (!isValidFaqItemTableType(type)) {
+        // Rollback
+        trx.rollback();
+        throw new Error(`Invalid type for FAQ item table: ${type}`);
+      }
+      const itemTable = FAQ_TYPE_ID_ITEM_TABLE_MAPPING[type];
+      const existingItem = await trx(itemTable).where('id', itemId).first();
+      if (!existingItem) {
+        // Rollback to avoid creating FAQs for non-existing items
+        trx.rollback();
+        throw new Error(
+          `Item not found for FAQ update: ${type} with ID ${itemId}`
+        );
+      }
+
       const { edit_faq_ids = [], questions = [], answers = [] } = dto;
-      const faqIdList = edit_faq_ids.map((id) => Number(id));
+      const faqIdList = edit_faq_ids.map((id: number) => Number(id));
 
       // Get all existing FAQs for this item
       const query: any = {
         [FAQ_SCHEMA.FIELDS.TYPE]: type,
       };
 
-      const idField = FAQ_TYPE_ID_FIELD_MAPPING[type];
-      if (idField) {
-        query[idField] = itemId;
+      if (isValidFaqType(type)) {
+        const idField = FAQ_TYPE_ID_FIELD_MAPPING[type];
+        if (idField) {
+          query[idField] = itemId;
+        }
       }
 
       const allFaqInDb = await trx(FAQ_SCHEMA.TABLE)
@@ -127,31 +175,87 @@ export class FaqService {
           .delete();
       }
 
-      const cleanQuestions = questions.filter((q) => q && q.trim());
-      const cleanAnswers = answers.filter((a) => a && a.trim());
+      const cleanQuestions = questions.filter((q: string) => q && q.trim());
+      const cleanAnswers = answers.filter((a: string) => a && a.trim());
 
-      const faqArray = cleanQuestions
-        .map((question, index) => {
+      // Prepare ID field updates for all types
+      const idFieldUpdates: Record<string, number | null> = {};
+      Object.entries(FAQ_TYPE_ID_FIELD_MAPPING).forEach(
+        ([typeKey, fieldName]) => {
+          const currentType = Number(typeKey);
+          if (currentType === type) {
+            // Special case for QUIZ_BY_LANGUAGE
+            if (type === TypeModeGame.QUIZ_BY_LANGUAGE) {
+              idFieldUpdates[fieldName] =
+                dto.quiz_mode === QuizMode.QUIZ_BY_LANGUAGE
+                  ? itemId
+                  : dto.quiz_by_language_lan_id || null;
+            } else {
+              idFieldUpdates[fieldName] = itemId;
+            }
+          } else {
+            const dtoField = this.getDtoFieldForType(
+              currentType,
+              dto,
+              existingItem
+            );
+            idFieldUpdates[fieldName] = dtoField || null;
+          }
+        }
+      );
+
+      // If no questions/answers provided, just update IDs and return
+      if (cleanQuestions.length === 0 && cleanAnswers.length === 0) {
+        const remainingIds = (
+          faqIdList.length > 0 ? faqIdList : allFaqInDb.map((f) => f.id)
+        ).filter((id) => !idsToDelete.includes(id));
+
+        if (remainingIds.length > 0) {
+          await trx(FAQ_SCHEMA.TABLE)
+            .whereIn(FAQ_SCHEMA.FIELDS.ID, remainingIds)
+            .update(idFieldUpdates);
+        }
+        return; // Nothing more to do
+      }
+
+      type FaqRow = Record<string, string | number | null>;
+      const faqArray: FaqRow[] = cleanQuestions
+        .map((question: string, index: number): FaqRow | null => {
           const answer = cleanAnswers[index];
           if (!question || !answer) return null;
 
-          const data = {
+          const data: FaqRow = {
             [FAQ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id,
             [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: dto.quiz_mode,
             [FAQ_SCHEMA.FIELDS.TYPE]: type,
             [FAQ_SCHEMA.FIELDS.QUESTION]: question.trim(),
             [FAQ_SCHEMA.FIELDS.ANSWER]: answer.trim(),
-            [FAQ_SCHEMA.FIELDS.SEO_BLOCK]: dto.seo_block || '',
-            [FAQ_SCHEMA.FIELDS.NOTE]: dto.note || '',
-            [FAQ_SCHEMA.FIELDS.DESCRIPTION]: dto.description || '',
+            [FAQ_SCHEMA.FIELDS.SEO_BLOCK]: '',
+            [FAQ_SCHEMA.FIELDS.NOTE]: '',
+            [FAQ_SCHEMA.FIELDS.DESCRIPTION]: '',
             [FAQ_SCHEMA.FIELDS.ENABLE_FAQ]: dto.enable_faq ? 1 : 0,
           };
 
           Object.entries(FAQ_TYPE_ID_FIELD_MAPPING).forEach(
             ([typeKey, fieldName]) => {
-              if (Number(typeKey) !== type) {
-                const dtoField = this.getDtoFieldForType(Number(typeKey), dto);
-                data[fieldName] = dtoField ?? existing?.[fieldName] ?? null;
+              const currentType = Number(typeKey);
+              if (currentType === type) {
+                // Special case for QUIZ_BY_LANGUAGE
+                if (type === TypeModeGame.QUIZ_BY_LANGUAGE) {
+                  data[fieldName] =
+                    dto.quiz_mode === QuizMode.QUIZ_BY_LANGUAGE
+                      ? itemId
+                      : dto.quiz_by_language_lan_id || null;
+                } else {
+                  data[fieldName] = itemId;
+                }
+              } else {
+                const dtoField = this.getDtoFieldForType(
+                  currentType,
+                  dto,
+                  existingItem
+                );
+                data[fieldName] = dtoField || null;
               }
             }
           );
@@ -184,6 +288,7 @@ export class FaqService {
         error
       );
       throw error;
+      trx.rollback();
     }
   }
 
@@ -205,45 +310,66 @@ export class FaqService {
   ): Promise<void> {
     try {
       const { type, itemIds, quizModes } = options;
-      let query = trx(FAQ_SCHEMA.TABLE).where(FAQ_SCHEMA.FIELDS.TYPE, type);
+      const query = trx(FAQ_SCHEMA.TABLE).where(FAQ_SCHEMA.FIELDS.TYPE, type);
 
       // If quizModes are provided, filter by them
       if (quizModes?.length) {
-        query = query.whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_MODE, quizModes);
+        query.whereIn(FAQ_SCHEMA.FIELDS.QUIZZ_MODE, quizModes);
       }
 
       // Add ID field based on type if itemIds is provided
       if (itemIds) {
         const ids = Array.isArray(itemIds) ? itemIds : [itemIds];
+        if (ids.length === 0) {
+          // If itemIds is an empty array, nothing to delete
+          return;
+        }
 
-        const idField = FAQ_TYPE_ID_FIELD_MAPPING[type];
-        if (idField) {
-          query = query.whereIn(idField, ids);
+        if (isValidFaqType(type)) {
+          const idField = FAQ_TYPE_ID_FIELD_MAPPING[type];
+          if (idField) {
+            query.whereIn(idField, ids);
+          }
         }
       }
 
-      await trx(FAQ_SCHEMA.TABLE).where(query).delete();
+      const affected = await query.delete();
+      return affected;
     } catch (error) {
-      this.logger.error(`Failed to delete FAQs for ${type}:${itemId}`, error);
+      this.logger.error(
+        `Failed to delete FAQs | type: ${
+          options.type
+        } | itemIds: ${JSON.stringify(
+          options.itemIds
+        )} | quizModes: ${JSON.stringify(options.quizModes)}`,
+        error
+      );
       throw error;
     }
   }
 
   private getDtoFieldForType(
     type: TypeModeGame,
-    dto: WebSeoBaseDto
+    dto: FaqBaseDto,
+    existingItem?: FaqBaseDto
   ): number | null {
     switch (type) {
       case TypeModeGame.QUIZ:
-        return dto.quiz_id || null;
+        return dto.quizz_id || existingItem?.quizz_id || null;
       case TypeModeGame.CATEGORY:
-        return dto.maincat_id || null;
+        return dto.maincat_id || existingItem?.maincat_id || null;
       case TypeModeGame.SUBCATEGORY:
-        return dto.main_subcat_id || null;
+        return dto.main_subcat_id || existingItem?.main_subcat_id || null;
       case TypeModeGame.SUBCATEGORY_LEVEL:
-        return dto.main_subcat_level_id || null;
+        return (
+          dto.main_subcat_level_id || existingItem?.main_subcat_level_id || null
+        );
       case TypeModeGame.QUIZ_BY_LANGUAGE:
-        return dto.quiz_by_language_lan_id || null;
+        return (
+          dto.quiz_by_language_lan_id ||
+          existingItem?.quiz_by_language_lan_id ||
+          null
+        );
       default:
         return null;
     }
