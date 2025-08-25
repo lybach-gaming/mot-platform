@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   BASE_URL,
+  CACHE_TTL_DEFAULT,
   FE_URL,
+  LANG_ENGLISH_ID,
   QUIZ_HQ_SLUG,
   QUIZZES_IMAGE_PATH,
   QUIZZES_THUMB_PATH,
@@ -20,16 +22,21 @@ import {
   WEB_SEO_SCHEMA,
 } from '../../core/database/schemas';
 import { QUESTION_SCHEMA } from '../../core/database/schemas/question.schema';
-import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
-
-const MAX_RELATED_QUIZZES = 5;
 import { QUIZZ_SCHEMA } from '../../core/database/schemas/quizz.schema';
 import { RedisService } from '../../core/redis/redis.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
+import { GetListQuizDto } from './dto/get-list-quiz.dto';
+import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
+import { IListQuizItemResponse } from './types';
+import { IApiListResponse } from '../../common/types/response.type';
+
+const MAX_RELATED_QUIZZES = 5;
 
 @Injectable()
 export class QuizService {
+  private readonly logger = new Logger(QuizService.name);
+
   constructor(
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService
@@ -170,7 +177,6 @@ export class QuizService {
       : '';
 
     // Build share URL for frontend usage
-    const LANG_ENGLISH_ID = 14;
     const prefix_lang =
       +(dto?.language_id || 0) === LANG_ENGLISH_ID ? '/en' : '/en';
     data.share_url = urlJoin(
@@ -410,6 +416,157 @@ export class QuizService {
     }
 
     await this.redisService.set(cacheKey, response);
+
+    return response;
+  }
+
+  /**
+   * Get detailed information about a quiz
+   *
+   * @param dto - DTO containing quiz lookup parameters
+   * @returns Detailed quiz info or error response
+   */
+  async getListQuiz(
+    dto: GetListQuizDto
+  ): Promise<IApiListResponse<IListQuizItemResponse>> {
+    // Check cache
+    const cacheKey = `${CacheKey.getListQuiz}${JSON.stringify(dto)}`;
+    if (!dto.search) {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached) {
+        this.logger.debug(`Cache hit for ${cacheKey}`);
+        return cached;
+      }
+    }
+
+    // Fetch quiz details with related slugs and subqueries for no_of_question & is_played
+    const selectFields = [
+      'qz.*',
+      'cat.slug as slug_category',
+      'subcat.slug as slug_subcategory',
+      'sublevel.slug as slug_subcategory_level',
+      this.dbService.connection.raw('COALESCE(qc.no_of_question, 0) as no_of_question'),
+      this.dbService.connection.raw('COALESCE(qhlb.is_played, 0) as is_played'),
+    ];
+
+    // Fetch the main quiz record
+    const baseQuery = this.dbService.connection
+      .from({ qz: QUIZZ_SCHEMA.TABLE })
+      .leftJoin(`${CATEGORY_SCHEMA.TABLE} as cat`, 'cat.id', 'qz.maincat_id')
+      .leftJoin(
+        `${SUBCATEGORY_SCHEMA.TABLE} as subcat`,
+        `subcat.${SUBCATEGORY_SCHEMA.FIELDS.ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`
+      )
+      .leftJoin(
+        `${SUBCATEGORY_LEVEL_SCHEMA.TABLE} as sublevel`,
+        `sublevel.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`
+      )
+      .leftJoin(
+        this.dbService.connection
+          .from({ q: QUESTION_SCHEMA.TABLE })
+          .select('q.quizzes')
+          .count('* as no_of_question')
+          .groupBy('q.quizzes')
+          .as('qc'),
+        'qc.quizzes',
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+      )
+      .leftJoin(
+        this.dbService.connection
+          .from({ qhl: QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE })
+          .distinct('qhl.quizz_id')
+          .select(this.dbService.connection.raw('1 as is_played'))
+          .as('qhlb'),
+        `qhlb.${QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID}`,
+        `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+      )
+
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.STATUS}`, 1)
+      .modify((qb) => {
+        if (dto.languageId) {
+          qb.where(`qz.${QUIZZ_SCHEMA.FIELDS.LANGUAGE_ID}`, dto.languageId);
+        }
+
+        if (dto.categoryId) {
+          qb.where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, dto.categoryId);
+        }
+
+        if (dto.subCategoryId) {
+          qb.where(
+            `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`,
+            dto.subCategoryId
+          );
+        }
+
+        if (dto.subCategoryLevelId) {
+          qb.where(
+            `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`,
+            dto.subCategoryLevelId
+          );
+        }
+
+        if (dto.search) {
+          const keyword = `%${dto.search?.toLowerCase()}%`;
+          qb.andWhere((subQb) => {
+            subQb
+              .whereRaw(`LOWER(qz.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}) LIKE ?`, [
+                keyword,
+              ])
+              .orWhereRaw(`LOWER(qz.${QUIZZ_SCHEMA.FIELDS.SLUG}) LIKE ?`, [
+                keyword,
+              ]);
+          });
+        }
+      });
+
+    const totalRow = await baseQuery.clone().count({ total: '*' }).first();
+    const total = Number(totalRow?.total || 0);
+
+    let quizzes: IListQuizItemResponse[] = await baseQuery
+      .clone()
+      .select(selectFields)
+      .limit(dto.limit)
+      .offset(dto.offset)
+      .orderBy(dto.sortBy, dto.sortOrder);
+
+    quizzes = quizzes?.map((quiz) => {
+      // Format image URLs and thumbnail paths
+      const image = quiz.image;
+      quiz.image = image ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, image) : '';
+      quiz.thumb_image = image
+        ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, image)
+        : '';
+
+      // Build share URL for frontend usage
+      const prefix_lang =
+        +(dto?.languageId || 0) === LANG_ENGLISH_ID ? '/en' : '/en';
+      quiz.share_url = urlJoin(
+        FE_URL,
+        prefix_lang,
+        QUIZ_HQ_SLUG,
+        quiz.slug_category,
+        quiz.slug_subcategory,
+        quiz.slug_subcategory_level,
+        quiz.slug
+      );
+
+      quiz.no_of_question = +quiz?.no_of_question;
+      quiz.is_played = !!+quiz?.is_played;
+
+      return quiz;
+    });
+
+    const response = {
+      error: false,
+      total: total,
+      data: quizzes,
+    };
+
+    if (!dto.search) {
+      await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+    }
 
     return response;
   }

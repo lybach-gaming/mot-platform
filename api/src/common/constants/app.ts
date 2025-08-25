@@ -24,7 +24,8 @@ export const SUBCATEGORY_THUMB_PATH = 'images/subcategory/thumbs/100x100/';
 
 export const SUBCATEGORY_LEVEL_IMAGE_PATH = 'images/subcategory-level/';
 
-export const SUBCATEGORY_LEVEL_THUMB_PATH = 'images/subcategory-level/thumbs/100x100/';
+export const SUBCATEGORY_LEVEL_THUMB_PATH =
+  'images/subcategory-level/thumbs/100x100/';
 
 export const QUIZZES_IMAGE_PATH = 'images/quizzes/';
 
@@ -32,4 +33,6 @@ export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
 
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
-export const CACHE_TTL_DEFAULT = 1 * 60 * 60 // 1 hour
+export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
+
+export const LANG_ENGLISH_ID = 14;

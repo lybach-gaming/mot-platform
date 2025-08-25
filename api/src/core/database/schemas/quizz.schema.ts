@@ -21,3 +21,24 @@ export const QUIZZ_SCHEMA = {
     IS_PINNED: 'is_pinned',
   },
 };
+
+export interface IQuizz {
+  id: number;
+  language_id: number;
+  maincat_id: number;
+  main_subcat_id: number;
+  main_subcat_level_id: number;
+  quizz_name: string;
+  image: string | null;
+  status: number;
+  is_premium: boolean;
+  coins: number;
+  row_order: number;
+  slug: string;
+  enable_faq: boolean;
+  is_public: boolean;
+  level: number;
+  is_featured: boolean;
+  is_coming_soon: boolean;
+  is_pinned: boolean;
+}
