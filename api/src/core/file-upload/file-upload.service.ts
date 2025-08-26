@@ -23,7 +23,7 @@ export class FileUploadService {
     try {
       await fs.mkdir(this.uploadRoot, { recursive: true });
     } catch (error) {
-      throw new Error(`Failed to create upload directory: ${error.message}`);
+      throw new Error(`Failed to create upload directory:`, { cause: error });
     }
   }
 
@@ -79,7 +79,7 @@ export class FileUploadService {
 
       return uniqueFilename;
     } catch (error) {
-      throw new Error(`Failed to upload file: ${error.message}`);
+      throw new Error(`Failed to upload file:`, { cause: error });
     }
   }
 
@@ -93,7 +93,7 @@ export class FileUploadService {
       const filePath = path.join(this.uploadRoot, directory, filename);
       await fs.unlink(filePath);
     } catch (error) {
-      throw new Error(`Failed to delete file: ${error.message}`);
+      throw new Error(`Failed to delete file:`, { cause: error });
     }
   }
 }

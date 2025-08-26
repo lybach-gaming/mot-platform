@@ -305,8 +305,7 @@ export class WebSeoService {
         }
       }
 
-      const affected = await query.delete();
-      return affected;
+      await query.delete();
     } catch (error) {
       this.logger.error(
         `Failed to delete Web SEOs | type: ${

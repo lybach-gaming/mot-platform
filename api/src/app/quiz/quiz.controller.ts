@@ -24,7 +24,6 @@ import {
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetListQuizDto } from './dto/get-list-quiz.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';

@@ -41,7 +41,6 @@ import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
-import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { QuizSortBy } from './../../common/constants/quiz';
 import { generateSlug } from '../../common/utils/generateSlug.util';
 import { Knex } from 'knex';
@@ -78,7 +77,7 @@ export class QuizService {
 
       return await this.fileUploadService.uploadFile(file, options);
     } catch (error) {
-      throw new Error(`Failed to upload quiz image: ${error.message}`);
+      throw new Error(`Failed to upload quiz image:`, { cause: error });
     }
   }
 
@@ -128,8 +127,8 @@ export class QuizService {
     const quizData: any = {};
 
     for (const field of fields) {
-      if (dto[field] !== undefined) {
-        quizData[field] = dto[field];
+      if (dto[field as keyof CreateQuizDto] !== undefined) {
+        quizData[field] = dto[field as keyof CreateQuizDto];
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.STATUS) {
         quizData[field] = 1;
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.IS_PREMIUM) {
@@ -283,11 +282,8 @@ export class QuizService {
         throw trxError;
       }
     } catch (error) {
-      return {
-        error: true,
-        message: error.message || 'Failed to create quiz',
-        data: null,
-      };
+      this.logger.error(`Failed to create quiz`, error);
+      throw new Error(`Failed to create quiz:`, { cause: error });
     }
   }
 
@@ -408,11 +404,8 @@ export class QuizService {
       };
     } catch (e) {
       await trx.rollback();
-      return {
-        error: true,
-        message: e.message || 'Failed to update quiz',
-        data: null,
-      };
+      this.logger.error(`Failed to update quiz with ID ${id}`, e);
+      throw new Error(`Failed to update quiz:`, { cause: e });
     }
   }
 
@@ -425,7 +418,7 @@ export class QuizService {
     limit: number;
     offset: number;
     search?: string;
-    sortBy?: string;
+    sortBy?: QuizSortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
   }) {
     const {
@@ -595,11 +588,8 @@ export class QuizService {
       };
     } catch (error) {
       await trx.rollback();
-      return {
-        error: true,
-        message: error.message || 'Failed to retrieve quiz details',
-        data: null,
-      };
+      this.logger.error(`Failed to retrieve quiz details with ID ${id}`, error);
+      throw new Error(`Failed to retrieve quiz details:`, { cause: error });
     }
   }
 
@@ -702,7 +692,8 @@ export class QuizService {
             await this.deleteQuestionImages(q[QUESTION_SCHEMA.FIELDS.IMAGE]);
           } catch (e) {
             this.logger?.warn?.(
-              `Delete question image failed (qId=${q.id}): ${e?.message}`
+              `Delete question image failed (qId=${q.id})`,
+              e
             );
           }
         })
@@ -714,7 +705,8 @@ export class QuizService {
             await this.deleteQuizImages(qz[QUIZZ_SCHEMA.FIELDS.IMAGE]);
           } catch (e) {
             this.logger?.warn?.(
-              `Delete quiz image failed (quizId=${qz.id}): ${e?.message}`
+              `Delete quiz image failed (quizId=${qz.id})`,
+              e
             );
           }
         })
@@ -737,11 +729,8 @@ export class QuizService {
       };
     } catch (e) {
       await trx.rollback();
-      return {
-        error: true,
-        message: e.message || 'Failed to delete quizzes',
-        data: null,
-      };
+      this.logger.error(`Failed to delete quizzes with IDs ${ids}`, e);
+      throw new Error(`Failed to delete quizzes:`, { cause: e });
     }
   }
 

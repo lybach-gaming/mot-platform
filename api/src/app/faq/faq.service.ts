@@ -31,6 +31,7 @@ const FAQ_TYPE_ID_ITEM_TABLE_MAPPING = {
   [TypeModeGame.CATEGORY]: CATEGORY_SCHEMA.TABLE,
   [TypeModeGame.SUBCATEGORY]: SUBCATEGORY_SCHEMA.TABLE,
   [TypeModeGame.SUBCATEGORY_LEVEL]: SUBCATEGORY_LEVEL_SCHEMA.TABLE,
+  [TypeModeGame.QUIZ_BY_LANGUAGE]: QUIZZ_SCHEMA.TABLE, // Will be change to quiz by language table later
 } as const;
 
 type ValidFaqItemTableType = keyof typeof FAQ_TYPE_ID_ITEM_TABLE_MAPPING;
@@ -201,7 +202,7 @@ export class FaqService {
       if (cleanQuestions.length === 0 && cleanAnswers.length === 0) {
         const remainingIds = (
           faqIdList.length > 0 ? faqIdList : allFaqInDb.map((f) => f.id)
-        ).filter((id) => !idsToDelete.includes(id));
+        ).filter((id: number) => !idsToDelete.includes(id));
 
         if (remainingIds.length > 0) {
           await trx(FAQ_SCHEMA.TABLE)
@@ -216,10 +217,6 @@ export class FaqService {
         dto.quiz_mode !== undefined && dto.quiz_mode !== null
           ? dto.quiz_mode
           : null;
-      console.log('dto', dto);
-      const excludeIds = (faqIdList ?? [])
-        .map(Number)
-        .filter((n) => Number.isFinite(n));
 
       const queryUpdate: any = {
         [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: quizMode,
@@ -262,8 +259,6 @@ export class FaqService {
           }
         );
 
-        // log to check
-        console.log('Updating FAQ ID:', record.id, idFieldUpdatesForChilds);
         await trx(FAQ_SCHEMA.TABLE)
           .where(FAQ_SCHEMA.FIELDS.ID, record.id)
           .update(idFieldUpdatesForChilds);
@@ -394,8 +389,7 @@ export class FaqService {
         }
       }
 
-      const affected = await query.delete();
-      return affected;
+      await query.delete();
     } catch (error) {
       this.logger.error(
         `Failed to delete FAQs | type: ${

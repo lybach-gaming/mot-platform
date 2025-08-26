@@ -78,6 +78,4 @@ export enum QuizMode {
   COMMON_PAGE = 15,
 }
 
-export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
-
 export const LANG_ENGLISH_ID = 14;
