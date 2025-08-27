@@ -714,6 +714,7 @@ export class QuizService {
 
       // 6) Cache
       await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
 
       const hasFeatured = quizzes.some(
         (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
