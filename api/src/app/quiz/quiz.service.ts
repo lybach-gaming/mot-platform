@@ -562,7 +562,7 @@ export class QuizService {
       const faq = await trx(FAQ_SCHEMA.TABLE)
         .where({
           [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: id,
-          [FAQ_SCHEMA.FIELDS.TYPE]: 4,
+          [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         })
         .select('*');
       if (faq) {
