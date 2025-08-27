@@ -63,7 +63,7 @@ export enum TypeModeGame {
 
 // Enum for quiz modes (using for FAQs and Web Seo)
 export enum QuizMode {
-  QUIZ_HD = 1,
+  QUIZ_HQ = 1,
   FUND_N_LEARN = 2,
   GUESS_THE_WORD = 3,
   AUDIO_QUESTION = 4,

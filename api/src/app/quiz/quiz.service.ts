@@ -11,6 +11,7 @@ import {
   QUESTION_IMG_PATH,
   OrderBy,
   TypeModeGame,
+  QuizMode,
 } from '../../common/constants/app';
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
@@ -830,9 +831,9 @@ export class QuizService {
     const faq = await this.dbService
       .connection(FAQ_SCHEMA.TABLE)
       .where({
-        [FAQ_SCHEMA.FIELDS.TYPE]: 4,
+        [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         [FAQ_SCHEMA.FIELDS.QUIZZ_ID]: data.id,
-        [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: 1,
+        [FAQ_SCHEMA.FIELDS.QUIZZ_MODE]: QuizMode.QUIZ_HQ,
       })
       .select('*');
     data.faq = faq;
