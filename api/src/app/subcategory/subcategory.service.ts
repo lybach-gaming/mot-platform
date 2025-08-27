@@ -707,7 +707,7 @@ export class SubcategoryService {
         .del();
 
       // Delete web_seo (type=[2,3,4], quizz_mode ∈ [1,2,3,4,5])
-      const quizzModes = [1, 2, 3, 4];
+      const quizzModes = [1, 2, 3, 4, 5];
       await this.webSeoService.deleteWebSEOByItem(trx, {
         type: TypeModeGame.SUBCATEGORY,
         itemIds: [...existingIds],
