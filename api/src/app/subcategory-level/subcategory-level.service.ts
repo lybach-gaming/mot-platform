@@ -789,7 +789,7 @@ export class SubcategoryLevelService {
       };
     } catch (e) {
       await trx.rollback();
-      this.logger.error(`Failed to delete subcategories`, e);
+      this.logger.error(`Failed to delete Subcategory Levels`, e);
       throw e;
     }
   }
