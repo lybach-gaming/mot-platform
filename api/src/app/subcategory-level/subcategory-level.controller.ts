@@ -192,9 +192,9 @@ export class SubcategoryLevelController {
     schema: {
       type: 'object',
       properties: {
-        id: { type: 'number', required: false },
-        language_id: { type: 'number', required: false },
-        slug_subcategory_level: { type: 'string', required: false },
+        id: { type: 'number' },
+        language_id: { type: 'number' },
+        slug_subcategory_level: { type: 'string' },
       },
     },
   })
@@ -210,9 +210,6 @@ export class SubcategoryLevelController {
         slug: params.slug_subcategory_level,
       });
 
-    return {
-      error: false,
-      data: subcategoryLevelDetail,
-    };
+    return subcategoryLevelDetail;
   }
 }

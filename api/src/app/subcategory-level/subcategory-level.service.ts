@@ -66,9 +66,9 @@ export class SubcategoryLevelService {
 
       return await this.fileUploadService.uploadFile(file, options);
     } catch (error) {
-      throw new Error(
-        `Failed to upload subcategory level image: ${error.message}`
-      );
+      throw new Error(`Failed to upload subcategory level image:`, {
+        cause: error,
+      });
     }
   }
 
@@ -118,8 +118,9 @@ export class SubcategoryLevelService {
     const subcategoryLevelData: any = {};
 
     for (const field of fields) {
-      if (dto[field] !== undefined) {
-        subcategoryLevelData[field] = dto[field];
+      if (dto[field as keyof CreateSubcategoryLevelDto] !== undefined) {
+        subcategoryLevelData[field] =
+          dto[field as keyof CreateSubcategoryLevelDto];
       } else if (
         !existingSubcategoryLevel &&
         field === SUBCATEGORY_LEVEL_SCHEMA.FIELDS.STATUS
@@ -259,11 +260,8 @@ export class SubcategoryLevelService {
         throw trxError;
       }
     } catch (error) {
-      return {
-        error: true,
-        message: error.message || 'Failed to create subcategory level',
-        data: null,
-      };
+      this.logger.error('Error creating subcategory level', error);
+      throw (new Error('Error creating subcategory level'), { cause: error });
     }
   }
 
@@ -396,11 +394,10 @@ export class SubcategoryLevelService {
       };
     } catch (e) {
       await trx.rollback();
-      return {
-        error: true,
-        message: e.message || 'Failed to update Subcategory level',
-        data: null,
-      };
+      this.logger.error(`Failed to update Subcategory Level ID ${id}`, e);
+      throw new Error(`Failed to update Subcategory Level ID ${id}`, {
+        cause: e,
+      });
     }
   }
 
@@ -586,12 +583,10 @@ export class SubcategoryLevelService {
       };
     } catch (error) {
       await trx.rollback();
-      return {
-        error: true,
-        message:
-          error.message || 'Failed to retrieve Subcategory level details',
-        data: null,
-      };
+      this.logger.error(`Failed to retrieve Subcategory Level ID ${id}`, error);
+      throw new Error(`Failed to retrieve Subcategory Level ID ${id}`, {
+        cause: error,
+      });
     }
   }
 
@@ -733,7 +728,8 @@ export class SubcategoryLevelService {
             await this.deleteQuestionImages(q[QUESTION_SCHEMA.FIELDS.IMAGE]);
           } catch (e) {
             this.logger?.warn?.(
-              `Delete question image failed (qId=${q.id}): ${e?.message}`
+              `Delete question image failed (qId=${q.id})`,
+              e
             );
           }
         })
@@ -745,7 +741,8 @@ export class SubcategoryLevelService {
             await this.deleteQuizImages(qz[QUIZZ_SCHEMA.FIELDS.IMAGE]);
           } catch (e) {
             this.logger?.warn?.(
-              `Delete quiz image failed (quizId=${qz.id}): ${e?.message}`
+              `Delete quiz image failed (quizId=${qz.id})`,
+              e
             );
           }
         })
@@ -759,7 +756,8 @@ export class SubcategoryLevelService {
             );
           } catch (e) {
             this.logger?.warn?.(
-              `Delete subcategory level image failed (slId=${sl.id}): ${e?.message}`
+              `Delete subcategory level image failed (slId=${sl.id})`,
+              e
             );
           }
         })
@@ -769,6 +767,13 @@ export class SubcategoryLevelService {
       await this.redisService.deleteByPattern(
         `${CacheKey.Detail_subcategory_level}*`
       );
+
+      await this.redisService.deleteByPattern(
+        `${CacheKey.GetListSubcategoryLevels}*`
+      );
+
+      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
 
       const hasFeatured = quizzes.some(
         (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
@@ -784,11 +789,8 @@ export class SubcategoryLevelService {
       };
     } catch (e) {
       await trx.rollback();
-      return {
-        error: true,
-        message: e.message || 'Failed to delete subcategory levels',
-        data: null,
-      };
+      this.logger.error(`Failed to delete subcategories`, e);
+      throw e;
     }
   }
 
@@ -799,11 +801,19 @@ export class SubcategoryLevelService {
     id?: number;
     slug?: string;
     languageId?: number;
-  }): Promise<{ error: boolean; data: SubcategoryLevelDetailDto | null }> {
+  }): Promise<{
+    error: boolean;
+    message?: string;
+    data: SubcategoryLevelDetailDto | null;
+  }> {
     try {
       // Validate required params
       if (!params.slug && !params.id) {
-        return null;
+        return {
+          error: true,
+          message: 'Either slug or id is required',
+          data: null,
+        };
       }
 
       // Generate cache key based on available parameter
@@ -818,7 +828,7 @@ export class SubcategoryLevelService {
 
       if (cached) {
         this.logger.debug(`Cache hit for ${cacheKey}`);
-        return cached;
+        return { error: false, data: cached };
       }
 
       // Get subcategory level detail with joins
@@ -877,7 +887,11 @@ export class SubcategoryLevelService {
         .first();
 
       if (!data) {
-        return null;
+        return {
+          error: true,
+          message: 'Subcategory level not found',
+          data: null,
+        };
       }
 
       // Parse web_seo JSON string to object
@@ -887,9 +901,9 @@ export class SubcategoryLevelService {
       const faq = await this.dbService.connection
         .table(FAQ_SCHEMA.TABLE)
         .where({
-          type: 3,
+          type: TypeModeGame.SUBCATEGORY_LEVEL,
           subcategory_level_id: data.id,
-          quizz_mode: QuizMode.QUIZ_HD,
+          quizz_mode: QuizMode.QUIZ_HQ,
         });
 
       // Transform data to match DTO and response data of PHP API
@@ -923,10 +937,14 @@ export class SubcategoryLevelService {
         `Cached subcategory level data for ${cacheKey} and ${altKey}`
       );
 
-      return result;
+      return { error: false, data: result };
     } catch (error) {
       this.logger.error('Failed to get subcategory level detail', error);
-      return null;
+      return {
+        error: true,
+        message: 'Failed to get subcategory level detail',
+        data: null,
+      };
     }
   }
 
