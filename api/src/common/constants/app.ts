@@ -41,6 +41,14 @@ export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
 
 export const QUIZZES_THUMB_PATH_SMALL = 'images/quizzes/thumbs/50x50/';
 
+export const FUN_N_LEARN_IMAGE_PATH = 'images/fun-n-learn/';
+
+export const GUESS_THE_WORD_IMAGE_PATH = 'images/guess-the-word/';
+
+export const MATH_MANIA_IMAGE_PATH = 'images/math-mania/';
+
+export const AUDIO_QUESTION_PATH = 'audio/audio-questions/';
+
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
 export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
