@@ -18,6 +18,9 @@ import {
   SUBCATEGORY_LEVEL_IMAGE_PATH,
   QUIZZES_IMAGE_PATH,
   QUESTION_IMG_PATH,
+  FUN_N_LEARN_IMAGE_PATH,
+  GUESS_THE_WORD_IMAGE_PATH,
+  AUDIO_QUESTION_PATH,
   OrderBy,
   QuizMode,
   TypeModeGame,
@@ -37,6 +40,10 @@ import {
   QUESTION_SCHEMA,
   FAQ_SCHEMA,
   WEB_SEO_SCHEMA,
+  GUESS_THE_WORD_SCHEMA,
+  FUN_N_LEARN_SCHEMA,
+  FUN_N_LEARN_STORY_SCHEMA,
+  AUDIO_QUESTION_SCHEMA,
 } from '../../core/database/schemas';
 
 @Injectable()
@@ -357,6 +364,51 @@ export class SubcategoryService {
               ? dto.maincat_id
               : existing.maincat_id,
           });
+
+        // Update tbl_guess_the_word, tbl_fun_n_learn, tbl_fun_n_learn_story, tbl_audio_question, tbl_math_quizz and tbl_maths_question of the category if language changed
+        await trx(GUESS_THE_WORD_SCHEMA.TABLE)
+          .where(GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [GUESS_THE_WORD_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [GUESS_THE_WORD_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(FUN_N_LEARN_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [FUN_N_LEARN_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [FUN_N_LEARN_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [FUN_N_LEARN_STORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [FUN_N_LEARN_STORY_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(AUDIO_QUESTION_SCHEMA.TABLE)
+          .where(AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [AUDIO_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [AUDIO_QUESTION_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
       }
 
       const updatedSubcategory = await trx(SUBCATEGORY_SCHEMA.TABLE)
@@ -575,58 +627,14 @@ export class SubcategoryService {
    */
   private readonly THUMB_SIZES = ['100x100', '64x64', '50x50'];
 
-  private async deleteSubcategoryImages(imageName?: string) {
-    if (!imageName) return;
-    // Main image
-    await this.fileUploadService.deleteFile(imageName, SUBCATEGORY_IMAGE_PATH);
-    // Thumbnail
-    for (const size of this.THUMB_SIZES) {
-      // Depending on the size, delete the corresponding thumbnail
-      await this.fileUploadService.deleteFile(
-        `thumbs/${size}/${imageName}`,
-        SUBCATEGORY_IMAGE_PATH
-      );
-    }
-  }
-
-  private async deleteSubcategoryLevelImages(imageName?: string) {
-    if (!imageName) return;
-    // Main image
-    await this.fileUploadService.deleteFile(
-      imageName,
-      SUBCATEGORY_LEVEL_IMAGE_PATH
-    );
-    // Thumbnail
-    for (const size of this.THUMB_SIZES) {
-      // Depending on the size, delete the corresponding thumbnail
-      await this.fileUploadService.deleteFile(
-        `thumbs/${size}/${imageName}`,
-        SUBCATEGORY_LEVEL_IMAGE_PATH
-      );
-    }
-  }
-
-  private async deleteQuizImages(imageName?: string) {
-    if (!imageName) return;
-    // Main image
-    await this.fileUploadService.deleteFile(imageName, QUIZZES_IMAGE_PATH);
-    // Thumbnail
-    for (const size of this.THUMB_SIZES) {
-      // Depending on the size, delete the corresponding thumbnail
-      await this.fileUploadService.deleteFile(
-        `thumbs/${size}/${imageName}`,
-        QUIZZES_IMAGE_PATH
-      );
-    }
-  }
-
-  private async deleteQuestionImages(imageName?: string) {
-    if (!imageName) return;
-    await this.fileUploadService.deleteFile(imageName, QUESTION_IMG_PATH);
+  // One Private function to delete image of all games related to subcategory
+  private async deleteAllRelatedImages(imageName?: string, imagePath?: string) {
+    if (!imageName || !imagePath) return;
+    await this.fileUploadService.deleteFile(imageName, imagePath);
     for (const size of this.THUMB_SIZES) {
       await this.fileUploadService.deleteFile(
         `thumbs/${size}/${imageName}`,
-        QUESTION_IMG_PATH
+        imagePath
       );
     }
   }
@@ -683,6 +691,34 @@ export class SubcategoryService {
           QUESTION_SCHEMA.FIELDS.SUBCATEGORY
         );
 
+      // Get all guess the word related to these subcategories
+      const guessTheWords = await trx(GUESS_THE_WORD_SCHEMA.TABLE)
+        .whereIn(GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          GUESS_THE_WORD_SCHEMA.FIELDS.ID,
+          GUESS_THE_WORD_SCHEMA.FIELDS.IMAGE,
+          GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Get all fun n learn story related to these subcategories
+      const funNLearnStories = await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
+        .whereIn(FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.ID,
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.IMAGE,
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Get all audio question related to these subcategories
+      const audioQuestions = await trx(AUDIO_QUESTION_SCHEMA.TABLE)
+        .whereIn(AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          AUDIO_QUESTION_SCHEMA.FIELDS.ID,
+          AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO,
+          AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE,
+          AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
       // Delete data related to subcategories
       // Delete quizzes (rows)
       await trx(QUIZZ_SCHEMA.TABLE)
@@ -733,7 +769,10 @@ export class SubcategoryService {
       await Promise.all(
         questions.map(async (q) => {
           try {
-            await this.deleteQuestionImages(q[QUESTION_SCHEMA.FIELDS.IMAGE]);
+            await this.deleteAllRelatedImages(
+              q[QUESTION_SCHEMA.FIELDS.IMAGE],
+              QUESTION_IMG_PATH
+            );
           } catch (e) {
             this.logger?.warn?.(
               `Delete question image failed (qId=${q.id})`,
@@ -746,7 +785,10 @@ export class SubcategoryService {
       await Promise.all(
         quizzes.map(async (qz) => {
           try {
-            await this.deleteQuizImages(qz[QUIZZ_SCHEMA.FIELDS.IMAGE]);
+            await this.deleteAllRelatedImages(
+              qz[QUIZZ_SCHEMA.FIELDS.IMAGE],
+              QUIZZES_IMAGE_PATH
+            );
           } catch (e) {
             this.logger?.warn?.(
               `Delete quiz image failed (quizId=${qz.id})`,
@@ -759,8 +801,9 @@ export class SubcategoryService {
       await Promise.all(
         subcategoryLevels.map(async (sl) => {
           try {
-            await this.deleteSubcategoryLevelImages(
-              sl[SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE]
+            await this.deleteAllRelatedImages(
+              sl[SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE],
+              SUBCATEGORY_LEVEL_IMAGE_PATH
             );
           } catch (e) {
             this.logger?.warn?.(
@@ -774,12 +817,63 @@ export class SubcategoryService {
       await Promise.all(
         subcategories.map(async (sc) => {
           try {
-            await this.deleteSubcategoryImages(
-              sc[SUBCATEGORY_SCHEMA.FIELDS.IMAGE]
+            await this.deleteAllRelatedImages(
+              sc[SUBCATEGORY_SCHEMA.FIELDS.IMAGE],
+              SUBCATEGORY_IMAGE_PATH
             );
           } catch (e) {
             this.logger?.warn?.(
               `Delete subcategory image failed (scId=${sc.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        guessTheWords.map(async (gtw) => {
+          try {
+            await this.deleteAllRelatedImages(
+              gtw[GUESS_THE_WORD_SCHEMA.FIELDS.IMAGE],
+              GUESS_THE_WORD_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete guess the word image failed (gtwId=${gtw.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        funNLearnStories.map(async (fnl) => {
+          try {
+            await this.deleteAllRelatedImages(
+              fnl[FUN_N_LEARN_STORY_SCHEMA.FIELDS.IMAGE],
+              FUN_N_LEARN_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete fun n learn story image failed (fnlId=${fnl.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        audioQuestions.map(async (aq) => {
+          try {
+            if (aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE] === 2) {
+              await this.fileUploadService.deleteFile(
+                aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO],
+                AUDIO_QUESTION_PATH
+              );
+            }
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete audio question file failed (aqId=${aq.id})`,
               e
             );
           }
