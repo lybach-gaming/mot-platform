@@ -1,12 +1,31 @@
-import { Controller, Get, Post, Query, ParseIntPipe, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  ParseIntPipe,
+  Body,
+  Put,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  Param,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiQuery,
   ApiBody,
   ApiTags,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { EditCategoryDto } from './dto/edit-category.dto';
+import { DeleteCategoriesDto } from './dto/delete-category.dto';
+import { CategorySortBy } from '../../common/constants/category';
+import { OrderBy } from '../../common/constants/app';
 
 interface CategoryParams {
   id?: number;
@@ -14,28 +33,134 @@ interface CategoryParams {
   slug_category?: string;
 }
 
-/**
- * Get category detail by ID, language ID, or slug.
- * Supports both GET and POST methods.
- * @param id - Optional category ID.
- * @param languageId - Optional language ID.
- * @param slugCategory - Optional slug for the category.
- * @returns category detail.
- */
 @Controller('v2')
 @ApiTags('Category')
 @ApiBearerAuth()
 export class CategoryController {
-  constructor(
-    private readonly categoryService: CategoryService
-  ) {}
+  constructor(private readonly categoryService: CategoryService) {}
+
+  // [Admin] Endpoint to create a category
+  @ApiOperation({ summary: '[Admin] Create a category' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Create a new category',
+    type: CreateCategoryDto,
+  })
+  @Post('/admin/categories')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async createCategory(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createCategoryDto: CreateCategoryDto
+  ) {
+    if (file) {
+      createCategoryDto.image_file = file;
+    }
+    return await this.categoryService.createCategory(createCategoryDto);
+  }
+
+  // [Admin] Endpoint to edit a category
+  @ApiOperation({ summary: '[Admin] Edit a category' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Edit an existing category',
+    type: EditCategoryDto,
+  })
+  @Put('/admin/categories/:id')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async editCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() editCategoryDto: EditCategoryDto
+  ) {
+    if (file) {
+      editCategoryDto.image_file = file;
+    }
+    return await this.categoryService.editCategory(+id, editCategoryDto);
+  }
+  // [Admin] Endpoint to get all categories
+  @ApiOperation({ summary: '[Admin] Get all categories' })
+  @Get('/admin/categories')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of categories per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by title or description',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    enum: CategorySortBy,
+    default: CategorySortBy.ID,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    type: String,
+    enum: OrderBy,
+    default: OrderBy.DESC,
+    description: 'Sorting direction',
+  })
+  async getAllCategories(
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: CategorySortBy = CategorySortBy.ID,
+    @Query('order') order: OrderBy = OrderBy.DESC
+  ) {
+    return await this.categoryService.getAllCategories({
+      limit,
+      offset,
+      search,
+      sortBy,
+      order,
+    });
+  }
+
+  // [Admin] Endpoint to get category details
+  @ApiOperation({ summary: '[Admin] Get category details' })
+  @Get('/admin/categories/:id')
+  async getCategoryAdminDetails(@Param('id', ParseIntPipe) id: number) {
+    return await this.categoryService.getCategoryAdminDetails(+id);
+  }
+
+  // [Admin] Endpoint to delete a category
+  @ApiOperation({ summary: '[Admin] Delete a category' })
+  @Delete('/admin/categories/:id')
+  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+    return await this.categoryService.deleteCategories([id]);
+  }
+
+  // [Admin] Endpoint to delete multiple categories
+  @ApiOperation({ summary: '[Admin] Delete multiple categories' })
+  @ApiBody({
+    description: 'Array of category IDs to delete',
+    type: DeleteCategoriesDto,
+  })
+  @Delete('/admin/categories')
+  async deleteMultipleCategories(@Body() dto: DeleteCategoriesDto) {
+    return await this.categoryService.deleteCategories(dto.ids);
+  }
 
   // Route to get category detail using GET method
   @Get('get_detail_category_quiz_hd')
   @ApiOperation({ summary: 'Get category detail (GET)' })
-  @ApiQuery({ name: 'id', required: false })
-  @ApiQuery({ name: 'language_id', required: false })
-  @ApiQuery({ name: 'slug_category', required: false })
+  @ApiQuery({ name: 'id' })
+  @ApiQuery({ name: 'language_id' })
+  @ApiQuery({ name: 'slug_category' })
   async getCategoryDetailGet(
     @Query('id', new ParseIntPipe({ optional: true })) id?: number,
     @Query('language_id', new ParseIntPipe({ optional: true }))
@@ -56,9 +181,9 @@ export class CategoryController {
     schema: {
       type: 'object',
       properties: {
-        id: { type: 'number', required: false },
-        language_id: { type: 'number', required: false },
-        slug_category: { type: 'string', required: false },
+        id: { type: 'number' },
+        language_id: { type: 'number' },
+        slug_category: { type: 'string' },
       },
     },
   })
@@ -67,16 +192,12 @@ export class CategoryController {
   }
 
   private async handleCategoryRequest(params: CategoryParams) {
-    const categoryDetail =
-      await this.categoryService.getCategoryDetail({
-        id: params.id ? Number(params.id) : undefined,
-        languageId: params.language_id ? Number(params.language_id) : undefined,
-        slug: params.slug_category,
-      });
+    const categoryDetail = await this.categoryService.getCategoryDetail({
+      id: params.id ? Number(params.id) : undefined,
+      languageId: params.language_id ? Number(params.language_id) : undefined,
+      slug: params.slug_category,
+    });
 
-    return {
-      error: false,
-      data: categoryDetail,
-    };
+    return categoryDetail;
   }
 }
