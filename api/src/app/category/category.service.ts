@@ -356,56 +356,56 @@ export class CategoryService {
               ? dto.language_id
               : existing.language_id,
           });
+
+        // Update tbl_guess_the_word, tbl_fun_n_learn, tbl_fun_n_learn_story, tbl_audio_question, tbl_math_quizz and tbl_maths_question of the category if language changed
+        await trx(GUESS_THE_WORD_SCHEMA.TABLE)
+          .where(GUESS_THE_WORD_SCHEMA.FIELDS.CATEGORY, id)
+          .update({
+            [GUESS_THE_WORD_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
+
+        await trx(FUN_N_LEARN_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_SCHEMA.FIELDS.CATEGORY, id)
+          .update({
+            [FUN_N_LEARN_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
+
+        await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_STORY_SCHEMA.FIELDS.CATEGORY, id)
+          .update({
+            [FUN_N_LEARN_STORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
+
+        await trx(AUDIO_QUESTION_SCHEMA.TABLE)
+          .where(AUDIO_QUESTION_SCHEMA.FIELDS.CATEGORY, id)
+          .update({
+            [AUDIO_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
+
+        await trx(MATH_QUIZ_SCHEMA.TABLE)
+          .where(MATH_QUIZ_SCHEMA.FIELDS.MAINCAT_ID, id)
+          .update({
+            [MATH_QUIZ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
+
+        await trx(MATH_QUESTION_SCHEMA.TABLE)
+          .where(MATH_QUESTION_SCHEMA.FIELDS.CATEGORY, id)
+          .update({
+            [MATH_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+          });
       }
-
-      // Update tbl_guess_the_word, tbl_fun_n_learn, tbl_fun_n_learn_story, tbl_audio_question, tbl_math_quizz and tbl_maths_question of the category if language changed
-      await trx(GUESS_THE_WORD_SCHEMA.TABLE)
-        .where(GUESS_THE_WORD_SCHEMA.FIELDS.CATEGORY, id)
-        .update({
-          [GUESS_THE_WORD_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
-
-      await trx(FUN_N_LEARN_SCHEMA.TABLE)
-        .where(FUN_N_LEARN_SCHEMA.FIELDS.CATEGORY, id)
-        .update({
-          [FUN_N_LEARN_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
-
-      await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
-        .where(FUN_N_LEARN_STORY_SCHEMA.FIELDS.CATEGORY, id)
-        .update({
-          [FUN_N_LEARN_STORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
-
-      await trx(AUDIO_QUESTION_SCHEMA.TABLE)
-        .where(AUDIO_QUESTION_SCHEMA.FIELDS.CATEGORY, id)
-        .update({
-          [AUDIO_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
-
-      await trx(MATH_QUIZ_SCHEMA.TABLE)
-        .where(MATH_QUIZ_SCHEMA.FIELDS.MAINCAT_ID, id)
-        .update({
-          [MATH_QUIZ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
-
-      await trx(MATH_QUESTION_SCHEMA.TABLE)
-        .where(MATH_QUESTION_SCHEMA.FIELDS.CATEGORY, id)
-        .update({
-          [MATH_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
-            ? dto.language_id
-            : existing.language_id,
-        });
 
       // Commit transaction
       const updatedCategory = await trx(CATEGORY_SCHEMA.TABLE)
@@ -941,7 +941,7 @@ export class CategoryService {
       await Promise.all(
         audioQuestions.map(async (aq) => {
           try {
-            if (aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE] === 'file') {
+            if (aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE] === 2) {
               await this.fileUploadService.deleteFile(
                 aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO],
                 AUDIO_QUESTION_PATH
