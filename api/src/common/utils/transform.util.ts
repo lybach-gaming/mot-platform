@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+import dayjs from 'dayjs';
 
 export function transformToString(obj: any): any {
   if (obj === null || obj === undefined) {
@@ -18,9 +18,10 @@ export function transformToString(obj: any): any {
   }
 
   if (typeof obj === 'object') {
-    const result = {};
-    for (const key in obj) {
-      result[key] = transformToString(obj[key]);
+    const src = obj as Record<string, any>;
+    const result: Record<string, any> = {};
+    for (const key of Object.keys(src)) {
+      result[key] = transformToString(src[key]);
     }
     return result;
   }
