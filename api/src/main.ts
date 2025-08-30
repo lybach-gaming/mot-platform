@@ -7,9 +7,10 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
+import { AppModule } from './app/app.module';
+import basicAuth from 'express-basic-auth';
 import cookieParser from 'cookie-parser';
 import '../env.js';
-import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -34,12 +35,31 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(compression({ threshold: 1024 }));
 
+  app.useGlobalPipes(
+    // Add any global validation pipes here if needed
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+    })
+  );
+
   const config = new DocumentBuilder()
     .setTitle('Master of Trivia API')
     .addBearerAuth()
     .setVersion('1.0')
     .build();
+
   const swaggerDocument = SwaggerModule.createDocument(app, config);
+
+  app.use(
+    ['/api/swagger', '/api/swagger-json'],
+    basicAuth({
+      users: { admin: 'newmotbackend' },
+      challenge: true,
+    })
+  );
+
   SwaggerModule.setup('/api/swagger', app, swaggerDocument, {
     swaggerOptions: {
       persistAuthorization: true,

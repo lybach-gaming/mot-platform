@@ -2,11 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class SettingsDto {
   @ApiProperty()
-  id: number;
+  id!: number;
 
   @ApiProperty()
-  type: string;
+  type!: string;
 
   @ApiProperty()
-  message: string;
+  message!: string;
 }

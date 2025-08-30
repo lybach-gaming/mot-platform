@@ -1,16 +1,205 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth } from '@nestjs/swagger';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { OrderBy } from './../../common/constants/app';
+import { QuizSortBy } from './../../common/constants/quiz';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Query,
+  Param,
+  UseInterceptors,
+  UploadedFile,
+  ParseIntPipe,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GetListQuizDto } from './dto/get-list-quiz.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
-import { QuizService } from './quiz.service';
+import { CreateQuizDto } from './dto/create-quiz.dto';
+import { EditQuizDto } from './dto/edit-quiz.dto';
+import { DeleteQuizzesDto } from './dto/delete-quizzes.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('/v2')
 @ApiBearerAuth()
+@ApiTags('Quiz')
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
+
+  // [Admin] Endpoint to create a quiz
+  @ApiOperation({ summary: '[Admin] Create a quiz' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Create a new quiz',
+    type: CreateQuizDto,
+  })
+  @Post('/admin/quizzes')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async createQuiz(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createQuizDto: CreateQuizDto
+  ) {
+    if (file) {
+      createQuizDto.image_file = file;
+    }
+    return await this.quizService.createQuiz(createQuizDto);
+  }
+
+  // [Admin] Endpoint to edit a quiz
+  @ApiOperation({ summary: '[Admin] Edit a quiz' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Edit an existing quiz',
+    schema: {
+      type: 'object',
+      properties: {
+        image_file: { type: 'string', format: 'binary' },
+        language_id: { type: 'number' },
+        quiz_mode: { type: 'number' },
+        maincat_id: { type: 'number' },
+        main_subcat_id: { type: 'number' },
+        main_subcat_level_id: { type: 'number', nullable: true },
+        quizz_name: { type: 'string' },
+        slug: { type: 'string' },
+        status: { type: 'string', enum: ['Active', 'Deactive'] },
+        image: { type: 'string', format: 'binary', nullable: true },
+        web_seo: {
+          type: 'object',
+          properties: {
+            sub_heading: { type: 'string' },
+            seo_block: { type: 'string' },
+            meta_title: { type: 'string' },
+            meta_description: { type: 'string' },
+            meta_keywords: { type: 'string' },
+            schema_markup: { type: 'string' },
+            sponsor_link: { type: 'string' },
+            sponsor_name: { type: 'string' },
+          },
+        },
+        enable_faq: { type: 'boolean' },
+        questions: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        answers: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        edit_faq_ids: {
+          type: 'array',
+          items: { type: 'number' },
+          description:
+            'IDs of FAQs to edit or keep, which not included will be deleted',
+        },
+        is_featured: { type: 'boolean', nullable: true },
+        is_coming_soon: { type: 'boolean', nullable: true },
+        is_pinned: { type: 'boolean', nullable: true },
+        is_send_notice: { type: 'boolean', nullable: true },
+      },
+    },
+  })
+  @Put('/admin/quizzes/:id')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async editQuiz(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() editQuizDto: EditQuizDto
+  ) {
+    if (file) {
+      editQuizDto.image_file = file;
+    }
+    return await this.quizService.editQuiz(+id, editQuizDto);
+  }
+
+  // [Admin] Endpoint to get all quizzes
+  @ApiOperation({ summary: '[Admin] Get all quizzes' })
+  @Get('/admin/quizzes')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of quizzes per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by title or description',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    enum: QuizSortBy,
+    default: QuizSortBy.ID,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    type: String,
+    enum: OrderBy,
+    default: OrderBy.DESC,
+    description: 'Sorting direction',
+  })
+  async getAllQuizzes(
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: QuizSortBy = QuizSortBy.ID,
+    @Query('order') order: OrderBy = OrderBy.DESC
+  ) {
+    return await this.quizService.getAllQuizzes({
+      limit,
+      offset,
+      search,
+      sortBy,
+      order,
+    });
+  }
+
+  // [Admin] Endpoint to get quiz details
+  @ApiOperation({ summary: '[Admin] Get quiz details' })
+  @Get('/admin/quizzes/:id')
+  async getQuizDetails(@Param('id', ParseIntPipe) id: number) {
+    return await this.quizService.getQuizDetails(+id);
+  }
+
+  // [Admin] Endpoint to delete a quiz
+  @ApiOperation({ summary: '[Admin] Delete a quiz' })
+  @Delete('/admin/quizzes/:id')
+  async deleteQuiz(@Param('id', ParseIntPipe) id: number) {
+    return await this.quizService.deleteQuizzes([id]);
+  }
+
+  // [Admin] Endpoint to delete multiple quizzes
+  @ApiOperation({ summary: '[Admin] Delete multiple quizzes' })
+  @ApiBody({
+    description: 'Array of quiz IDs to delete',
+    type: DeleteQuizzesDto,
+  })
+  @Delete('/admin/quizzes')
+  async deleteMultipleQuizzes(@Body() dto: DeleteQuizzesDto) {
+    return await this.quizService.deleteQuizzes(dto.ids);
+  }
 
   @Get('/get_detail_quizzes')
   async getDetailQuizzes(
