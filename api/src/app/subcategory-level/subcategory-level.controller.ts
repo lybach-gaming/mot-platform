@@ -1,12 +1,31 @@
-import { Controller, Get, Post, Query, ParseIntPipe, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  ParseIntPipe,
+  Body,
+  Put,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  Param,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiQuery,
   ApiBody,
   ApiTags,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { SubcategoryLevelService } from './subcategory-level.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateSubcategoryLevelDto } from './dto/create-subcategory-level.dto';
+import { EditSubcategoryLevelDto } from './dto/edit-subcategory-level.dto';
+import { DeleteSubcategoryLevelsDto } from './dto/delete-subcategory-levels.dto';
+import { SubcategoryLevelSortBy } from '../../common/constants/subcategory-level';
+import { OrderBy } from '../../common/constants/app';
 
 interface SubcategoryLevelParams {
   id?: number;
@@ -14,14 +33,6 @@ interface SubcategoryLevelParams {
   slug_subcategory_level?: string;
 }
 
-/**
- * Get subcategory level detail by ID, language ID, or slug.
- * Supports both GET and POST methods.
- * @param id - Optional subcategory level ID.
- * @param languageId - Optional language ID.
- * @param slugSubcategoryLevel - Optional slug for the subcategory level.
- * @returns Subcategory level detail.
- */
 @Controller('v2')
 @ApiTags('Subcategory Level')
 @ApiBearerAuth()
@@ -29,6 +40,131 @@ export class SubcategoryLevelController {
   constructor(
     private readonly subcategoryLevelService: SubcategoryLevelService
   ) {}
+
+  // [Admin] Endpoint to create a subcategory level
+  @ApiOperation({ summary: '[Admin] Create a subcategory level' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Create a new subcategory level',
+    type: CreateSubcategoryLevelDto,
+  })
+  @Post('/admin/subcategory-levels')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async createSubcategoryLevel(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createSubcategoryLevelDto: CreateSubcategoryLevelDto
+  ) {
+    if (file) {
+      createSubcategoryLevelDto.image_file = file;
+    }
+    return await this.subcategoryLevelService.createSubcategoryLevel(
+      createSubcategoryLevelDto
+    );
+  }
+
+  // [Admin] Endpoint to edit a subcategory level
+  @ApiOperation({ summary: '[Admin] Edit a subcategory level' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Edit an existing subcategory level',
+    type: EditSubcategoryLevelDto,
+  })
+  @Put('/admin/subcategory-levels/:id')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async editSubcategoryLevel(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() editSubcategoryLevelDto: EditSubcategoryLevelDto
+  ) {
+    if (file) {
+      editSubcategoryLevelDto.image_file = file;
+    }
+    return await this.subcategoryLevelService.editSubcategoryLevel(
+      +id,
+      editSubcategoryLevelDto
+    );
+  }
+  // [Admin] Endpoint to get all subcategory levels
+  @ApiOperation({ summary: '[Admin] Get all subcategory levels' })
+  @Get('/admin/subcategory-levels')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of subcategory levels per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by title or description',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    enum: SubcategoryLevelSortBy,
+    default: SubcategoryLevelSortBy.ID,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    type: String,
+    enum: OrderBy,
+    default: OrderBy.DESC,
+    description: 'Sorting direction',
+  })
+  async getAllSubcategoryLevels(
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: SubcategoryLevelSortBy = SubcategoryLevelSortBy.ID,
+    @Query('order') order: OrderBy = OrderBy.DESC
+  ) {
+    return await this.subcategoryLevelService.getAllSubcategoryLevels({
+      limit,
+      offset,
+      search,
+      sortBy,
+      order,
+    });
+  }
+
+  // [Admin] Endpoint to get subcategory level details
+  @ApiOperation({ summary: '[Admin] Get subcategory level details' })
+  @Get('/admin/subcategory-levels/:id')
+  async getSubcategoryLevelAdminDetails(@Param('id', ParseIntPipe) id: number) {
+    return await this.subcategoryLevelService.getSubcategoryLevelAdminDetails(
+      +id
+    );
+  }
+
+  // [Admin] Endpoint to delete a subcategory level
+  @ApiOperation({ summary: '[Admin] Delete a subcategory level' })
+  @Delete('/admin/subcategory-levels/:id')
+  async deleteSubcategoryLevel(@Param('id', ParseIntPipe) id: number) {
+    return await this.subcategoryLevelService.deleteSubcategoryLevels([id]);
+  }
+
+  // [Admin] Endpoint to delete multiple subcategory levels
+  @ApiOperation({ summary: '[Admin] Delete multiple subcategory levels' })
+  @ApiBody({
+    description: 'Array of subcategory level IDs to delete',
+    type: DeleteSubcategoryLevelsDto,
+  })
+  @Delete('/admin/subcategory-levels')
+  async deleteMultipleSubcategoryLevels(
+    @Body() dto: DeleteSubcategoryLevelsDto
+  ) {
+    return await this.subcategoryLevelService.deleteSubcategoryLevels(dto.ids);
+  }
 
   // Route to get subcategory level detail using GET method
   @Get('get_detail_subcategory_level')
@@ -56,9 +192,9 @@ export class SubcategoryLevelController {
     schema: {
       type: 'object',
       properties: {
-        id: { type: 'number', required: false },
-        language_id: { type: 'number', required: false },
-        slug_subcategory_level: { type: 'string', required: false },
+        id: { type: 'number' },
+        language_id: { type: 'number' },
+        slug_subcategory_level: { type: 'string' },
       },
     },
   })
@@ -74,9 +210,6 @@ export class SubcategoryLevelController {
         slug: params.slug_subcategory_level,
       });
 
-    return {
-      error: false,
-      data: subcategoryLevelDetail,
-    };
+    return subcategoryLevelDetail;
   }
 }
