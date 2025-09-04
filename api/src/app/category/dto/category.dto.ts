@@ -2,28 +2,28 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CategoryDetailDto {
   @ApiProperty()
-  id: number;
+  id!: number;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiProperty()
-  language_id: number;
+  language_id!: number;
 
   @ApiProperty()
-  slug: string;
+  slug!: string;
 
   @ApiProperty()
-  image: string;
+  image!: string;
 
   @ApiProperty()
-  thumb_image: string;
+  thumb_image!: string;
 
   @ApiProperty()
-  row_order: number;
+  row_order!: number;
 
   @ApiProperty()
-  status: number;
+  status!: number;
 
   @ApiProperty()
   web_seo?: any;
