@@ -1,7 +1,12 @@
-import { WebSeoService } from './../web-seo/web-seo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { WebSeoService } from '../web-seo/web-seo.service';
+import { FaqService } from '../faq/faq.service';
+import {
+  FileUploadService,
+  FileUploadOptions,
+} from '../../core/file-upload/file-upload.service';
 import { CacheKey } from '../../common/constants/cache-key';
 import {
   BASE_URL,
@@ -9,14 +14,36 @@ import {
   QUIZ_HQ_SLUG,
   SUBCATEGORY_IMAGE_PATH,
   SUBCATEGORY_THUMB_PATH,
+  SUBCATEGORY_THUMB_PATH_SMALL,
+  SUBCATEGORY_LEVEL_IMAGE_PATH,
+  QUIZZES_IMAGE_PATH,
+  QUESTION_IMG_PATH,
+  FUN_N_LEARN_IMAGE_PATH,
+  GUESS_THE_WORD_IMAGE_PATH,
+  AUDIO_QUESTION_PATH,
+  OrderBy,
+  QuizMode,
+  TypeModeGame,
 } from '../../common/constants/app';
 import { SubcategoryDetailDto } from './dto/subcategory.dto';
+import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
+import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
+import { SubcategorySortBy } from '../../common/constants/subcategory';
+import { generateSlug } from '../../common/utils/generateSlug.util';
 import { transformToString } from '../../common/utils/transform.util';
 import {
+  LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
   SUBCATEGORY_SCHEMA,
-  FAQ_SCHEMA,
+  SUBCATEGORY_LEVEL_SCHEMA,
+  QUIZZ_SCHEMA,
   QUESTION_SCHEMA,
+  FAQ_SCHEMA,
+  WEB_SEO_SCHEMA,
+  GUESS_THE_WORD_SCHEMA,
+  FUN_N_LEARN_SCHEMA,
+  FUN_N_LEARN_STORY_SCHEMA,
+  AUDIO_QUESTION_SCHEMA,
 } from '../../core/database/schemas';
 
 @Injectable()
@@ -26,8 +53,867 @@ export class SubcategoryService {
   constructor(
     private readonly dbService: DatabaseService,
     private readonly redisService: RedisService,
+    private readonly fileUploadService: FileUploadService,
+    private readonly faqService: FaqService,
     private readonly webSeoService: WebSeoService
   ) {}
+
+  /**
+   * Handle image upload for subcategory
+   * @param file - The uploaded image file
+   * @returns The saved image filename
+   */
+  private async handleImageUpload(file: Express.Multer.File): Promise<string> {
+    try {
+      const options: FileUploadOptions = {
+        directory: SUBCATEGORY_IMAGE_PATH,
+        generateThumbnail: true,
+        allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+        maxSize: 5 * 1024 * 1024, // 5MB
+      };
+
+      return await this.fileUploadService.uploadFile(file, options);
+    } catch (error) {
+      throw new Error(`Failed to upload subcategory image:`, { cause: error });
+    }
+  }
+
+  /**
+   * Upload new image and delete old one if exists
+   * @param newFile - The new image file to upload
+   * @param oldImage - The old image filename to delete
+   * @returns The new image filename
+   */
+  private async uploadNewImageAndDeleteOld(
+    newFile: Express.Multer.File,
+    oldImage?: string
+  ): Promise<string> {
+    if (oldImage) {
+      await this.fileUploadService.deleteFile(oldImage, SUBCATEGORY_IMAGE_PATH);
+    }
+    return this.handleImageUpload(newFile);
+  }
+
+  /**
+   * Build subcategory data object from DTO
+   * @param dto - The DTO containing subcategory data
+   * @param existingSubcategory - Optional existing subcategory data for updates
+   * @returns Formatted subcategory data object
+   */
+  private buildSubcategoryDataFromDto(
+    dto: Partial<CreateSubcategoryDto>,
+    existingSubcategory?: any
+  ): any {
+    const fields = [
+      SUBCATEGORY_SCHEMA.FIELDS.NAME,
+      SUBCATEGORY_SCHEMA.FIELDS.LANGUAGE_ID,
+      SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID,
+      SUBCATEGORY_SCHEMA.FIELDS.SLUG,
+      SUBCATEGORY_SCHEMA.FIELDS.STATUS,
+      SUBCATEGORY_SCHEMA.FIELDS.IS_PREMIUM,
+      SUBCATEGORY_SCHEMA.FIELDS.COINS,
+      SUBCATEGORY_SCHEMA.FIELDS.ENABLE_FAQ,
+      SUBCATEGORY_SCHEMA.FIELDS.LEVEL,
+      SUBCATEGORY_SCHEMA.FIELDS.IS_COMING_SOON,
+    ];
+
+    const subcategoryData: any = {};
+
+    for (const field of fields) {
+      if (dto[field as keyof CreateSubcategoryDto] !== undefined) {
+        subcategoryData[field] = dto[field as keyof CreateSubcategoryDto];
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.STATUS
+      ) {
+        subcategoryData[field] = 1;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.IS_PREMIUM
+      ) {
+        subcategoryData[field] = 0;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.COINS
+      ) {
+        subcategoryData[field] = 0;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.ENABLE_FAQ
+      ) {
+        subcategoryData[field] = 1;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.LEVEL
+      ) {
+        subcategoryData[field] = 0;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.IS_COMING_SOON
+      ) {
+        subcategoryData[field] = 0;
+      }
+    }
+
+    return subcategoryData;
+  }
+
+  /**
+   * [Admin] Create a new subcategory
+   *
+   * @param createSubcategoryDto - Data for creating the subcategory
+   * @returns Created subcategory data or error response
+   */
+  async createSubcategory(createSubcategoryDto: CreateSubcategoryDto) {
+    try {
+      // Start transaction
+      const trx = await this.dbService.connection.transaction();
+
+      try {
+        // Generate and format slug
+        if (createSubcategoryDto.slug) {
+          // If slug is provided, format it
+          createSubcategoryDto.slug = generateSlug(createSubcategoryDto.slug);
+        } else if (createSubcategoryDto.subcategory_name) {
+          // If no slug is provided, generate it from subcategory name
+          createSubcategoryDto.slug = generateSlug(
+            createSubcategoryDto.subcategory_name
+          );
+        }
+
+        // Handle image upload if present
+        let imageName = '';
+        if (createSubcategoryDto.image_file) {
+          imageName = await this.handleImageUpload(
+            createSubcategoryDto.image_file
+          );
+        }
+
+        // Extract only the fields that belong to subcategory table
+        const subcategoryData = this.buildSubcategoryDataFromDto({
+          ...createSubcategoryDto,
+          image: imageName, // Set image if uploaded
+        });
+        subcategoryData.row_order = 0; // default
+
+        // Insert the subcategory
+        const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE)
+          .insert(subcategoryData)
+          .returning(SUBCATEGORY_SCHEMA.FIELDS.ID);
+
+        if (!insertedId) {
+          await trx.rollback();
+          return {
+            error: true,
+            message: 'Failed to create subcategory',
+            data: null,
+          };
+        }
+
+        // Insert web SEO data
+        await this.webSeoService.createWebSeoEntry(
+          trx,
+          insertedId,
+          TypeModeGame.SUBCATEGORY,
+          createSubcategoryDto,
+          SUBCATEGORY_SCHEMA.FIELDS.NAME // Use 'subcategory_name' as title field
+        );
+
+        // Create FAQ entries if enabled
+        await this.faqService.createFaqEntries(
+          trx,
+          insertedId,
+          TypeModeGame.SUBCATEGORY,
+          createSubcategoryDto
+        );
+
+        // Fetch the created subcategory before committing
+        const createdSubcategory = await trx(SUBCATEGORY_SCHEMA.TABLE)
+          .where(SUBCATEGORY_SCHEMA.FIELDS.ID, insertedId)
+          .first();
+
+        // Commit transaction after all operations are done
+        await trx.commit();
+
+        // Clear relevant caches after successful commit
+        await this.redisService.deleteByPattern(
+          `${CacheKey.GetListSubcategories}*`
+        );
+        // Clear cache for promoted games
+        await this.redisService.deleteByPattern('promoted_game');
+
+        // TODO: Send notification if is_send_notice is true
+        // Will implement in separate notification service
+
+        return {
+          error: false,
+          message: 'Subcategory created successfully',
+          data: transformToString(createdSubcategory),
+        };
+      } catch (trxError) {
+        await trx.rollback();
+        throw trxError;
+      }
+    } catch (error) {
+      this.logger.error('Error creating subcategory', error);
+      throw (new Error('Error creating subcategory'), { cause: error });
+    }
+  }
+
+  /**
+   * [Admin] Edit an existing subcategory
+   *
+   * @param id - ID of the subcategory to edit
+   * @param editSubcategoryDto - Data for editing the subcategory
+   * @returns Updated quiz data or error response
+   */
+  async editSubcategory(id: number, dto: EditSubcategoryDto) {
+    const trx = await this.dbService.connection.transaction();
+    try {
+      const existing = await trx(SUBCATEGORY_SCHEMA.TABLE)
+        .where(`${SUBCATEGORY_SCHEMA.FIELDS.ID}`, id)
+        .first();
+      if (!existing) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory not found',
+          data: null,
+        };
+      }
+
+      // Slug
+      if (dto.slug) dto.slug = generateSlug(dto.slug);
+      else if (!existing.slug && dto.subcategory_name) {
+        dto.slug = generateSlug(dto.subcategory_name);
+      } else dto.slug = existing.slug;
+
+      // Image
+      let imageName = existing.image;
+      if (dto.image_file) {
+        imageName = await this.uploadNewImageAndDeleteOld(
+          dto.image_file,
+          existing.image
+        );
+      }
+
+      // Quiz data
+      const subcategoryData = this.buildSubcategoryDataFromDto(dto, existing);
+      if (imageName !== existing.image) {
+        subcategoryData.image = imageName;
+      }
+
+      // Update subcategory
+      if (Object.keys(subcategoryData).length > 0) {
+        await trx(SUBCATEGORY_SCHEMA.TABLE)
+          .where(`${SUBCATEGORY_SCHEMA.FIELDS.ID}`, id)
+          .update(subcategoryData);
+      }
+
+      // Update SEO + FAQ
+      await this.webSeoService.updateWebSeoEntry(
+        trx,
+        id,
+        TypeModeGame.SUBCATEGORY,
+        dto,
+        SUBCATEGORY_SCHEMA.FIELDS.NAME // Use 'subcategory_name' as title field
+      );
+      if (dto.enable_faq !== undefined) {
+        await this.faqService.updateFaqEntries(
+          trx,
+          id,
+          TypeModeGame.SUBCATEGORY,
+          dto
+        );
+      }
+
+      // Update subcategory level, quiz and questions of the subcategory if language or category changed
+      if (dto.language_id !== undefined || dto.maincat_id !== undefined) {
+        // Update subcategory level related to this subcategory
+        await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+          .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID, id)
+          .update({
+            [SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAINCAT_ID]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        // Update quizzes related to this subcategory
+        await trx(QUIZZ_SCHEMA.TABLE)
+          .where(QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID, id)
+          .update({
+            [QUIZZ_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [QUIZZ_SCHEMA.FIELDS.MAINCAT_ID]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        // Update questions related to this subcategory
+        await trx(QUESTION_SCHEMA.TABLE)
+          .where(QUESTION_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [QUESTION_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        // Update tbl_guess_the_word, tbl_fun_n_learn, tbl_fun_n_learn_story, tbl_audio_question, tbl_math_quizz and tbl_maths_question of the category if language changed
+        await trx(GUESS_THE_WORD_SCHEMA.TABLE)
+          .where(GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [GUESS_THE_WORD_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [GUESS_THE_WORD_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(FUN_N_LEARN_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [FUN_N_LEARN_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [FUN_N_LEARN_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
+          .where(FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [FUN_N_LEARN_STORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [FUN_N_LEARN_STORY_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+
+        await trx(AUDIO_QUESTION_SCHEMA.TABLE)
+          .where(AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY, id)
+          .update({
+            [AUDIO_QUESTION_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+              ? dto.language_id
+              : existing.language_id,
+            [AUDIO_QUESTION_SCHEMA.FIELDS.CATEGORY]: dto.maincat_id
+              ? dto.maincat_id
+              : existing.maincat_id,
+          });
+      }
+
+      const updatedSubcategory = await trx(SUBCATEGORY_SCHEMA.TABLE)
+        .where(`${SUBCATEGORY_SCHEMA.FIELDS.ID}`, id)
+        .first();
+      await trx.commit();
+
+      await this.redisService.deleteByPattern(
+        `${CacheKey.Detail_subcategory}*`
+      );
+      await this.redisService.deleteByPattern(
+        `${CacheKey.GetListSubcategories}*`
+      );
+
+      // Clear cache for promoted games
+      await this.redisService.deleteByPattern('promoted_game');
+
+      return {
+        error: false,
+        message: 'Subcategory updated successfully',
+        data: transformToString(updatedSubcategory),
+      };
+    } catch (e) {
+      await trx.rollback();
+      this.logger.error(`Failed to update Subcategory ID ${id}`, e);
+      throw new Error(`Failed to update Subcategory ID ${id}`, { cause: e });
+    }
+  }
+
+  /**
+   * [Admin] Get all subcategories with pagination and optional search
+   * @param query - Query parameters for pagination and search
+   * @returns Paginated list of subcategories
+   */
+  async getAllSubcategories(query: {
+    limit: number;
+    offset: number;
+    search?: string;
+    sortBy?: SubcategorySortBy;
+    order?: OrderBy.DESC | OrderBy.ASC;
+  }) {
+    const {
+      limit = 20,
+      offset = 0,
+      search,
+      sortBy = SubcategorySortBy.ID,
+      order = OrderBy.DESC,
+    } = query;
+
+    const validSortFields = Object.values(SubcategorySortBy);
+    const sortField = validSortFields.includes(sortBy)
+      ? sortBy
+      : SubcategorySortBy.ID;
+
+    const db = this.dbService
+      .connection(SUBCATEGORY_SCHEMA.TABLE + ' as s')
+      .leftJoin(`${LANGUAGE_SCHEMA.TABLE} as l`, 'l.id', 's.language_id')
+      .leftJoin(`${CATEGORY_SCHEMA.TABLE} as c`, 'c.id', 's.maincat_id')
+      .leftJoin(
+        function () {
+          // Subquery to count number of questions
+          this.select(QUESTION_SCHEMA.FIELDS.SUBCATEGORY)
+            .count('* as no_of_que')
+            .from(`${QUESTION_SCHEMA.TABLE}`)
+            .groupBy(QUESTION_SCHEMA.FIELDS.SUBCATEGORY)
+            .as('qq');
+        },
+        'qq.subcategory',
+        's.id'
+      )
+      .select(
+        's.*',
+        'l.language as language_name',
+        'c.category_name',
+        'c.slug as category_slug',
+        this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
+      );
+
+    // Search by subcategory name or slug
+    if (search) {
+      db.where((builder) => {
+        builder
+          .where(`s.${SUBCATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
+          .orWhere(
+            `s.${SUBCATEGORY_SCHEMA.FIELDS.SLUG}`,
+            'like',
+            `%${search}%`
+          );
+      });
+    }
+
+    const totalQuery = db.clone(); // Clone the query for total count
+
+    // Apply sort, limit, offset
+    const subcategories = await db
+      .orderBy(sortField, order)
+      .limit(limit)
+      .offset(offset);
+
+    const results = subcategories.map((subcategory) => {
+      const image = subcategory.image
+        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
+        : null;
+
+      const thumbnail = subcategory.image
+        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
+        : null;
+
+      const prefixLang = subcategory.language_id === 14 ? '/en' : '/en'; // Default to English for now
+      const shareUrl = `${FE_URL}${prefixLang}/${QUIZ_HQ_SLUG}/${subcategory.category_slug}/${subcategory.slug}`;
+
+      return {
+        ...subcategory,
+        image_url: image,
+        thumbnail_url: thumbnail,
+        share_url: shareUrl,
+      };
+    });
+
+    const total = await totalQuery.clearSelect().count({ count: '*' }).first();
+
+    return {
+      total: Number(total?.count || 0),
+      limit,
+      offset,
+      subcategories: results,
+    };
+  }
+
+  /**
+   * [Admin] Get detailed information about a subcategory
+   * @param id - ID of the subcategory to retrieve
+   * @returns Detailed subcategory information or error response
+   */
+  async getSubcategoryAdminDetails(id: number) {
+    if (!id) {
+      return {
+        error: true,
+        message: 'Subcategory ID is required',
+        data: null,
+      };
+    }
+    const trx = await this.dbService.connection.transaction();
+    try {
+      // Fetch subcategory details
+      const subcategory = await trx(SUBCATEGORY_SCHEMA.TABLE)
+        .where(`${SUBCATEGORY_SCHEMA.FIELDS.ID}`, id)
+        .first();
+      if (!subcategory) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory not found',
+          data: null,
+        };
+      }
+
+      // Fetch related web SEO data
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where({
+          [WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID]: id,
+          [WEB_SEO_SCHEMA.FIELDS.TYPE]: TypeModeGame.SUBCATEGORY,
+        })
+        .first();
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory SEO data not found',
+          data: null,
+        };
+      }
+      subcategory.web_seo = webSeo || null;
+
+      // Fetch FAQ entries related to this subcategory
+      const faq = await trx(FAQ_SCHEMA.TABLE)
+        .where({
+          [FAQ_SCHEMA.FIELDS.SUBCATEGORY_ID]: id,
+          [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.SUBCATEGORY,
+        })
+        .select('*');
+      if (faq) {
+        subcategory.faq = faq;
+      }
+
+      // Format image URLs
+      const image = subcategory.image
+        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
+        : null;
+      const thumbnail = subcategory.image
+        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
+        : null;
+      subcategory.image_url = image;
+      subcategory.thumbnail_url = thumbnail;
+
+      // Return formatted quiz data
+      await trx.commit();
+      return {
+        error: false,
+        message: 'Subcategory details retrieved successfully',
+        data: transformToString(subcategory),
+      };
+    } catch (error) {
+      await trx.rollback();
+      this.logger.error(`Failed to retrieve Subcategory ID ${id}`, error);
+      throw new Error(`Failed to retrieve Subcategory ID ${id}`, {
+        cause: error,
+      });
+    }
+  }
+
+  /**
+   * [Admin] Delete Subcategories by IDs
+   * @param ids - Array of Subcategories IDs to delete
+   * @returns Success or error response
+   */
+  private readonly THUMB_SIZES = ['100x100', '64x64', '50x50'];
+
+  // One Private function to delete image of all games related to subcategory
+  private async deleteAllRelatedImages(imageName?: string, imagePath?: string) {
+    if (!imageName || !imagePath) return;
+    await this.fileUploadService.deleteFile(imageName, imagePath);
+    for (const size of this.THUMB_SIZES) {
+      await this.fileUploadService.deleteFile(
+        `thumbs/${size}/${imageName}`,
+        imagePath
+      );
+    }
+  }
+
+  async deleteSubcategories(ids: number[]) {
+    const trx = await this.dbService.connection.transaction();
+    try {
+      // Get data to delete
+      const subcategories = await trx(SUBCATEGORY_SCHEMA.TABLE)
+        .whereIn(SUBCATEGORY_SCHEMA.FIELDS.ID, ids)
+        .select(SUBCATEGORY_SCHEMA.FIELDS.ID, SUBCATEGORY_SCHEMA.FIELDS.IMAGE);
+
+      if (subcategories.length === 0) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory not found',
+          data: { ids },
+        };
+      }
+
+      const existingIds = new Set(
+        subcategories.map((q) => Number(q[SUBCATEGORY_SCHEMA.FIELDS.ID]))
+      );
+      const missing = ids.filter((id) => !existingIds.has(Number(id)));
+
+      // Get all subcategory levels related to these subcategories
+      const subcategoryLevels = await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+        .whereIn(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID, [
+          ...existingIds,
+        ])
+        .select(
+          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID,
+          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE,
+          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID
+        );
+
+      // Get all quizzes related to these subcategories
+      const quizzes = await trx(QUIZZ_SCHEMA.TABLE)
+        .whereIn(QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID, [...existingIds])
+        .select(
+          QUIZZ_SCHEMA.FIELDS.ID,
+          QUIZZ_SCHEMA.FIELDS.IMAGE,
+          QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID,
+          QUIZZ_SCHEMA.FIELDS.IS_FEATURED
+        );
+
+      // Get all questions related to these subcategories
+      const questions = await trx(QUESTION_SCHEMA.TABLE)
+        .whereIn(QUESTION_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          QUESTION_SCHEMA.FIELDS.ID,
+          QUESTION_SCHEMA.FIELDS.IMAGE,
+          QUESTION_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Get all guess the word related to these subcategories
+      const guessTheWords = await trx(GUESS_THE_WORD_SCHEMA.TABLE)
+        .whereIn(GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          GUESS_THE_WORD_SCHEMA.FIELDS.ID,
+          GUESS_THE_WORD_SCHEMA.FIELDS.IMAGE,
+          GUESS_THE_WORD_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Get all fun n learn story related to these subcategories
+      const funNLearnStories = await trx(FUN_N_LEARN_STORY_SCHEMA.TABLE)
+        .whereIn(FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.ID,
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.IMAGE,
+          FUN_N_LEARN_STORY_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Get all audio question related to these subcategories
+      const audioQuestions = await trx(AUDIO_QUESTION_SCHEMA.TABLE)
+        .whereIn(AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .select(
+          AUDIO_QUESTION_SCHEMA.FIELDS.ID,
+          AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO,
+          AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE,
+          AUDIO_QUESTION_SCHEMA.FIELDS.SUBCATEGORY
+        );
+
+      // Delete data related to subcategories
+      // Delete quizzes (rows)
+      await trx(QUIZZ_SCHEMA.TABLE)
+        .whereIn(QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID, [...existingIds])
+        .del();
+
+      // Delete questions (rows)
+      await trx(QUESTION_SCHEMA.TABLE)
+        .whereIn(QUESTION_SCHEMA.FIELDS.SUBCATEGORY, [...existingIds])
+        .del();
+
+      // Delete subcategory levels (rows)
+      await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+        .whereIn(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAIN_SUBCAT_ID, [
+          ...existingIds,
+        ])
+        .del();
+
+      // Delete subcategories
+      await trx(SUBCATEGORY_SCHEMA.TABLE)
+        .whereIn(SUBCATEGORY_SCHEMA.FIELDS.ID, [...existingIds])
+        .del();
+
+      // Delete web_seo (type=[2,3,4], quizz_mode ∈ [1,2,3,4,5])
+      const quizzModes = [1, 2, 3, 4, 5];
+      await this.webSeoService.deleteWebSEOByItem(trx, {
+        type: TypeModeGame.SUBCATEGORY,
+        itemIds: [...existingIds],
+        quizModes: quizzModes,
+        childType: [TypeModeGame.QUIZ, TypeModeGame.SUBCATEGORY_LEVEL], // Also delete SEO of quizzes under these subcategories
+      });
+
+      // Delete faq (type=[2,3,4], quizz_mode ∈ [1,2,3,4,5])
+      await this.faqService.deleteFaqsByItem(trx, {
+        type: TypeModeGame.SUBCATEGORY,
+        itemIds: [...existingIds],
+        quizModes: quizzModes,
+        childType: [TypeModeGame.QUIZ, TypeModeGame.SUBCATEGORY_LEVEL], // Also delete FAQs of quizzes under these subcategories
+      });
+
+      // TO DO: Detele Fun n Learn data, Audio questions, Maths questions
+      // ...  (Will implement after the main features are done)
+
+      // Commit transaction
+      await trx.commit();
+
+      // After commit, delete images and cache
+      await Promise.all(
+        questions.map(async (q) => {
+          try {
+            await this.deleteAllRelatedImages(
+              q[QUESTION_SCHEMA.FIELDS.IMAGE],
+              QUESTION_IMG_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete question image failed (qId=${q.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        quizzes.map(async (qz) => {
+          try {
+            await this.deleteAllRelatedImages(
+              qz[QUIZZ_SCHEMA.FIELDS.IMAGE],
+              QUIZZES_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete quiz image failed (quizId=${qz.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        subcategoryLevels.map(async (sl) => {
+          try {
+            await this.deleteAllRelatedImages(
+              sl[SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE],
+              SUBCATEGORY_LEVEL_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete subcategory level image failed (slId=${sl.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        subcategories.map(async (sc) => {
+          try {
+            await this.deleteAllRelatedImages(
+              sc[SUBCATEGORY_SCHEMA.FIELDS.IMAGE],
+              SUBCATEGORY_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete subcategory image failed (scId=${sc.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        guessTheWords.map(async (gtw) => {
+          try {
+            await this.deleteAllRelatedImages(
+              gtw[GUESS_THE_WORD_SCHEMA.FIELDS.IMAGE],
+              GUESS_THE_WORD_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete guess the word image failed (gtwId=${gtw.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        funNLearnStories.map(async (fnl) => {
+          try {
+            await this.deleteAllRelatedImages(
+              fnl[FUN_N_LEARN_STORY_SCHEMA.FIELDS.IMAGE],
+              FUN_N_LEARN_IMAGE_PATH
+            );
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete fun n learn story image failed (fnlId=${fnl.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      await Promise.all(
+        audioQuestions.map(async (aq) => {
+          try {
+            if (aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO_TYPE] === 2) {
+              await this.fileUploadService.deleteFile(
+                aq[AUDIO_QUESTION_SCHEMA.FIELDS.AUDIO],
+                AUDIO_QUESTION_PATH
+              );
+            }
+          } catch (e) {
+            this.logger?.warn?.(
+              `Delete audio question file failed (aqId=${aq.id})`,
+              e
+            );
+          }
+        })
+      );
+
+      // 6) Cache
+      await this.redisService.deleteByPattern(
+        `${CacheKey.Detail_subcategory}*`
+      );
+      await this.redisService.deleteByPattern(
+        `${CacheKey.GetListSubcategories}*`
+      );
+      await this.redisService.deleteByPattern(
+        `${CacheKey.Detail_subcategory_level}*`
+      );
+      await this.redisService.deleteByPattern(
+        `${CacheKey.GetListSubcategoryLevels}*`
+      );
+      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
+      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+
+      const hasFeatured = quizzes.some(
+        (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
+      );
+      if (hasFeatured) {
+        await this.redisService.deleteByPattern('promoted_game');
+      }
+
+      return {
+        error: false,
+        message: `Deleted ${existingIds.size} subcategories successfully`,
+        data: { deleted: [...existingIds], missing },
+      };
+    } catch (e) {
+      await trx.rollback();
+      this.logger.error(`Failed to delete subcategories`, e);
+      throw e;
+    }
+  }
 
   /**
    * Get subcategory detail with related data
@@ -36,11 +922,19 @@ export class SubcategoryService {
     id?: number;
     slug?: string;
     languageId?: number;
-  }): Promise<{ error: boolean; data: SubcategoryDetailDto | null }> {
+  }): Promise<{
+    error: boolean;
+    message?: string;
+    data: SubcategoryDetailDto | null;
+  }> {
     try {
       // Validate required params
       if (!params.slug && !params.id) {
-        return null;
+        return {
+          error: true,
+          message: 'Not found (subcategory ID or slug is required)',
+          data: null,
+        };
       }
 
       // Generate cache key based on available parameter
@@ -55,7 +949,7 @@ export class SubcategoryService {
 
       if (cached) {
         this.logger.debug(`Cache hit for ${cacheKey}`);
-        return cached;
+        return { error: false, data: cached };
       }
 
       // Get subcategory detail
@@ -118,7 +1012,11 @@ export class SubcategoryService {
         .first();
 
       if (!data) {
-        return null;
+        return {
+          error: true,
+          message: 'Not found (subcategory does not exist or inactive)',
+          data: null,
+        };
       }
 
       // Parse web_seo JSON string to object
@@ -128,9 +1026,9 @@ export class SubcategoryService {
       const faq = await this.dbService.connection
         .table(FAQ_SCHEMA.TABLE)
         .where({
-          type: 2,
+          type: TypeModeGame.SUBCATEGORY,
           subcategory_id: data.id,
-          quizz_mode: 1,
+          quizz_mode: QuizMode.QUIZ_HQ,
         });
 
       // Transform data to match DTO
@@ -164,10 +1062,14 @@ export class SubcategoryService {
         `Cached subcategory data for ${cacheKey} and ${altKey}`
       );
 
-      return result;
+      return { error: false, data: result };
     } catch (error) {
       this.logger.error('Failed to get subcategory detail', error);
-      return null;
+      return {
+        error: true,
+        message: 'Failed to get subcategory detail',
+        data: null,
+      };
     }
   }
 
