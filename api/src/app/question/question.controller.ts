@@ -1,13 +1,193 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  ParseIntPipe,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CreateQuestionDto } from './dto/create-question.dto';
+import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
+import { EditQuestionDto } from './dto/edit-question.dto';
+import { DeleteQuestionsDto } from './dto/delete-question.dto';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { QuestionService } from './question.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { validateOrReject } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { normalizeIndexedFormData } from '../../common/utils/normalizeFormDataBody.util';
+import {
+  QuestionSortBy,
+  QuestionOrderBy,
+} from '../../common/constants/question';
 
 @Controller('/v2')
 @ApiBearerAuth()
+@ApiTags('Question')
 export class QuestionController {
   constructor(private readonly questionService: QuestionService) {}
+
+  // [Admin] Create Question
+  @ApiOperation({
+    summary: '[Admin] Create Question',
+    description: 'Create a new question or batch of questions.',
+  })
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiBody({
+    description: 'Create single or batch questions',
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(CreateQuestionDto) },
+        { $ref: getSchemaPath(BatchCreateQuestionDto) },
+      ],
+    },
+  })
+  @Post('/admin/questions')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async createQuestion(
+    @UploadedFile() files: Express.Multer.File[],
+    @Body() body: any
+  ) {
+    if (
+      !body.questions &&
+      Object.keys(body).some((k) => k.startsWith('questions['))
+    ) {
+      body = normalizeIndexedFormData(body);
+    }
+
+    if (body.questions) {
+      // Batch: questions[i][image_file]
+      const byIndex = new Map<number, Express.Multer.File>();
+      for (const f of files || []) {
+        const m = f.fieldname.match(/^questions\[(\d+)\]\[image_file\]$/);
+        if (m) byIndex.set(Number(m[1]), f);
+      }
+      body.questions.forEach((q, i) => {
+        const f = byIndex.get(i);
+        if (f) (q as any).image_file = f;
+      });
+      const dto = plainToInstance(BatchCreateQuestionDto, body);
+      await validateOrReject(dto);
+      return this.questionService.createQuestionBatch(dto);
+    } else {
+      // Single
+      const single = (files || []).find((f) => f.fieldname === 'image_file');
+      if (single) (body as any).image_file = single;
+      const dto = plainToInstance(CreateQuestionDto, body);
+      await validateOrReject(dto);
+      return this.questionService.createQuestion(dto);
+    }
+  }
+
+  // [Admin] Edit Question
+  @ApiOperation({
+    summary: '[Admin] Edit Question',
+    description: 'Edit an existing question by ID.',
+  })
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiParam({ name: 'id', type: Number })
+  @ApiBody({ type: EditQuestionDto })
+  @Put('/admin/questions/:id')
+  @UseInterceptors(FileInterceptor('image_file'))
+  async editQuestion(
+    @UploadedFile() file: Express.Multer.File,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: EditQuestionDto
+  ) {
+    if (file) {
+      body.image_file = file;
+    }
+    const dto = plainToInstance(EditQuestionDto, body);
+    await validateOrReject(dto);
+    return this.questionService.editQuestion(id, dto);
+  }
+
+  // [Admin] Get all questions
+  @ApiOperation({ summary: '[Admin] Get all questions' })
+  @Get('/admin/questions')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of questions per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by title or description',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    enum: QuestionSortBy,
+    default: QuestionSortBy.ID,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    type: String,
+    enum: QuestionOrderBy,
+    default: QuestionOrderBy.DESC,
+    description: 'Sorting direction',
+  })
+  async getAllQuestions(
+    @Query('offset') offset = 0,
+    @Query('limit') limit = 20,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: QuestionSortBy = QuestionSortBy.ID,
+    @Query('order') order: QuestionOrderBy = QuestionOrderBy.DESC
+  ) {
+    return await this.questionService.getAllQuestions({
+      offset,
+      limit,
+      search,
+      sortBy,
+      order,
+    });
+  }
+
+  // [Admin] Endpoint to delete a question
+  @ApiOperation({ summary: '[Admin] Delete a question' })
+  @Delete('/admin/questions/:id')
+  async deleteQuestion(@Param('id', ParseIntPipe) id: number) {
+    return await this.questionService.deleteQuestions([id]);
+  }
+
+  // [Admin] Endpoint to delete multiple questions
+  @ApiOperation({ summary: '[Admin] Delete multiple questions' })
+  @ApiBody({
+    description: 'Array of question IDs to delete',
+    type: DeleteQuestionsDto,
+  })
+  @Delete('/admin/questions')
+  async deleteMultipleQuestions(@Body() dto: DeleteQuestionsDto) {
+    return await this.questionService.deleteQuestions(dto.ids);
+  }
 
   @Get('/get_questions_quiz_hd')
   async getQuestionsQuizHd(
