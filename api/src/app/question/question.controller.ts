@@ -78,7 +78,7 @@ export class QuestionController {
         const m = f.fieldname.match(/^questions\[(\d+)\]\[image_file\]$/);
         if (m) byIndex.set(Number(m[1]), f);
       }
-      body.questions.forEach((q, i) => {
+      body.questions.forEach((q: any, i: number) => {
         const f = byIndex.get(i);
         if (f) (q as any).image_file = f;
       });
