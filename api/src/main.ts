@@ -47,7 +47,7 @@ async function bootstrap() {
   app.use(
     ['/api/swagger', '/api/swagger-json'],
     basicAuth({
-      users: { admin: 'newmotbackend' },
+      users: { admin: process.env.SWAGGER_PASSWORD || 'admin' }, // username: admin, password from env or default
       challenge: true,
     })
   );
