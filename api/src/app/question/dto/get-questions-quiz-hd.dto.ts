@@ -1,21 +1,42 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class GetQuestionsQuizHdDto {
   userId?: number | string | null;
   firebaseId?: string | null;
 
-  @ApiProperty()
-  language_id?: string;
+  @ApiProperty({ description: 'Language ID', example: 14, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  language_id?: number;
 
-  @ApiProperty()
-  category?: string;
+  @ApiProperty({ description: 'Category ID', example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  category?: number;
 
-  @ApiProperty()
-  sub_cat?: string;
+  @ApiProperty({ description: 'Sub Category ID', example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  sub_cat?: number;
 
-  @ApiProperty()
-  sub_cat_level?: string;
+  @ApiProperty({
+    description: 'Sub Category Level',
+    example: 1,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  sub_cat_level?: number;
 
-  @ApiProperty()
-  quizzes?: string;
+  @ApiProperty({ description: 'Quiz ID', example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  quizzes?: number;
 }
