@@ -1,11 +1,10 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PartialType, ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateQuestionDto } from './create-question.dto';
 
 export class EditQuestionDto extends PartialType(CreateQuestionDto) {
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: '0=keep image, 1=remove image',
     enum: [0, 1],
     default: 0,

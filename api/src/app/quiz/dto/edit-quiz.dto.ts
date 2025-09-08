@@ -1,10 +1,13 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PartialType, ApiProperty } from '@nestjs/swagger';
 import { CreateQuizDto } from './create-quiz.dto';
 import { IsOptional, IsArray } from 'class-validator';
 
 export class EditQuizDto extends PartialType(CreateQuizDto) {
-  @ApiPropertyOptional({ type: [Number] })
+  @ApiProperty({
+    description: 'Array of FAQ IDs to edit',
+    type: [Number],
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   edit_faq_ids?: number[];

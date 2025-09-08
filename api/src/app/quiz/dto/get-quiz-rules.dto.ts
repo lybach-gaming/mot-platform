@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 export class GetQuizRulesDto {
   @ApiProperty({
     description: 'Quiz mode',
-    example: 'standard',
+    example: 1,
     required: false,
   })
   @IsOptional()
