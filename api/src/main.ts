@@ -23,14 +23,6 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    })
-  );
-
   app.enableCors();
   app.use(cookieParser());
   app.use(compression({ threshold: 1024 }));
