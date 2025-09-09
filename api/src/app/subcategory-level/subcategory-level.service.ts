@@ -410,7 +410,7 @@ export class SubcategoryLevelService {
     limit: number;
     offset: number;
     search?: string;
-    sortBy?: string;
+    sortBy?: SubcategoryLevelSortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
   }) {
     const {

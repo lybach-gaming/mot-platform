@@ -99,7 +99,7 @@ export class QuestionService {
 
       return await this.fileUploadService.uploadFile(file, options);
     } catch (error) {
-      throw new Error(`Failed to upload question image: ${error.message}`);
+      throw new Error(`Failed to upload question image:`, { cause: error });
     }
   }
 
@@ -138,7 +138,7 @@ export class QuestionService {
     return {
       error: false,
       message: 'Question created successfully',
-      data: transformToString(result.data.succeeded[0]),
+      data: transformToString(result.data?.succeeded[0] || null),
     };
   }
 
@@ -180,12 +180,12 @@ export class QuestionService {
             failed.push({
               index,
               question: question.question,
-              error: error.message,
+              error: error,
             });
 
             this.logger.error(`Failed to prepare question`, {
               question: question.question,
-              stack: error.stack,
+              stack: error,
             });
           }
         }
@@ -243,11 +243,8 @@ export class QuestionService {
         throw trxError;
       }
     } catch (error) {
-      return {
-        error: true,
-        message: error.message || 'Failed to process question batch',
-        data: null,
-      };
+      this.logger.error('Failed to create question batch', error);
+      throw new Error(`Failed to create question batch:`, { cause: error });
     }
   }
 
@@ -415,7 +412,7 @@ export class QuestionService {
     offset: number;
     limit: number;
     search?: string;
-    sortBy?: string;
+    sortBy?: QuestionSortBy;
     order?: QuestionOrderBy.DESC | QuestionOrderBy.ASC;
   }) {
     const {

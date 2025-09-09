@@ -23,14 +23,6 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    })
-  );
-
   app.enableCors();
   app.use(cookieParser());
   app.use(compression({ threshold: 1024 }));
@@ -55,7 +47,7 @@ async function bootstrap() {
   app.use(
     ['/api/swagger', '/api/swagger-json'],
     basicAuth({
-      users: { admin: 'newmotbackend' },
+      users: { admin: process.env.SWAGGER_PASSWORD || 'admin' }, // username: admin, password from env or default
       challenge: true,
     })
   );
