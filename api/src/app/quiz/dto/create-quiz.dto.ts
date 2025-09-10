@@ -42,7 +42,10 @@ export class CreateQuizDto {
   @Type(() => Number)
   main_subcat_id!: number;
 
-  @ApiProperty({ description: 'The main subcategory level ID of the quiz' })
+  @ApiProperty({
+    description: 'The main subcategory level ID of the quiz',
+    required: false,
+  })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
@@ -54,9 +57,10 @@ export class CreateQuizDto {
   quizz_name!: string;
 
   @ApiProperty({
-    description: 'Image file for the quiz',
+    description: 'Image URI for the quiz',
     type: 'string',
-    format: 'binary',
+    default: '',
+    required: false,
   })
   @IsOptional()
   image?: string;
@@ -65,6 +69,7 @@ export class CreateQuizDto {
     description: 'The status of the quiz',
     default: 1,
     example: '1=Active, 0=Deactive',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -75,6 +80,7 @@ export class CreateQuizDto {
     description: 'Whether the quiz is premium',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -84,13 +90,18 @@ export class CreateQuizDto {
   @ApiProperty({
     description: 'The coins required/rewarded for the quiz',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   coins?: number = 0;
 
-  @ApiProperty({ description: 'The order of the quiz in listing', default: 0 })
+  @ApiProperty({
+    description: 'The order of the quiz in listing',
+    default: 0,
+    required: false,
+  })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
@@ -105,19 +116,20 @@ export class CreateQuizDto {
     description: 'Whether FAQ is enabled for this quiz',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   enable_faq?: number = 1;
 
-  @ApiProperty({ description: 'FAQ questions array' })
+  @ApiProperty({ description: 'FAQ questions array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   questions?: string[];
 
-  @ApiProperty({ description: 'FAQ answers array' })
+  @ApiProperty({ description: 'FAQ answers array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -127,13 +139,18 @@ export class CreateQuizDto {
     description: 'Whether the quiz is public',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   is_public?: number = 1;
 
-  @ApiProperty({ description: 'The difficulty level of the quiz', default: 0 })
+  @ApiProperty({
+    description: 'The difficulty level of the quiz',
+    default: 0,
+    required: false,
+  })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
@@ -143,6 +160,7 @@ export class CreateQuizDto {
     description: 'Whether the quiz is featured',
     default: 0,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -153,6 +171,7 @@ export class CreateQuizDto {
     description: 'Whether the quiz is coming soon',
     default: 0,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -163,6 +182,7 @@ export class CreateQuizDto {
     description: 'Whether the quiz is pinned',
     default: 0,
     example: '0=not pin, 1=pinned',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -173,6 +193,7 @@ export class CreateQuizDto {
     description: 'Whether to send notification after creating quiz',
     default: 0,
     example: '0=not send, 1=send',
+    required: false,
   })
   @IsNumber()
   @IsOptional()

@@ -36,16 +36,16 @@ export class CreateSubcategoryDto {
   @Type(() => Number)
   maincat_id!: number;
 
-
   @ApiProperty({ description: 'The name of the subcategory' })
   @IsString()
   @IsNotEmpty()
   subcategory_name!: string;
 
   @ApiProperty({
-    description: 'Image file for the subcategory',
+    description: 'Image URI for the subcategory',
     type: 'string',
-    format: 'binary',
+    default: '',
+    required: false,
   })
   @IsOptional()
   image?: string;
@@ -54,6 +54,7 @@ export class CreateSubcategoryDto {
     description: 'The status of the subcategory',
     default: 1,
     example: '1=Active, 0=Deactive',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -64,6 +65,7 @@ export class CreateSubcategoryDto {
     description: 'Whether the subcategory is premium',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -73,6 +75,7 @@ export class CreateSubcategoryDto {
   @ApiProperty({
     description: 'The coins required/rewarded for the subcategory',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -82,6 +85,7 @@ export class CreateSubcategoryDto {
   @ApiProperty({
     description: 'The order of the subcategory in listing',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -99,19 +103,20 @@ export class CreateSubcategoryDto {
     description: 'Whether FAQ is enabled for this subcategory',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   enable_faq?: number = 1;
 
-  @ApiProperty({ description: 'FAQ questions array' })
+  @ApiProperty({ description: 'FAQ questions array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   questions?: string[];
 
-  @ApiProperty({ description: 'FAQ answers array' })
+  @ApiProperty({ description: 'FAQ answers array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -120,6 +125,7 @@ export class CreateSubcategoryDto {
   @ApiProperty({
     description: 'The difficulty level of the subcategory',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -130,6 +136,7 @@ export class CreateSubcategoryDto {
     description: 'Whether the subcategory is coming soon',
     default: 0,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()

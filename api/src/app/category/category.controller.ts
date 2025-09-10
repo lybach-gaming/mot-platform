@@ -158,9 +158,9 @@ export class CategoryController {
   // Route to get category detail using GET method
   @Get('get_detail_category_quiz_hd')
   @ApiOperation({ summary: 'Get category detail (GET)' })
-  @ApiQuery({ name: 'id' })
-  @ApiQuery({ name: 'language_id' })
-  @ApiQuery({ name: 'slug_category' })
+  @ApiQuery({ name: 'id', required: false })
+  @ApiQuery({ name: 'language_id', required: false })
+  @ApiQuery({ name: 'slug_category', required: false })
   async getCategoryDetailGet(
     @Query('id', new ParseIntPipe({ optional: true })) id?: number,
     @Query('language_id', new ParseIntPipe({ optional: true }))

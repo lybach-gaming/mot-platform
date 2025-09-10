@@ -46,9 +46,10 @@ export class CreateCategoryDto {
   type!: number;
 
   @ApiProperty({
-    description: 'Image file for the category',
+    description: 'Image URI for the category',
     type: 'string',
-    format: 'binary',
+    default: '',
+    required: false,
   })
   @IsOptional()
   image?: string;
@@ -57,6 +58,7 @@ export class CreateCategoryDto {
     description: 'Whether the category is premium',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -66,6 +68,7 @@ export class CreateCategoryDto {
   @ApiProperty({
     description: 'The coins required/rewarded for the category',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -75,6 +78,7 @@ export class CreateCategoryDto {
   @ApiProperty({
     description: 'The order of the category in listing',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -92,19 +96,20 @@ export class CreateCategoryDto {
     description: 'Whether FAQ is enabled for this category',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   enable_faq?: number = 1;
 
-  @ApiProperty({ description: 'FAQ questions array' })
+  @ApiProperty({ description: 'FAQ questions array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   questions?: string[];
 
-  @ApiProperty({ description: 'FAQ answers array' })
+  @ApiProperty({ description: 'FAQ answers array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -113,6 +118,7 @@ export class CreateCategoryDto {
   @ApiProperty({
     description: 'The difficulty level of the category',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -123,6 +129,7 @@ export class CreateCategoryDto {
     description: 'Whether the category is coming soon',
     default: 0,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
