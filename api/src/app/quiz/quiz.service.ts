@@ -38,6 +38,7 @@ import {
 } from '../../core/database/schemas';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { GetListQuizDto } from './dto/get-list-quiz.dto';
+import { LegacyGetListQuizDto } from './dto/legacy-get-list-quizzes.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -49,6 +50,7 @@ import { IListQuizItemResponse } from './types';
 import { IApiListResponse } from '../../common/types/response.type';
 
 const MAX_RELATED_QUIZZES = 5;
+const COMPLETED_QUIZ_HQ_MIN_PERCENTAGE = 75;
 
 @Injectable()
 export class QuizService {
@@ -1263,5 +1265,192 @@ export class QuizService {
     }
 
     return response;
+  }
+
+  // Legacy Get List Quiz
+  async getListQuizLegacy(dto: LegacyGetListQuizDto) {
+    const {
+      user_id,
+      category,
+      sub_cat,
+      sub_cat_level = 0,
+      language_id,
+      is_pinned,
+      search,
+      limit = 0,
+      offset = 0,
+    } = dto;
+
+    if (!category || !sub_cat || !language_id) {
+      return {
+        error: true,
+        message: '103',
+        msg: 'category and sub_cat is required!',
+        data: [],
+        has_more: false,
+      };
+    }
+
+    // TODO: Check cache
+
+    try {
+      // Create one transaction for all queries to ensure consistency
+      const trx = await this.dbService.connection.transaction();
+
+      try {
+        // 1. Get completed quizzes for user if logged in
+        const playedQuizzesQuery = user_id
+          ? await trx(QUIZ_HQ_LEADERBOARD_SCHEMA.TABLE)
+              .select(QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID)
+              .where({
+                [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.USER_ID]: user_id,
+                [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.MAINCAT_ID]: category,
+                [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_ID]: sub_cat,
+                [QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID]:
+                  sub_cat_level,
+              })
+              .where('percentage', '>=', COMPLETED_QUIZ_HQ_MIN_PERCENTAGE)
+              .groupBy(QUIZ_HQ_LEADERBOARD_SCHEMA.FIELDS.QUIZZ_ID)
+          : [];
+
+        const playedQuizIds = playedQuizzesQuery?.map((q) => q.quizz_id);
+        const playedQuizIdsStr = playedQuizIds.length
+          ? playedQuizIds.join(',')
+          : 'NULL';
+
+        // 2. Get total quizzes
+        const totalQuery = trx(QUIZZ_SCHEMA.TABLE + ' as q')
+          .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+            this.on('w.quizz_id', '=', 'q.id')
+              .andOn('w.maincat_id', '=', trx.raw('?', [category]))
+              .andOn('w.subcategory_id', '=', trx.raw('?', [sub_cat]))
+              .andOn(
+                'w.subcategory_level_id',
+                '=',
+                trx.raw('?', [sub_cat_level])
+              );
+          })
+          .where({
+            'q.status': 1,
+            'q.language_id': language_id,
+            'q.maincat_id': category,
+            'q.main_subcat_id': sub_cat,
+            'q.main_subcat_level_id': sub_cat_level,
+            'w.quizz_mode': 1, // TYPE_MAIN
+          });
+
+        // 3. Get quiz list with all required data in one query
+        const quizQuery = trx({ qz: QUIZZ_SCHEMA.TABLE })
+          .select([
+            // Subquery to count number of questions
+            trx.raw(
+              `(
+              SELECT COUNT(id) 
+              FROM ${QUESTION_SCHEMA.TABLE} q 
+              WHERE q.category = ? 
+              AND q.subcategory = ? 
+              AND q.subcategory_level = ?
+              AND q.quizzes = qz.id
+            ) as no_of_question`,
+              [category, sub_cat, sub_cat_level]
+            ),
+            'qz.id as id_quizz',
+            'qz.*',
+            'w.id as id_web_seo',
+            'w.*',
+          ])
+          .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+            this.on('w.quizz_id', '=', 'qz.id')
+              .andOn('w.maincat_id', '=', trx.raw('?', [category]))
+              .andOn('w.subcategory_id', '=', trx.raw('?', [sub_cat]))
+              .andOn(
+                'w.subcategory_level_id',
+                '=',
+                trx.raw('?', [sub_cat_level])
+              );
+          })
+          .where({
+            'qz.status': 1,
+            'qz.language_id': language_id,
+            'qz.maincat_id': category,
+            'qz.main_subcat_id': sub_cat,
+            'qz.main_subcat_level_id': sub_cat_level,
+            'w.quizz_mode': 1, // TYPE_MAIN
+          });
+
+        // Apply additional filters
+        if (is_pinned === 1 || is_pinned === 0) {
+          quizQuery.where('qz.is_pinned', is_pinned);
+        }
+
+        if (search) {
+          quizQuery.whereRaw('LOWER(qz.quizz_name) LIKE ?', [
+            `%${search.toLowerCase()}%`,
+          ]);
+        }
+
+        // Apply sorting
+        quizQuery
+          .orderBy('qz.is_pinned', 'DESC')
+          .orderByRaw(
+            `CASE WHEN qz.id IN (${playedQuizIdsStr}) THEN 1 ELSE 0 END ASC`
+          )
+          .orderBy('qz.id', 'DESC');
+
+        // Apply pagination
+        if (limit > 0) {
+          quizQuery.limit(limit).offset(offset);
+        }
+
+        // Execute queries in parallel to improve performance
+        const [total, quizzes] = await Promise.all([
+          totalQuery.count('* as count').first(),
+          quizQuery,
+        ]);
+
+        const totalQuizzes = Number(total?.count || 0);
+
+        if (quizzes.length > 0) {
+          // Transform data
+          const data = quizzes.map((quiz) => ({
+            ...quiz,
+            image: quiz.image
+              ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+              : '',
+            thumb_image: quiz.image
+              ? `${BASE_URL}${QUIZZES_THUMB_PATH}${quiz.image}`
+              : '',
+            completed: playedQuizIds.includes(quiz.id_quizz),
+          }));
+
+          const response = {
+            error: false,
+            data: transformToString(data),
+            has_more: offset + limit < totalQuizzes,
+          };
+
+          await trx.commit();
+          return response;
+        }
+
+        await trx.commit();
+        return {
+          error: false,
+          data: [],
+          has_more: false,
+        };
+      } catch (error) {
+        await trx.rollback();
+        throw error;
+      }
+    } catch (error) {
+      this.logger.error('Failed to get list quizzes', error);
+      return {
+        error: true,
+        message: 'Failed to get list quizzes',
+        data: [],
+        has_more: false,
+      };
+    }
   }
 }

@@ -25,6 +25,7 @@ import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GetListQuizDto } from './dto/get-list-quiz.dto';
+import { LegacyGetListQuizDto } from './dto/legacy-get-list-quizzes.dto';
 import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -237,8 +238,20 @@ export class QuizController {
     return await this.quizService.getQuizRules({ ...dto });
   }
 
+  // Search quizzes
   @Get('/quizzes')
   async getListQuiz(@Query() dto: GetListQuizDto) {
     return await this.quizService.getListQuiz({ ...dto });
+  }
+
+  // Post method: /get_list_quizzes
+  @Post('/get_list_quizzes')
+  @ApiOperation({ summary: 'Get list of quizzes' })
+  @ApiBody({
+    description: 'Parameters for fetching the list of quizzes',
+    type: LegacyGetListQuizDto,
+  })
+  async getListQuizPost(@Body() dto: LegacyGetListQuizDto) {
+    return await this.quizService.getListQuizLegacy(dto);
   }
 }
