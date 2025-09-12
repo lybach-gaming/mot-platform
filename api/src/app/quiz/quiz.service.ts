@@ -934,8 +934,10 @@ export class QuizService {
     const main_subcat_id = quizz.main_subcat_id;
     const main_subcat_level_id = quizz.main_subcat_level_id;
 
-    // First try: exact matches - all levels
-    let data = await this.dbService.connection
+    const quizzes: any[] = [];
+
+    // fallback 1
+    const exactMatches = await this.dbService.connection
       .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
       .select(
         `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -943,25 +945,41 @@ export class QuizService {
         `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
         'w.*'
       )
-      .leftJoin(
-        `${WEB_SEO_SCHEMA.TABLE} as w`,
-        dbService.connection.raw(
-          'w.quizz_id = qz.id AND w.maincat_id = ? AND w.subcategory_id = ? AND w.subcategory_level_id = ?',
-          [maincat_id, main_subcat_id, main_subcat_level_id]
+      .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+        this.on(
+          `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+          '=',
+          `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
         )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_id])
+          )
+          .andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`,
+            '=',
+            dbService.connection.raw('?', [main_subcat_level_id])
+          );
+      })
+      .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+      .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+      .andWhere(
+        `qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_LEVEL_ID}`,
+        main_subcat_level_id
       )
-      // Use where instead of andWhere
-      .where('qz.maincat_id', maincat_id)
-      .where('qz.main_subcat_id', main_subcat_id)
-      .where('qz.main_subcat_level_id', main_subcat_level_id)
-      // Remove status check
-      .whereNot('qz.id', quizz.id);
+      .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+      .limit(MAX_RELATED_QUIZZES);
 
-    let resultCount = data.length;
+    quizzes.push(...exactMatches);
 
-    // Second try: category + subcategory matches if first try returned < MAX_RELATED_QUIZZES
-    if (resultCount < MAX_RELATED_QUIZZES) {
-      data = await this.dbService.connection
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const subcategoryMatches = await this.dbService.connection
         .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
         .select(
           `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -969,25 +987,34 @@ export class QuizService {
           `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
           'w.*'
         )
-        .leftJoin(
-          `${WEB_SEO_SCHEMA.TABLE} as w`,
-          dbService.connection.raw(
-            'w.quizz_id = qz.id AND w.maincat_id = ? AND w.subcategory_id = ?',
-            [maincat_id, main_subcat_id]
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
           )
-        )
-        // Use where instead of andWhere
-        .where('qz.maincat_id', maincat_id)
-        .where('qz.main_subcat_id', main_subcat_id)
-        // Remove status check
-        .whereNot('qz.id', quizz.id);
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+              '=',
+              dbService.connection.raw('?', [maincat_id])
+            )
+            .andOn(
+              `w.${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`,
+              '=',
+              dbService.connection.raw('?', [main_subcat_id])
+            );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhere(`qz.${QUIZZ_SCHEMA.FIELDS.MAIN_SUBCAT_ID}`, main_subcat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
 
-      resultCount = data.length;
+      quizzes.push(...subcategoryMatches);
     }
 
-    // Third try: only category matches if second try returned < MAX_RELATED_QUIZZES
-    if (resultCount < MAX_RELATED_QUIZZES) {
-      data = await this.dbService.connection
+    // fallback 2
+    if (quizzes.length < MAX_RELATED_QUIZZES) {
+      const categoryMatches = await this.dbService.connection
         .table(`${QUIZZ_SCHEMA.TABLE} as qz`)
         .select(
           `qz.${QUIZZ_SCHEMA.FIELDS.ID} as id_quizz`,
@@ -995,16 +1022,22 @@ export class QuizService {
           `w.${WEB_SEO_SCHEMA.FIELDS.ID} as id_web_seo`,
           'w.*'
         )
-        .leftJoin(
-          `${WEB_SEO_SCHEMA.TABLE} as w`,
-          dbService.connection.raw('w.quizz_id = qz.id AND w.maincat_id = ?', [
-            maincat_id,
-          ])
-        )
-        // Use where instead of andWhere
-        .where('qz.maincat_id', maincat_id)
-        // Remove status check
-        .whereNot('qz.id', quizz.id);
+        .leftJoin(`${WEB_SEO_SCHEMA.TABLE} as w`, function () {
+          this.on(
+            `w.${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`,
+            '=',
+            `qz.${QUIZZ_SCHEMA.FIELDS.ID}`
+          ).andOn(
+            `w.${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`,
+            '=',
+            dbService.connection.raw('?', [maincat_id])
+          );
+        })
+        .where(`qz.${QUIZZ_SCHEMA.FIELDS.MAINCAT_ID}`, maincat_id)
+        .andWhereNot(`qz.${QUIZZ_SCHEMA.FIELDS.ID}`, quizz.id)
+        .limit(MAX_RELATED_QUIZZES - quizzes.length);
+
+      quizzes.push(...categoryMatches);
     }
 
     let response: {
@@ -1017,8 +1050,8 @@ export class QuizService {
       data: [],
     };
 
-    if (data.length > 0) {
-      const finalData = data.map((item) => ({
+    if (quizzes.length > 0) {
+      const finalData = quizzes.map((item) => ({
         ...item,
         image: item.image
           ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, item.image)
@@ -1032,6 +1065,7 @@ export class QuizService {
     }
 
     await this.redisService.set(cacheKey, response);
+
     return response;
   }
 
@@ -1260,6 +1294,14 @@ export class QuizService {
     }
 
     // TODO: Check cache
+    const cacheKey = `${CacheKey.getListQuizLegacy}${JSON.stringify(dto)}`;
+    if (!search) {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached) {
+        this.logger.debug(`Cache hit for ${cacheKey}`);
+        return cached;
+      }
+    }
 
     try {
       // Create one transaction for all queries to ensure consistency
@@ -1396,6 +1438,11 @@ export class QuizService {
             data: transformToString(data),
             has_more: offset + limit < totalQuizzes,
           };
+
+          // Cache only if no search term
+          if (!search) {
+            await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+          }
 
           await trx.commit();
           return response;
