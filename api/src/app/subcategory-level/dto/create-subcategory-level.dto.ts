@@ -50,9 +50,10 @@ export class CreateSubcategoryLevelDto {
   subcategory_level_name!: string;
 
   @ApiProperty({
-    description: 'Image file for the subcategory level',
+    description: 'Image URI for the subcategory level',
     type: 'string',
-    format: 'binary',
+    default: '',
+    required: false,
   })
   @IsOptional()
   image?: string;
@@ -61,6 +62,7 @@ export class CreateSubcategoryLevelDto {
     description: 'The status of the subcategory level',
     default: 1,
     example: '1=Active, 0=Deactive',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -71,6 +73,7 @@ export class CreateSubcategoryLevelDto {
     description: 'Whether the subcategory level is premium',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -80,6 +83,7 @@ export class CreateSubcategoryLevelDto {
   @ApiProperty({
     description: 'The coins required/rewarded for the subcategory level',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -89,6 +93,7 @@ export class CreateSubcategoryLevelDto {
   @ApiProperty({
     description: 'The order of the subcategory level in listing',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -106,19 +111,20 @@ export class CreateSubcategoryLevelDto {
     description: 'Whether FAQ is enabled for this subcategory level',
     default: 1,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   enable_faq?: number = 1;
 
-  @ApiProperty({ description: 'FAQ questions array' })
+  @ApiProperty({ description: 'FAQ questions array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   questions?: string[];
 
-  @ApiProperty({ description: 'FAQ answers array' })
+  @ApiProperty({ description: 'FAQ answers array', required: false })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -127,6 +133,7 @@ export class CreateSubcategoryLevelDto {
   @ApiProperty({
     description: 'The difficulty level of the subcategory level',
     default: 0,
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -137,6 +144,7 @@ export class CreateSubcategoryLevelDto {
     description: 'Whether the subcategory level is coming soon',
     default: 0,
     example: '0=no, 1=yes',
+    required: false,
   })
   @IsNumber()
   @IsOptional()
