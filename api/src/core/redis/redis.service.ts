@@ -28,23 +28,41 @@ export class RedisService {
   }
 
   async deleteByPattern(pattern: string): Promise<void> {
-    const stream = this.client.scanStream({
-      match: pattern,
-      count: 100,
-    });
+    try {
+      // Get all keys matching pattern
+      const stream = this.client.scanStream({
+        match: pattern,
+        count: 100, // Process 100 keys at a time
+      });
 
-    stream.on('data', (keys: string[]) => {
-      if (keys.length) {
-        const pipeline = this.client.pipeline();
-        keys.forEach((key) => pipeline.del(key));
-        pipeline.exec();
+      // Process keys in batches
+      let pipeline = this.client.pipeline();
+      let keysToDelete = 0;
+
+      for await (const keys of stream) {
+        // Add delete commands to pipeline
+        for (const key of keys) {
+          pipeline.del(key);
+          keysToDelete++;
+        }
+
+        // Execute pipeline when batch is full
+        if (keysToDelete >= 100) {
+          await pipeline.exec();
+          pipeline = this.client.pipeline();
+          keysToDelete = 0;
+        }
       }
-    });
 
-    return new Promise<void>((resolve, reject) => {
-      stream.on('end', () => resolve());
-      stream.on('error', (err) => reject(err));
-    });
+      // Execute any remaining commands
+      if (keysToDelete > 0) {
+        await pipeline.exec();
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete keys matching pattern ${pattern}:`, {
+        cause: error,
+      });
+    }
   }
 
   async incr(key: string): Promise<number> {

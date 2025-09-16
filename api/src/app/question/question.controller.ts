@@ -189,6 +189,7 @@ export class QuestionController {
     return await this.questionService.deleteQuestions(dto.ids);
   }
 
+  // [User] Get Questions of one quiz
   @Get('/get_questions_quiz_hd')
   async getQuestionsQuizHd(
     @Query() dto: GetQuestionsQuizHdDto,

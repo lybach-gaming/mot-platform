@@ -1,16 +1,59 @@
 export enum CacheKey {
+  // Common
   Setting = 'setting:',
   WebSetting = 'web_setting:',
-  Detail_category = 'detail_category:',
-  Detail_subcategory = 'detail_subcategory:',
-  Detail_subcategory_level = 'detail_subcategory_level:',
-  getListQuiz = 'get_list_quiz:',
-  GetDetailQuizzes = 'get_detail_quizzes:',
-  GetQuestionsQuizHd = 'get_questions_quiz_hd:',
-  GetMoreQuizzOfQuizHq = 'get_more_quizz_of_quizz_hq:',
-  GetQuizRules = 'get_quiz_rules:',
-  GetListQuizzes = 'get_list_quizzes:',
-  GetListSubcategoryLevels = 'get_list_subcategory_levels:',
-  GetListSubcategories = 'get_list_subcategories:',
-  GetListCategories = 'get_list_categories:',
+
+  /* Category */
+  // [Admin]
+  AdminCategoryList = 'admin:category:list:',
+  AdminCategoryDetail = 'admin:category:detail:',
+
+  // [User]
+  UserCategory = 'user:category:',
+  UserCategoryList = 'user:category:list:', // User get list categories
+  UserCategoryDetail = 'user:category:detail:',
+
+  /* Subcategory */
+  // [Admin]
+  AdminSubcategoryList = 'admin:subcategory:list:',
+  AdminSubcategoryDetail = 'admin:subcategory:detail:',
+
+  // [User]
+  UserSubcategory = 'user:subcategory:',
+  UserSubcategoryList = 'user:subcategory:list:', // User get list subcategories in category
+  UserSubcategoryDetail = 'user:subcategory:detail:',
+
+  /* Subcategory Level */
+  // [Admin]
+  AdminSubcategoryLevelList = 'admin:subcategory_level:list:',
+  AdminSubcategoryLevelDetail = 'admin:subcategory_level:detail:',
+
+  // [User]
+  UserSubcategoryLevel = 'user:subcategory_level:',
+  UserSubcategoryLevelList = 'user:subcategory_level:list:', // User get list subcategory levels in subcategory
+  UserSubcategoryLevelDetail = 'user:subcategory_level:detail:',
+
+  /* Quiz */
+  // [Admin]
+  AdminQuizList = 'admin:quiz:list:',
+  AdminQuizDetail = 'admin:quiz:detail:',
+
+  // [User]
+  UserQuiz = 'user:quiz:',
+  UserQuizList = 'user:quiz:list:', // User get list quizzes in subcategory level
+  UserQuizDetail = 'user:quiz:detail:',
+  UserSearchQuizzes = 'user:quiz:search:', // User search quizzes
+  UserMoreQuizzes = 'user:quiz:more_quizzes:', // User get more quizzes
+  UserQuizRules = 'user:quiz:rules:', // User get Quiz rules
+  UserPopularQuizzes = 'user:quiz:popular_quizzes:', // User get popular quizzes
+
+  /* Question */
+  // [Admin]
+  AdminQuestionList = 'admin:question:list:',
+  AdminQuestionDetail = 'admin:question:detail:',
+
+  // [User]
+  UserQuestion = 'user:question:',
+  UserQuestionList = 'user:question:list:', // User get list questions in quiz
+  UserQuestionDetail = 'user:question:detail:',
 }
