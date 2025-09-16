@@ -12,7 +12,7 @@ import {
   BASE_URL,
   WEB_HOME_SETTINGS_LOGO_PATH,
   WEB_SETTINGS_LOGO_PATH,
-  CACHE_TTL_DEFAULT,
+  CACHE_TTL_MAX,
 } from './../../common/constants/app';
 
 @Injectable()
@@ -85,7 +85,7 @@ export class SettingService implements OnModuleInit {
       await this.redisService.set(
         CacheKey.Setting,
         settingMap,
-        CACHE_TTL_DEFAULT
+        CACHE_TTL_MAX
       );
 
       this.logger.debug('Settings successfully synced to Redis cache');
@@ -224,7 +224,7 @@ export class SettingService implements OnModuleInit {
       await this.redisService.set(
         CacheKey.WebSetting,
         settings,
-        CACHE_TTL_DEFAULT
+        CACHE_TTL_MAX
       );
       this.logger.debug('Web Settings successfully synced to Redis cache');
     } catch (error) {

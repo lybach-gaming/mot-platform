@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   BASE_URL,
-  CACHE_TTL_DEFAULT,
+  CACHE_TTL_MIN,
   FE_URL,
   LANG_ENGLISH_ID,
   QUIZ_HQ_SLUG,
@@ -266,26 +266,8 @@ export class QuizService {
         // Commit transaction after all operations are done
         await trx.commit();
 
-        // Clear relevant caches after successful commit
-        try {
-          await Promise.all([
-            this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
-            this.redisService.deleteByPattern(
-              `${CacheKey.UserSubcategoryLevel}*`
-            ),
-            this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
-            this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
-          ]);
-        } catch (error) {
-          // Fallback to deleting specific key if deleteByPattern fails
-          this.logger.warn(
-            'Failed to delete cache by pattern, falling back to single key delete',
-            { cause: error }
-          );
-        }
-        if (createQuizDto.is_featured) {
-          await this.redisService.deleteByPattern('promoted_game'); // Clear featured quizzes cache
-        }
+        // TODO: Cache Manager
+        // Will implement in separate cache manager service
 
         // TODO: Send notification if is_send_notice is true
         // Will implement in separate notification service
@@ -409,26 +391,8 @@ export class QuizService {
         .first();
       await trx.commit();
 
-      try {
-        await Promise.all([
-          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
-          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
-          this.redisService.deleteByPattern(
-            `${CacheKey.UserSubcategoryLevel}*`
-          ),
-          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
-          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
-        ]);
-      } catch (error) {
-        // Fallback to deleting specific key if deleteByPattern fails
-        this.logger.warn(
-          'Failed to delete cache by pattern, falling back to single key delete',
-          { cause: error }
-        );
-      }
-      if (dto.is_featured) {
-        await this.redisService.deleteByPattern('promoted_game');
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -745,31 +709,8 @@ export class QuizService {
         })
       );
 
-      // 6) Cache
-      try {
-        await Promise.all([
-          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
-          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
-          this.redisService.deleteByPattern(
-            `${CacheKey.UserSubcategoryLevel}*`
-          ),
-          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
-          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
-        ]);
-      } catch (error) {
-        // Fallback to deleting specific key if deleteByPattern fails
-        this.logger.warn(
-          'Failed to delete cache by pattern, falling back to single key delete',
-          { cause: error }
-        );
-      }
-
-      const hasFeatured = quizzes.some(
-        (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
-      );
-      if (hasFeatured) {
-        await this.redisService.deleteByPattern('promoted_game');
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -939,7 +880,7 @@ export class QuizService {
       },
     };
 
-    await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
@@ -1109,7 +1050,7 @@ export class QuizService {
       };
     }
 
-    await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
@@ -1156,7 +1097,7 @@ export class QuizService {
       };
     }
 
-    await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
@@ -1170,16 +1111,6 @@ export class QuizService {
   async getListQuiz(
     dto: GetListQuizDto
   ): Promise<IApiListResponse<IListQuizItemResponse>> {
-    // Check cache
-    const cacheKey = `${CacheKey.UserSearchQuizzes}${JSON.stringify(dto)}`;
-    if (!dto.search) {
-      const cached = await this.redisService.get(cacheKey);
-      if (cached) {
-        this.logger.debug(`Cache hit for ${cacheKey}`);
-        return cached;
-      }
-    }
-
     // Fetch quiz details with related slugs and subqueries for no_of_question & is_played
     const selectFields = [
       'qz.*',
@@ -1306,10 +1237,6 @@ export class QuizService {
       total: total,
       data: quizzes,
     };
-
-    if (!dto.search) {
-      await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
-    }
 
     return response;
   }
@@ -1486,7 +1413,7 @@ export class QuizService {
 
           // Cache only if no search term
           if (!search) {
-            await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+            await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
           }
 
           await trx.commit();
