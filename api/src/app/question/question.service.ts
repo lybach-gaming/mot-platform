@@ -217,7 +217,24 @@ export class QuestionService {
         // Commit transaction if all succeeded
         if (succeeded.length > 0) {
           await trx.commit();
-          await this.redisService.del(CacheKey.GetQuestionsQuizHd);
+          // Clear cache
+          try {
+            await Promise.all([
+              this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
+              this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
+              this.redisService.deleteByPattern(
+                `${CacheKey.UserSubcategoryLevel}*`
+              ),
+              this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+              this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+            ]);
+          } catch (error) {
+            // Fallback to deleting specific key if deleteByPattern fails
+            this.logger.warn(
+              'Failed to delete cache by pattern, falling back to single key delete',
+              { cause: error }
+            );
+          }
         } else {
           await trx.rollback();
         }
@@ -375,12 +392,22 @@ export class QuestionService {
       }
 
       // Invalidate cache
-      if ((this.redisService as any).deleteByPattern) {
-        await (this.redisService as any).deleteByPattern(
-          `${CacheKey.GetQuestionsQuizHd}*`
+      try {
+        await Promise.all([
+          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
+          this.redisService.deleteByPattern(
+            `${CacheKey.UserSubcategoryLevel}*`
+          ),
+          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+        ]);
+      } catch (error) {
+        // Fallback to deleting specific key if deleteByPattern fails
+        this.logger.warn(
+          'Failed to delete cache by pattern, falling back to single key delete',
+          { cause: error }
         );
-      } else {
-        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
       }
 
       return {
@@ -581,18 +608,23 @@ export class QuestionService {
       );
 
       // 4) Invalidate cache (broad prefix; refine later if you track keys per quiz)
-      if (
-        (
-          this.redisService as unknown as {
-            deleteByPattern?: (p: string) => Promise<number>;
-          }
-        ).deleteByPattern
-      ) {
-        await (this.redisService as any).deleteByPattern(
-          `${CacheKey.GetQuestionsQuizHd}*`
+      // Invalidate cache
+      try {
+        await Promise.all([
+          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
+          this.redisService.deleteByPattern(
+            `${CacheKey.UserSubcategoryLevel}*`
+          ),
+          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+        ]);
+      } catch (error) {
+        // Fallback to deleting specific key if deleteByPattern fails
+        this.logger.warn(
+          'Failed to delete cache by pattern, falling back to single key delete',
+          { cause: error }
         );
-      } else {
-        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
       }
 
       return {
@@ -617,7 +649,7 @@ export class QuestionService {
   async getQuestionsQuizHd(dto: GetQuestionsQuizHdDto) {
     const { category, sub_cat, sub_cat_level, quizzes } = dto;
 
-    const cacheKey = `${CacheKey.GetQuestionsQuizHd}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserQuestionList}${JSON.stringify(dto)}`;
 
     // Try getting from cache first
     const cached = await this.redisService.get(cacheKey);

@@ -24,6 +24,7 @@ import {
   OrderBy,
   QuizMode,
   TypeModeGame,
+  CACHE_TTL_DEFAULT,
 } from '../../common/constants/app';
 import { SubcategoryDetailDto } from './dto/subcategory.dto';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
@@ -236,11 +237,20 @@ export class SubcategoryService {
         await trx.commit();
 
         // Clear relevant caches after successful commit
-        await this.redisService.deleteByPattern(
-          `${CacheKey.GetListSubcategories}*`
-        );
-        // Clear cache for promoted games
-        await this.redisService.deleteByPattern('promoted_game');
+        try {
+          await Promise.all([
+            this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+            this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+            // Clear cache for promoted games
+            this.redisService.deleteByPattern('promoted_game'),
+          ]);
+        } catch (error) {
+          // Fallback to deleting specific key if deleteByPattern fails
+          this.logger.warn(
+            'Failed to delete cache by pattern, falling back to single key delete',
+            { cause: error }
+          );
+        }
 
         // TODO: Send notification if is_send_notice is true
         // Will implement in separate notification service
@@ -416,12 +426,24 @@ export class SubcategoryService {
         .first();
       await trx.commit();
 
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategories}*`
-      );
+      // Delete cache
+      try {
+        await Promise.all([
+          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
+          this.redisService.deleteByPattern(
+            `${CacheKey.UserSubcategoryLevel}*`
+          ),
+          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+        ]);
+      } catch (error) {
+        // Fallback to deleting specific key if deleteByPattern fails
+        this.logger.warn(
+          'Failed to delete cache by pattern, falling back to single key delete',
+          { cause: error }
+        );
+      }
 
       // Clear cache for promoted games
       await this.redisService.deleteByPattern('promoted_game');
@@ -881,20 +903,23 @@ export class SubcategoryService {
       );
 
       // 6) Cache
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategories}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory_level}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategoryLevels}*`
-      );
-      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
+      try {
+        await Promise.all([
+          this.redisService.deleteByPattern(`${CacheKey.UserQuestion}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserQuiz}*`),
+          this.redisService.deleteByPattern(
+            `${CacheKey.UserSubcategoryLevel}*`
+          ),
+          this.redisService.deleteByPattern(`${CacheKey.UserSubcategory}*`),
+          this.redisService.deleteByPattern(`${CacheKey.UserCategory}*`),
+        ]);
+      } catch (error) {
+        // Fallback to deleting specific key if deleteByPattern fails
+        this.logger.warn(
+          'Failed to delete cache by pattern, falling back to single key delete',
+          { cause: error }
+        );
+      }
 
       const hasFeatured = quizzes.some(
         (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
@@ -939,8 +964,8 @@ export class SubcategoryService {
 
       // Generate cache key based on available parameter
       const cacheKey = params.id
-        ? `${CacheKey.Detail_subcategory}language:${params.languageId}:id:${params.id}`
-        : `${CacheKey.Detail_subcategory}language:${params.languageId}:slug:${params.slug}`;
+        ? `${CacheKey.UserSubcategoryDetail}language:${params.languageId}:id:${params.id}`
+        : `${CacheKey.UserSubcategoryDetail}language:${params.languageId}:slug:${params.slug}`;
 
       // Try getting from cache first
       const cached = await this.redisService.get<SubcategoryDetailDto>(
@@ -1050,13 +1075,13 @@ export class SubcategoryService {
       });
 
       // Cache the result
-      await this.redisService.set(cacheKey, result);
+      await this.redisService.set(cacheKey, result, CACHE_TTL_DEFAULT);
 
       // Cache with alternate key
       const altKey = params.id
-        ? `${CacheKey.Detail_subcategory}language:${params.languageId}:slug:${data.slug}`
-        : `${CacheKey.Detail_subcategory}language:${params.languageId}:id:${data.id}`;
-      await this.redisService.set(altKey, result);
+        ? `${CacheKey.UserSubcategoryDetail}language:${params.languageId}:slug:${data.slug}`
+        : `${CacheKey.UserSubcategoryDetail}language:${params.languageId}:id:${data.id}`;
+      await this.redisService.set(altKey, result, CACHE_TTL_DEFAULT);
 
       this.logger.debug(
         `Cached subcategory data for ${cacheKey} and ${altKey}`
