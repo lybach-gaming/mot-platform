@@ -80,22 +80,6 @@ export class SubcategoryService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, SUBCATEGORY_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build subcategory data object from DTO
    * @param dto - The DTO containing subcategory data
    * @param existingSubcategory - Optional existing subcategory data for updates
@@ -262,7 +246,7 @@ export class SubcategoryService {
    *
    * @param id - ID of the subcategory to edit
    * @param editSubcategoryDto - Data for editing the subcategory
-   * @returns Updated quiz data or error response
+   * @returns Updated subcategory data or error response
    */
   async editSubcategory(id: number, dto: EditSubcategoryDto) {
     const trx = await this.dbService.connection.transaction();
@@ -287,14 +271,28 @@ export class SubcategoryService {
 
       // Image
       let imageName = existing.image;
-      if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
+
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        await this.deleteAllRelatedImages(
+          existing.image,
+          SUBCATEGORY_IMAGE_PATH
         );
+        imageName = '';
       }
 
-      // Quiz data
+      // Check image_file next
+      if (dto.image_file) {
+        if (existing.image) {
+          await this.deleteAllRelatedImages(
+            existing.image,
+            SUBCATEGORY_IMAGE_PATH
+          );
+        }
+        imageName = await this.handleImageUpload(dto.image_file);
+      }
+
+      // Subcategory data
       const subcategoryData = this.buildSubcategoryDataFromDto(dto, existing);
       if (imageName !== existing.image) {
         subcategoryData.image = imageName;
@@ -594,7 +592,7 @@ export class SubcategoryService {
       subcategory.image_url = image;
       subcategory.thumbnail_url = thumbnail;
 
-      // Return formatted quiz data
+      // Return formatted subcategory data
       await trx.commit();
       return {
         error: false,
