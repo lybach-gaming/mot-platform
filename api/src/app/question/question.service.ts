@@ -1,7 +1,4 @@
-import {
-  QuestionSortBy,
-  QuestionOrderBy,
-} from './../../common/constants/question';
+import { QuestionSortBy } from './../../common/constants/question';
 import { Injectable, Logger } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
@@ -12,8 +9,10 @@ import {
   BASE_URL,
   CACHE_TTL_MIN,
   QUESTION_IMG_PATH,
+  QUESTION_THUMB_PATH_SMALL,
   QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
+  OrderBy,
 } from '../../common/constants/app';
 import {
   BOOKMARK_SCHEMA,
@@ -408,14 +407,24 @@ export class QuestionService {
     limit: number;
     search?: string;
     sortBy?: QuestionSortBy;
-    order?: QuestionOrderBy.DESC | QuestionOrderBy.ASC;
+    order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
+    subcategoryId?: number;
+    subcategoryLevelId?: number;
+    quizId?: number;
   }) {
     const {
       offset = 0,
       limit = 20,
       search,
       sortBy = QuestionSortBy.ID,
-      order = QuestionOrderBy.DESC,
+      order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
     } = query;
 
     const validSortFields = Object.values(QuestionSortBy);
@@ -447,7 +456,28 @@ export class QuestionService {
         'quiz.quizz_name as quiz'
       );
 
-    // Search by question name or slug
+    // Add filter conditions
+    if (languageId) {
+      db.where('q.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('q.category', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('q.subcategory', subcategoryId);
+    }
+
+    if (subcategoryLevelId) {
+      db.where('q.subcategory_level', subcategoryLevelId);
+    }
+
+    if (quizId) {
+      db.where('q.quizzes', quizId);
+    }
+
+    // Search by question name or slug or question or answer
     if (search) {
       db.where((builder) => {
         builder
@@ -494,7 +524,7 @@ export class QuestionService {
         : null;
 
       const thumbnail = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}thumbs/100x100/${question.image}`
+        ? `${BASE_URL}${QUESTION_THUMB_PATH_SMALL}${question.image}`
         : null;
 
       return {
@@ -515,7 +545,60 @@ export class QuestionService {
   }
 
   /**
-   * Delete questions by IDs
+   * [Admin] Get detail questions by ID
+   *
+   * @param id - Question ID to retrieve
+   * @returns Detailed question info or error response
+   */
+  async getQuestionDetail(id: number) {
+    if (!id) {
+      return {
+        error: true,
+        message: 'Question ID is required',
+        data: null,
+      };
+    }
+    const trx = await this.dbService.connection.transaction();
+
+    try {
+      const F = QUESTION_SCHEMA.FIELDS;
+
+      // Fetch question details
+      const existing = await trx(QUESTION_SCHEMA.TABLE).where(F.ID, id).first();
+
+      if (!existing) {
+        await trx.rollback();
+        return { error: true, message: 'Question not found', data: null };
+      }
+
+      // Format image URLS
+      const image = existing.image
+        ? `${BASE_URL}${QUESTION_IMG_PATH}${existing.image}`
+        : null;
+      const thumbnail = existing.image
+        ? `${BASE_URL}${QUESTION_THUMB_PATH_SMALL}${existing.image}`
+        : null;
+      existing.image_url = image;
+      existing.thumbnail_url = thumbnail;
+
+      await trx.commit();
+      return {
+        error: false,
+        message: 'Question details retrieved successfully',
+        data: transformToString(existing),
+      };
+    } catch (error) {
+      await trx.rollback();
+      this.logger.error(
+        `Failed to retrieve question details with ID ${id}`,
+        error
+      );
+      throw new Error(` Failed to retrieve question details`, { cause: error });
+    }
+  }
+
+  /**
+   * [Admin] Delete questions by IDs
    *
    * @param dto - DTO containing question IDs to delete
    * @returns Result of deletion operation
