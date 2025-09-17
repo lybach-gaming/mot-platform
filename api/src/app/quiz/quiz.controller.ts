@@ -63,53 +63,7 @@ export class QuizController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Edit an existing quiz',
-    schema: {
-      type: 'object',
-      properties: {
-        image_file: { type: 'string', format: 'binary' },
-        language_id: { type: 'number' },
-        quiz_mode: { type: 'number' },
-        maincat_id: { type: 'number' },
-        main_subcat_id: { type: 'number' },
-        main_subcat_level_id: { type: 'number', nullable: true },
-        quizz_name: { type: 'string' },
-        slug: { type: 'string' },
-        status: { type: 'string', enum: ['Active', 'Deactive'] },
-        image: { type: 'string', format: 'binary', nullable: true },
-        web_seo: {
-          type: 'object',
-          properties: {
-            sub_heading: { type: 'string' },
-            seo_block: { type: 'string' },
-            meta_title: { type: 'string' },
-            meta_description: { type: 'string' },
-            meta_keywords: { type: 'string' },
-            schema_markup: { type: 'string' },
-            sponsor_link: { type: 'string' },
-            sponsor_name: { type: 'string' },
-          },
-        },
-        enable_faq: { type: 'boolean' },
-        questions: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-        answers: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-        edit_faq_ids: {
-          type: 'array',
-          items: { type: 'number' },
-          description:
-            'IDs of FAQs to edit or keep, which not included will be deleted',
-        },
-        is_featured: { type: 'boolean', nullable: true },
-        is_coming_soon: { type: 'boolean', nullable: true },
-        is_pinned: { type: 'boolean', nullable: true },
-        is_send_notice: { type: 'boolean', nullable: true },
-      },
-    },
+    type: EditQuizDto,
   })
   @Put('/admin/quizzes/:id')
   @UseInterceptors(FileInterceptor('image_file'))

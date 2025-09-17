@@ -85,22 +85,6 @@ export class QuizService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, QUIZZES_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build quiz data object from DTO
    * @param dto - The DTO containing quiz data
    * @param existingQuiz - Optional existing quiz data for updates
@@ -329,11 +313,19 @@ export class QuizService {
 
       // Image
       let imageName = existing.image;
+
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        await this.deleteQuizImages(existing.image);
+        imageName = '';
+      }
+
+      // Check image_file next
       if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+        if (existing.image) {
+          await this.deleteQuizImages(existing.image);
+        }
+        imageName = await this.handleImageUpload(dto.image_file);
       }
 
       // Quiz data
