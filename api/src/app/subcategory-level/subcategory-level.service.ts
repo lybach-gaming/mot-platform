@@ -74,25 +74,6 @@ export class SubcategoryLevelService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(
-        oldImage,
-        SUBCATEGORY_LEVEL_IMAGE_PATH
-      );
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build subcategory level data object from DTO
    * @param dto - The DTO containing subcategory level data
    * @param existingSubcategoryLevel - Optional existing subcategory level data for updates
@@ -267,7 +248,7 @@ export class SubcategoryLevelService {
    *
    * @param id - ID of the subcategory level to edit
    * @param editSubcategoryLevelDto - Data for editing the subcategory level
-   * @returns Updated quiz data or error response
+   * @returns Updated subcategory level data or error response
    */
   async editSubcategoryLevel(id: number, dto: EditSubcategoryLevelDto) {
     const trx = await this.dbService.connection.transaction();
@@ -292,14 +273,22 @@ export class SubcategoryLevelService {
 
       // Image
       let imageName = existing.image;
-      if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        await this.deleteSubcategoryLevelImages(existing.image);
+        imageName = '';
       }
 
-      // Quiz data
+      // Check image_file next
+      if (dto.image_file) {
+        if (existing.image) {
+          await this.deleteSubcategoryLevelImages(existing.image);
+        }
+        imageName = await this.handleImageUpload(dto.image_file);
+      }
+
+      // Subcategory level data
       const subcategoryLevelData = this.buildSubcategoryLevelDataFromDto(
         dto,
         existing
@@ -564,7 +553,7 @@ export class SubcategoryLevelService {
       subcategoryLevel.image_url = image;
       subcategoryLevel.thumbnail_url = thumbnail;
 
-      // Return formatted quiz data
+      // Return formatted subcategory level data
       await trx.commit();
       return {
         error: false,
