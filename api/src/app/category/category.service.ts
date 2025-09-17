@@ -84,22 +84,6 @@ export class CategoryService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, CATEGORY_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build category data object from DTO
    * @param dto - The DTO containing category data
    * @param existingCategory - Optional existing category data for updates
@@ -254,7 +238,7 @@ export class CategoryService {
    *
    * @param id - ID of the category to edit
    * @param editCategoryDto - Data for editing the category
-   * @returns Updated quiz data or error response
+   * @returns Updated category data or error response
    */
   async editCategory(id: number, dto: EditCategoryDto) {
     const trx = await this.dbService.connection.transaction();
@@ -279,14 +263,25 @@ export class CategoryService {
 
       // Image
       let imageName = existing.image;
-      if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        await this.deleteAllRelatedImages(existing.image, CATEGORY_IMAGE_PATH);
+        imageName = '';
       }
 
-      // Quiz data
+      // Check image_file next
+      if (dto.image_file) {
+        if (existing.image) {
+          await this.deleteAllRelatedImages(
+            existing.image,
+            CATEGORY_IMAGE_PATH
+          );
+        }
+        imageName = await this.handleImageUpload(dto.image_file);
+      }
+
+      // Category data
       const categoryData = this.buildCategoryDataFromDto(dto, existing);
       if (imageName !== existing.image) {
         categoryData.image = imageName;
