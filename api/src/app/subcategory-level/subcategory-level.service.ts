@@ -391,6 +391,9 @@ export class SubcategoryLevelService {
     search?: string;
     sortBy?: SubcategoryLevelSortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
+    subcategoryId?: number;
   }) {
     const {
       limit = 20,
@@ -398,6 +401,9 @@ export class SubcategoryLevelService {
       search,
       sortBy = SubcategoryLevelSortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
     } = query;
 
     const validSortFields = Object.values(SubcategoryLevelSortBy);
@@ -431,6 +437,19 @@ export class SubcategoryLevelService {
         's.slug as subcategory_slug',
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
+
+    // Add filter conditions
+    if (languageId) {
+      db.where('sl.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('sl.maincat_id', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('sl.main_subcat_id', subcategoryId);
+    }
 
     // Search by subcategory level name or slug
     if (search) {
