@@ -431,6 +431,8 @@ export class CategoryService {
     search?: string;
     sortBy?: CategorySortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    type?: number;
   }) {
     const {
       limit = 20,
@@ -438,6 +440,8 @@ export class CategoryService {
       search,
       sortBy = CategorySortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      type,
     } = query;
 
     const validSortFields = Object.values(CategorySortBy);
@@ -466,12 +470,21 @@ export class CategoryService {
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
 
+    // Add filter conditions
+    if (languageId) {
+      db.where('c.language_id', languageId);
+    }
+
+    if (type) {
+      db.where('c.type', type); // 1 = Quiz HD, 2 = Fun n Learn, 3 = Guess the Word, 4 = Audio Question, 5 = Math Mania, 6 = True False
+    }
+
     // Search by category name or slug
     if (search) {
       db.where((builder) => {
         builder
-          .where(`s.${CATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
-          .orWhere(`s.${CATEGORY_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
+          .where(`c.${CATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
+          .orWhere(`c.${CATEGORY_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
       });
     }
 

@@ -114,12 +114,28 @@ export class CategoryController {
     default: OrderBy.DESC,
     description: 'Sorting direction',
   })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    type: Number,
+    description: 'Filter by type (game modes)',
+    example:
+      '1 - quizz hd, 2 - fund n learn, 3 - guess the word, 4 - audio question, 5 - math mania, 6 - true false',
+  })
   async getAllCategories(
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: CategorySortBy = CategorySortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('type') type?: number
   ) {
     return await this.categoryService.getAllCategories({
       limit,
@@ -127,6 +143,8 @@ export class CategoryController {
       search,
       sortBy,
       order,
+      languageId,
+      type,
     });
   }
 
