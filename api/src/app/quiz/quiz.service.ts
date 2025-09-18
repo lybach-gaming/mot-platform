@@ -409,6 +409,10 @@ export class QuizService {
     search?: string;
     sortBy?: QuizSortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
+    subcategoryId?: number;
+    subcategoryLevelId?: number;
   }) {
     const {
       limit = 20,
@@ -416,6 +420,10 @@ export class QuizService {
       search,
       sortBy = QuizSortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
     } = query;
 
     const validSortFields = Object.values(QuizSortBy);
@@ -454,6 +462,23 @@ export class QuizService {
         'sl.slug as subcategory_level_slug',
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
+
+    // Add filter conditions
+    if (languageId) {
+      db.where('q.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('q.maincat_id', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('q.main_subcat_id', subcategoryId);
+    }
+
+    if (subcategoryLevelId) {
+      db.where('q.main_subcat_level_id', subcategoryLevelId);
+    }
 
     // Search by quiz name or slug
     if (search) {

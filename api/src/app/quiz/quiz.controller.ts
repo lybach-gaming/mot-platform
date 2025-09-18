@@ -115,12 +115,40 @@ export class QuizController {
     default: OrderBy.DESC,
     description: 'Sorting direction',
   })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by main category',
+  })
+  @ApiQuery({
+    name: 'subcategoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category',
+  })
+  @ApiQuery({
+    name: 'subcategoryLevelId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category level',
+  })
   async getAllQuizzes(
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: QuizSortBy = QuizSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('categoryId') categoryId?: number,
+    @Query('subcategoryId') subcategoryId?: number,
+    @Query('subcategoryLevelId') subcategoryLevelId?: number
   ) {
     return await this.quizService.getAllQuizzes({
       limit,
@@ -128,6 +156,10 @@ export class QuizController {
       search,
       sortBy,
       order,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
     });
   }
 
