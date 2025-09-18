@@ -437,6 +437,8 @@ export class SubcategoryService {
     search?: string;
     sortBy?: SubcategorySortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
   }) {
     const {
       limit = 20,
@@ -444,6 +446,8 @@ export class SubcategoryService {
       search,
       sortBy = SubcategorySortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      categoryId,
     } = query;
 
     const validSortFields = Object.values(SubcategorySortBy);
@@ -474,6 +478,15 @@ export class SubcategoryService {
         'c.slug as category_slug',
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
+
+    // Add filter conditions
+    if (languageId) {
+      db.where('s.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('s.maincat_id', categoryId);
+    }
 
     // Search by subcategory name or slug
     if (search) {
