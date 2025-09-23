@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   BASE_URL,
-  CACHE_TTL_DEFAULT,
+  CACHE_TTL_MIN,
   FE_URL,
   LANG_ENGLISH_ID,
   QUIZ_HQ_SLUG,
@@ -266,11 +266,8 @@ export class QuizService {
         // Commit transaction after all operations are done
         await trx.commit();
 
-        // Clear relevant caches after successful commit
-        await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-        if (createQuizDto.is_featured) {
-          await this.redisService.deleteByPattern('promoted_game'); // Clear featured quizzes cache
-        }
+        // TODO: Cache Manager
+        // Will implement in separate cache manager service
 
         // TODO: Send notification if is_send_notice is true
         // Will implement in separate notification service
@@ -394,11 +391,8 @@ export class QuizService {
         .first();
       await trx.commit();
 
-      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-      if (dto.is_featured) {
-        await this.redisService.deleteByPattern('promoted_game');
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -715,16 +709,8 @@ export class QuizService {
         })
       );
 
-      // 6) Cache
-      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-
-      const hasFeatured = quizzes.some(
-        (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
-      );
-      if (hasFeatured) {
-        await this.redisService.deleteByPattern('promoted_game');
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -755,7 +741,7 @@ export class QuizService {
     }
 
     // Check cache
-    const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserQuizDetail}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
       return cached;
@@ -894,7 +880,7 @@ export class QuizService {
       },
     };
 
-    await this.redisService.set(cacheKey, response);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
@@ -909,7 +895,7 @@ export class QuizService {
    */
   async getMoreQuizzOfQuizHq(dto: GetMoreQuizzOfQuizHqDto) {
     // Check cache
-    const cacheKey = `${CacheKey.GetDetailQuizzes}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserMoreQuizzes}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
       return cached;
@@ -1064,7 +1050,7 @@ export class QuizService {
       };
     }
 
-    await this.redisService.set(cacheKey, response);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
@@ -1077,7 +1063,7 @@ export class QuizService {
    */
   async getQuizRules(dto: GetQuizRulesDto) {
     // Check cache
-    const cacheKey = `${CacheKey.GetQuizRules}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserQuizRules}${JSON.stringify(dto)}`;
     const cached = await this.redisService.get(cacheKey);
 
     if (cached) {
@@ -1111,30 +1097,20 @@ export class QuizService {
       };
     }
 
-    await this.redisService.set(cacheKey, response);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }
 
   /**
-   * Get detailed information about a quiz
+   * Search quiz
    *
    * @param dto - DTO containing quiz lookup parameters
-   * @returns Detailed quiz info or error response
+   * @returns List quiz info or error response
    */
   async getListQuiz(
     dto: GetListQuizDto
   ): Promise<IApiListResponse<IListQuizItemResponse>> {
-    // Check cache
-    const cacheKey = `${CacheKey.getListQuiz}${JSON.stringify(dto)}`;
-    if (!dto.search) {
-      const cached = await this.redisService.get(cacheKey);
-      if (cached) {
-        this.logger.debug(`Cache hit for ${cacheKey}`);
-        return cached;
-      }
-    }
-
     // Fetch quiz details with related slugs and subqueries for no_of_question & is_played
     const selectFields = [
       'qz.*',
@@ -1262,10 +1238,6 @@ export class QuizService {
       data: quizzes,
     };
 
-    if (!dto.search) {
-      await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
-    }
-
     return response;
   }
 
@@ -1294,7 +1266,7 @@ export class QuizService {
     }
 
     // TODO: Check cache
-    const cacheKey = `${CacheKey.getListQuizLegacy}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserQuizList}${JSON.stringify(dto)}`;
     if (!search) {
       const cached = await this.redisService.get(cacheKey);
       if (cached) {
@@ -1441,7 +1413,7 @@ export class QuizService {
 
           // Cache only if no search term
           if (!search) {
-            await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+            await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
           }
 
           await trx.commit();

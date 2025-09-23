@@ -10,7 +10,7 @@ import { transformToString } from '../../common/utils/transform.util';
 import { encryptData, urlJoin } from '../../common/utils/string.util';
 import {
   BASE_URL,
-  CACHE_TTL_DEFAULT,
+  CACHE_TTL_MIN,
   QUESTION_IMG_PATH,
   QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
@@ -217,7 +217,8 @@ export class QuestionService {
         // Commit transaction if all succeeded
         if (succeeded.length > 0) {
           await trx.commit();
-          await this.redisService.del(CacheKey.GetQuestionsQuizHd);
+          // TODO: Cache Manager
+          // Will implement in separate cache manager service
         } else {
           await trx.rollback();
         }
@@ -374,14 +375,8 @@ export class QuestionService {
         }
       }
 
-      // Invalidate cache
-      if ((this.redisService as any).deleteByPattern) {
-        await (this.redisService as any).deleteByPattern(
-          `${CacheKey.GetQuestionsQuizHd}*`
-        );
-      } else {
-        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -580,20 +575,8 @@ export class QuestionService {
         })
       );
 
-      // 4) Invalidate cache (broad prefix; refine later if you track keys per quiz)
-      if (
-        (
-          this.redisService as unknown as {
-            deleteByPattern?: (p: string) => Promise<number>;
-          }
-        ).deleteByPattern
-      ) {
-        await (this.redisService as any).deleteByPattern(
-          `${CacheKey.GetQuestionsQuizHd}*`
-        );
-      } else {
-        await this.redisService.del(CacheKey.GetQuestionsQuizHd);
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -617,7 +600,7 @@ export class QuestionService {
   async getQuestionsQuizHd(dto: GetQuestionsQuizHdDto) {
     const { category, sub_cat, sub_cat_level, quizzes } = dto;
 
-    const cacheKey = `${CacheKey.GetQuestionsQuizHd}${JSON.stringify(dto)}`;
+    const cacheKey = `${CacheKey.UserQuestionList}${JSON.stringify(dto)}`;
 
     // Try getting from cache first
     const cached = await this.redisService.get(cacheKey);
@@ -680,7 +663,7 @@ export class QuestionService {
       data: transformToString(processedData),
     };
 
-    await this.redisService.set(cacheKey, response, CACHE_TTL_DEFAULT);
+    await this.redisService.set(cacheKey, response, CACHE_TTL_MIN);
 
     return response;
   }

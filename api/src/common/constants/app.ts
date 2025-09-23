@@ -51,7 +51,9 @@ export const AUDIO_QUESTION_PATH = 'audio/audio-questions/';
 
 export const SECRET_KEY_ANSWER = 'DpXYfbXorUGtJSswckSN9dADvkPkWZPk'; // from legacy code
 
-export const CACHE_TTL_DEFAULT = 1 * 60 * 60; // 1 hour
+export const CACHE_TTL_MAX = 2 * 60 * 60; // 2 hours
+
+export const CACHE_TTL_MIN = 1 * 60 * 60; // 1 hours
 
 export enum OrderBy {
   ASC = 'asc',

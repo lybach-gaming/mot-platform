@@ -26,6 +26,7 @@ import {
   TypeModeGame,
   QuizMode,
   OrderBy,
+  CACHE_TTL_MAX,
 } from '../../common/constants/app';
 import { CategoryDetailDto } from './dto/category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -227,12 +228,8 @@ export class CategoryService {
         // Commit transaction after all operations are done
         await trx.commit();
 
-        // Clear relevant caches after successful commit
-        await this.redisService.deleteByPattern(
-          `${CacheKey.GetListSubcategories}*`
-        );
-        // Clear cache for promoted games
-        await this.redisService.deleteByPattern('promoted_game');
+        // TODO: Cache Manager
+        // Will implement in separate cache manager service
 
         // TODO: Send notification if is_send_notice is true
         // Will implement in separate notification service
@@ -413,27 +410,8 @@ export class CategoryService {
         .first();
       await trx.commit();
 
-      await this.redisService.deleteByPattern(`${CacheKey.Detail_category}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetListCategories}*`);
-
-      // Delete subcategory, subcategory level and quiz cache of this category
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategories}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory_level}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategoryLevels}*`
-      );
-      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-
-      // Clear cache for promoted games
-      await this.redisService.deleteByPattern('promoted_game');
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -988,30 +966,8 @@ export class CategoryService {
         })
       );
 
-      // 6) Cache
-      await this.redisService.deleteByPattern(`${CacheKey.Detail_category}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetListCategories}*`);
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategories}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.Detail_subcategory_level}*`
-      );
-      await this.redisService.deleteByPattern(
-        `${CacheKey.GetListSubcategoryLevels}*`
-      );
-      await this.redisService.deleteByPattern(`${CacheKey.GetListQuizzes}*`);
-      await this.redisService.deleteByPattern(`${CacheKey.GetDetailQuizzes}*`);
-
-      const hasFeatured = quizzes.some(
-        (q) => Number(q[QUIZZ_SCHEMA.FIELDS.IS_FEATURED]) === 1
-      );
-      if (hasFeatured) {
-        await this.redisService.deleteByPattern('promoted_game');
-      }
+      // TODO: Cache Manager
+      // Will implement in separate cache manager service
 
       return {
         error: false,
@@ -1049,8 +1005,8 @@ export class CategoryService {
 
       // Generate cache key based on available parameter
       const cacheKey = params.id
-        ? `${CacheKey.Detail_category}language:${params.languageId}:id:${params.id}`
-        : `${CacheKey.Detail_category}language:${params.languageId}:slug:${params.slug}`;
+        ? `${CacheKey.UserCategoryDetail}language:${params.languageId}:id:${params.id}`
+        : `${CacheKey.UserCategoryDetail}language:${params.languageId}:slug:${params.slug}`;
 
       // Try getting from cache first
       const cached = await this.redisService.get<CategoryDetailDto>(cacheKey);
@@ -1149,13 +1105,13 @@ export class CategoryService {
       });
 
       // Cache the result
-      await this.redisService.set(cacheKey, result);
+      await this.redisService.set(cacheKey, result, CACHE_TTL_MAX);
 
       // Cache with alternate key
       const altKey = params.id
-        ? `${CacheKey.Detail_category}language:${params.languageId}:slug:${data.slug}`
-        : `${CacheKey.Detail_category}language:${params.languageId}:id:${data.id}`;
-      await this.redisService.set(altKey, result);
+        ? `${CacheKey.UserCategoryDetail}language:${params.languageId}:slug:${data.slug}`
+        : `${CacheKey.UserCategoryDetail}language:${params.languageId}:id:${data.id}`;
+      await this.redisService.set(altKey, result, CACHE_TTL_MAX);
 
       this.logger.debug(`Cached category data for ${cacheKey} and ${altKey}`);
 
