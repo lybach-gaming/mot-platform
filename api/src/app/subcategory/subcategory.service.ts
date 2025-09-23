@@ -97,6 +97,7 @@ export class SubcategoryService {
       SUBCATEGORY_SCHEMA.FIELDS.STATUS,
       SUBCATEGORY_SCHEMA.FIELDS.IS_PREMIUM,
       SUBCATEGORY_SCHEMA.FIELDS.COINS,
+      SUBCATEGORY_SCHEMA.FIELDS.ROW_ORDER,
       SUBCATEGORY_SCHEMA.FIELDS.ENABLE_FAQ,
       SUBCATEGORY_SCHEMA.FIELDS.LEVEL,
       SUBCATEGORY_SCHEMA.FIELDS.IS_COMING_SOON,
@@ -127,6 +128,11 @@ export class SubcategoryService {
         field === SUBCATEGORY_SCHEMA.FIELDS.ENABLE_FAQ
       ) {
         subcategoryData[field] = 1;
+      } else if (
+        !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.ROW_ORDER
+      ) {
+        subcategoryData[field] = 0;
       } else if (
         !existingSubcategory &&
         field === SUBCATEGORY_SCHEMA.FIELDS.LEVEL
@@ -177,9 +183,8 @@ export class SubcategoryService {
         // Extract only the fields that belong to subcategory table
         const subcategoryData = this.buildSubcategoryDataFromDto({
           ...createSubcategoryDto,
-          image: imageName, // Set image if uploaded
         });
-        subcategoryData.row_order = 0; // default
+        subcategoryData.image = imageName;
 
         // Insert the subcategory
         const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE)

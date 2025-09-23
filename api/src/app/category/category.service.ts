@@ -100,6 +100,7 @@ export class CategoryService {
       CATEGORY_SCHEMA.FIELDS.SLUG,
       CATEGORY_SCHEMA.FIELDS.IS_PREMIUM,
       CATEGORY_SCHEMA.FIELDS.COINS,
+      CATEGORY_SCHEMA.FIELDS.ROW_ORDER,
       CATEGORY_SCHEMA.FIELDS.ENABLE_FAQ,
       CATEGORY_SCHEMA.FIELDS.LEVEL,
       CATEGORY_SCHEMA.FIELDS.IS_COMING_SOON,
@@ -122,6 +123,11 @@ export class CategoryService {
         field === CATEGORY_SCHEMA.FIELDS.ENABLE_FAQ
       ) {
         categoryData[field] = 1;
+      } else if (
+        !existingCategory &&
+        field === CATEGORY_SCHEMA.FIELDS.ROW_ORDER
+      ) {
+        categoryData[field] = 0;
       } else if (!existingCategory && field === CATEGORY_SCHEMA.FIELDS.LEVEL) {
         categoryData[field] = 0;
       } else if (
@@ -169,9 +175,8 @@ export class CategoryService {
         // Extract only the fields that belong to category table
         const categoryData = this.buildCategoryDataFromDto({
           ...createCategoryDto,
-          image: imageName, // Set image if uploaded
         });
-        categoryData.row_order = 0; // default
+        categoryData.image = imageName;
 
         // Insert the category
         const [insertedId] = await trx(CATEGORY_SCHEMA.TABLE)

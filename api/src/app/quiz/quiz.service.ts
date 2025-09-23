@@ -104,6 +104,8 @@ export class QuizService {
       QUIZZ_SCHEMA.FIELDS.STATUS,
       QUIZZ_SCHEMA.FIELDS.IS_PREMIUM,
       QUIZZ_SCHEMA.FIELDS.COINS,
+      QUIZZ_SCHEMA.FIELDS.ROW_ORDER,
+      QUIZZ_SCHEMA.FIELDS.LEVEL,
       QUIZZ_SCHEMA.FIELDS.ENABLE_FAQ,
       QUIZZ_SCHEMA.FIELDS.IS_PUBLIC,
       QUIZZ_SCHEMA.FIELDS.IS_FEATURED,
@@ -121,6 +123,10 @@ export class QuizService {
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.IS_PREMIUM) {
         quizData[field] = 0;
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.COINS) {
+        quizData[field] = 0;
+      } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.ROW_ORDER) {
+        quizData[field] = 0;
+      } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.LEVEL) {
         quizData[field] = 0;
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.ENABLE_FAQ) {
         quizData[field] = 1;
@@ -207,9 +213,8 @@ export class QuizService {
         // Extract only the fields that belong to quiz table
         const quizData = this.buildQuizDataFromDto({
           ...createQuizDto,
-          image: imageName, // Set image if uploaded
         });
-        quizData.row_order = 0; // default
+        quizData.image = imageName;
 
         // Insert the quiz
         const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE)

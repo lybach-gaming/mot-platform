@@ -92,6 +92,7 @@ export class SubcategoryLevelService {
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.STATUS,
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IS_PREMIUM,
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.COINS,
+      SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ROW_ORDER,
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ENABLE_FAQ,
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LEVEL,
       SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IS_COMING_SOON,
@@ -123,6 +124,11 @@ export class SubcategoryLevelService {
         field === SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ENABLE_FAQ
       ) {
         subcategoryLevelData[field] = 1;
+      } else if (
+        !existingSubcategoryLevel &&
+        field === SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ROW_ORDER
+      ) {
+        subcategoryLevelData[field] = 0;
       } else if (
         !existingSubcategoryLevel &&
         field === SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LEVEL
@@ -177,9 +183,8 @@ export class SubcategoryLevelService {
         // Extract only the fields that belong to subcategory level table
         const subcategoryLevelData = this.buildSubcategoryLevelDataFromDto({
           ...createSubcategoryLevelDto,
-          image: imageName, // Set image if uploaded
         });
-        subcategoryLevelData.row_order = 0; // default
+        subcategoryLevelData.image = imageName;
 
         // Insert the subcategory level
         const [insertedId] = await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
