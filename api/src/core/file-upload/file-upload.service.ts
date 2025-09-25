@@ -13,7 +13,7 @@ export interface FileUploadOptions {
 
 @Injectable()
 export class FileUploadService {
-  private readonly uploadRoot = 'public/uploads'; // Can be configured from env
+  private readonly uploadRoot = process.env.UPLOAD_FILE || '../mot-php-admin'; // Legacy system (PHP) uses ../mot-php-admin to store uploaded files
 
   private readonly THUMB_SIZES = {
     '100x100': [100, 100],
