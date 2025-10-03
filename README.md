@@ -46,6 +46,108 @@ This will serve the Storybook for the admin dashboard
 
 ---
 
+#### Mount Images Directory
+
+##### Staging
+
+- Define paths
+
+```bash
+SRC=/home/anthony/mot-php-admin-staging/images
+DST=/var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads/images
+```
+
+- Create mount point(s) if missing
+
+```bash
+sudo mkdir -p "$SRC" "$DST"
+```
+
+- Ensure traverse permission on parent folders
+
+```bash
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api-staging/public
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads
+```
+
+- Permissions
+
+```bash
+sudo apt-get install -y acl   # Debian/Ubuntu
+sudo setfacl -R -m u:motstaging:rwx <SRC> # motstaging is the user running the web server (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:motstaging:rwx <SRC>
+```
+
+- Bind-mount
+
+```bash
+sudo mount --bind "$SRC" "$DST"
+```
+
+- Persist across reboots
+
+```bash
+echo "$SRC $DST none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+```
+
+- Rollback (Unmount)
+
+```bash
+sudo umount /var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads/images
+```
+
+##### Production
+
+- Define paths
+
+```bash
+SRC=/home/anthony/mot-php-admin/images
+DST=/var/www/vhosts/mastersoftrivia.com/api/public/uploads/images
+```
+
+- Create mount point(s) if missing
+
+```bash
+sudo mkdir -p "$SRC" "$DST"
+```
+
+- Ensure traverse permission on parent folders
+
+```bash
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api/public
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api/public/uploads
+```
+
+- Permissions
+
+```bash
+sudo apt-get install -y acl   # Debian/Ubuntu
+sudo setfacl -R -m u:motstaging:rwx <SRC> # motstaging is the user running the web server (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:motstaging:rwx <SRC>
+```
+
+- Bind-mount
+
+```bash
+sudo mount --bind "$SRC" "$DST"
+```
+
+- Persist across reboots
+
+```bash
+echo "$SRC $DST none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+```
+
+- Rollback (Unmount)
+
+```bash
+sudo umount /var/www/vhosts/mastersoftrivia.com/api/public/uploads/images
+```
+
+---
+
 ## 💡 Project Structure
 
 - `/api/`: NestJS API backend
@@ -152,6 +254,7 @@ NODE_ENV=staging npx ts-node test-knex-connection.ts
 # Run DB connection test script with the staging environment (Windows PowerShell syntax)
 $env:NODE_ENV = "staging"; npx ts-node test-knex-connection.ts
 ```
+
 ---
 
 ## 🌐 Community & Documentation
