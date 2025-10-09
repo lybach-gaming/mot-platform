@@ -5,6 +5,7 @@ import { RedisModule } from '../core/redis/redis.module';
 import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { LanguageModule } from './language/language.module';
 import { CategoryModule } from './category/category.module';
 import { QuestionModule } from './question/question.module';
 import { QuizModule } from './quiz/quiz.module';
@@ -23,6 +24,7 @@ import { FileUploadModule } from '../core/file-upload/file-upload.module';
     FileUploadModule,
     SettingModule,
     AccountModule,
+    LanguageModule,
     CategoryModule,
     SubcategoryModule,
     SubcategoryLevelModule,
