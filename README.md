@@ -36,6 +36,16 @@ This will serve the dashboard at: http://localhost:3000
 
 ---
 
+#### Run the NestJS API
+
+```bash
+npx nx serve affiliate-api
+```
+
+This will serve the Affiliate API at: http://localhost:3000
+
+---
+
 #### Run Storybook for Admin
 
 ```bash

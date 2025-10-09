@@ -57,7 +57,7 @@
       "options": {
         "targetName": "test"
       },
-      "exclude": ["api-e2e/**/*"]
+      "exclude": ["api-e2e/**/*", "affiliate-api-e2e/**/*"]
     },
     {
       "plugin": "@nx/next/plugin",
