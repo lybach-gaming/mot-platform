@@ -46,6 +46,16 @@ This will serve the Affiliate API at: http://localhost:3000
 
 ---
 
+#### Run the Next.js Influencer Dashboard
+
+```bash
+npx nx run @mot-platform/influencer-web:dev
+```
+
+This will serve the Influencer dashboard at: http://localhost:3000
+
+---
+
 #### Run Storybook for Admin
 
 ```bash

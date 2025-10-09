@@ -20,6 +20,12 @@
     },
     {
       "path": "./affiliate-api"
+    },
+    {
+      "path": "./influencer-web-e2e"
+    },
+    {
+      "path": "./influencer-web"
     }
   ],
   "ts-node": {
