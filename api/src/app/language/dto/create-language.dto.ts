@@ -3,20 +3,33 @@ import { IsNotEmpty, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateLanguageDto {
-  @ApiProperty({ description: 'The name of the language' })
+  @ApiProperty({
+    description: 'The name of the language',
+    example: 'English',
+    type: String,
+    required: true,
+  })
   @IsString()
   @IsNotEmpty()
   language!: string;
 
-  @ApiProperty({ description: 'The code of the language, e.g., en, fr' })
+  @ApiProperty({
+    description: 'The code of the language',
+    example: 'en',
+    type: String,
+    required: true,
+  })
   @IsString()
   @IsNotEmpty()
   code!: string;
 
   @ApiProperty({
-    description: 'The status of the language (0=disable, 1=enable)',
-    example: 'If you want to able to use this language, set it to 1',
+    description: 'The status of the language',
+    example: 1,
+    enum: [0, 1],
+    type: Number,
     default: 0,
+    required: true,
   })
   @IsNumber()
   @IsNotEmpty()
@@ -24,9 +37,12 @@ export class CreateLanguageDto {
   status!: number;
 
   @ApiProperty({
-    description: 'The type of the language (0=deactive, 1=active)',
-    example: 'If you want to see this language on the website, set it to 1',
+    description: 'The type of the language',
+    example: 1,
+    enum: [0, 1],
+    type: Number,
     default: 0,
+    required: true,
   })
   @IsNumber()
   @IsNotEmpty()

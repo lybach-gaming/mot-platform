@@ -1,80 +1,125 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CategoryController } from './category.controller';
-import { CategoryService } from './category.service';
+import { LanguageController } from './language.controller';
+import { LanguageService } from './language.service';
 
-describe('CategoryController', () => {
-  let controller: CategoryController;
-  let service: CategoryService;
+describe('LanguageController', () => {
+  let controller: LanguageController;
+  let service: LanguageService;
 
-  const mockCategoryService = {
-    getCategoryDetail: jest.fn(),
+  const mockLanguageService = {
+    createLanguage: jest.fn(),
+    editLanguage: jest.fn(),
+    getAllLanguages: jest.fn(),
+    deleteLanguages: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [CategoryController],
+      controllers: [LanguageController],
       providers: [
         {
-          provide: CategoryService,
-          useValue: mockCategoryService,
+          provide: LanguageService,
+          useValue: mockLanguageService,
         },
       ],
     }).compile();
 
-    controller = module.get<CategoryController>(CategoryController);
-    service = module.get<CategoryService>(CategoryService);
+    controller = module.get<LanguageController>(LanguageController);
+    service = module.get<LanguageService>(LanguageService);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('getCategoryDetailGet', () => {
-    it('should call service with GET query params and return data', async () => {
-      const mockResult = { id: 1, name: 'Math' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
+  describe('createLanguage', () => {
+    it('should create a new language successfully', async () => {
+      const createDto = {
+        language: 'English',
+        code: 'en',
+        status: 1,
+        type: 1,
+      };
+      const mockResult = {
+        error: false,
+        message: 'Language created successfully',
+        data: { id: 1, ...createDto },
+      };
 
-      const result = await controller.getCategoryDetailGet(1, 2, 'math');
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
-        id: 1,
-        languageId: 2,
-        slug: 'math',
-      });
-      expect(result).toEqual({ error: false, data: mockResult });
+      mockLanguageService.createLanguage.mockResolvedValueOnce(mockResult);
+
+      const result = await controller.createLanguage(createDto);
+      expect(service.createLanguage).toHaveBeenCalledWith(createDto);
+      expect(result).toEqual(mockResult);
     });
   });
 
-  describe('getCategoryDetailPost', () => {
-    it('should call service with POST body and return data', async () => {
-      const mockResult = { id: 2, name: 'English' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
-
-      const postData = {
-        id: 2,
-        language_id: 1,
-        slug_category: 'english',
+  describe('editLanguage', () => {
+    it('should edit language successfully', async () => {
+      const editDto = {
+        language: 'English Updated',
+        code: 'en',
+        status: 0,
+        type: 0,
+      };
+      const languageId = 1;
+      const mockResult = {
+        error: false,
+        message: 'Language updated successfully',
+        data: { id: languageId, ...editDto },
       };
 
-      const result = await controller.getCategoryDetailPost(postData);
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
-        id: 2,
-        languageId: 1,
-        slug: 'english',
-      });
-      expect(result).toEqual({ error: false, data: mockResult });
+      mockLanguageService.editLanguage.mockResolvedValueOnce(mockResult);
+
+      const result = await controller.editLanguage(languageId, editDto);
+      expect(service.editLanguage).toHaveBeenCalledWith(languageId, editDto);
+      expect(result).toEqual(mockResult);
     });
+  });
 
-    it('should handle optional fields gracefully', async () => {
-      const mockResult = { id: 3, name: 'History' };
-      mockCategoryService.getCategoryDetail.mockResolvedValueOnce(mockResult);
+  describe('getAllLanguages', () => {
+    it('should return all languages with pagination', async () => {
+      const query = {
+        limit: 10,
+        offset: 0,
+        search: 'eng',
+        sortBy: 'id',
+        order: 'DESC',
+        status: 1,
+        type: 1,
+      };
+      const mockResult = {
+        error: false,
+        data: {
+          languages: [
+            { id: 1, language: 'English', code: 'en', status: 1, type: 1 },
+          ],
+          total: 1,
+        },
+      };
 
-      const result = await controller.getCategoryDetailPost({});
-      expect(service.getCategoryDetail).toHaveBeenCalledWith({
-        id: undefined,
-        languageId: undefined,
-        slug: undefined,
-      });
-      expect(result).toEqual({ error: false, data: mockResult });
+      mockLanguageService.getAllLanguages.mockResolvedValueOnce(mockResult);
+
+      const result = await controller.getAllLanguages(query);
+      expect(service.getAllLanguages).toHaveBeenCalledWith(query);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('deleteLanguages', () => {
+    it('should delete languages successfully', async () => {
+      const ids = { ids: [1, 2] };
+      const mockResult = {
+        error: false,
+        message: 'Languages deleted successfully',
+        data: { deleted: [1, 2], missing: [] },
+      };
+
+      mockLanguageService.deleteLanguages.mockResolvedValueOnce(mockResult);
+
+      const result = await controller.deleteLanguages(ids);
+      expect(service.deleteLanguages).toHaveBeenCalledWith(ids.ids);
+      expect(result).toEqual(mockResult);
     });
   });
 });

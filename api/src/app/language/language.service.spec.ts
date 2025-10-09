@@ -1,102 +1,203 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CategoryService } from './category.service';
+import { LanguageService } from './language.service';
 import { DatabaseService } from '../../core/database/database.service';
-import { RedisService } from '../../core/redis/redis.service';
-import { WebSeoService } from './../web-seo/web-seo.service';
+import { CategoryService } from '../category/category.service';
+import { Logger } from '@nestjs/common';
 
-describe('CategoryService', () => {
-  let service: CategoryService;
-  let redisService: RedisService;
+describe('LanguageService', () => {
+  let service: LanguageService;
+  let dbService: DatabaseService;
+  let categoryService: CategoryService;
 
   const mockDbService = {
     connection: {
+      transaction: jest.fn(),
       table: jest.fn(),
-      raw: jest.fn((sql) => sql), // Mock raw SQL execution
+      raw: jest.fn((sql) => sql),
     },
   };
 
-  const mockRedisService = {
-    get: jest.fn(),
-    set: jest.fn(),
+  const mockCategoryService = {
+    deleteCategories: jest.fn(),
   };
 
-  const mockWebSeoService = {
-    addWebSeoJoin: jest.fn(),
-    getWebSeoSelectQuery: jest.fn().mockReturnValue('web_seo'),
+  const mockTransaction = {
+    commit: jest.fn(),
+    rollback: jest.fn(),
+    table: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CategoryService,
+        LanguageService,
         { provide: DatabaseService, useValue: mockDbService },
-        { provide: RedisService, useValue: mockRedisService },
-        { provide: WebSeoService, useValue: mockWebSeoService },
+        { provide: CategoryService, useValue: mockCategoryService },
       ],
     }).compile();
 
-    service = module.get<CategoryService>(CategoryService);
-    redisService = module.get<RedisService>(RedisService);
+    service = module.get<LanguageService>(LanguageService);
+    dbService = module.get<DatabaseService>(DatabaseService);
+    categoryService = module.get<CategoryService>(CategoryService);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('getCategoryDetail', () => {
-    it('should return null if id and slug are missing', async () => {
-      const result = await service.getCategoryDetail({ languageId: 1 });
-      expect(result).toBeNull();
-    });
-
-    it('should return cached data if available', async () => {
-      const mockData = { id: 1, name: 'Mock Category' };
-      redisService.get.mockResolvedValueOnce(mockData);
-
-      const result = await service.getCategoryDetail({ id: 1, languageId: 2 });
-      expect(redisService.get).toHaveBeenCalled();
-      expect(result).toEqual(mockData);
-    });
-
-    it('should query DB and cache data if not found in cache', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-
-      const mockQuery = {
-        where: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        first: jest.fn().mockResolvedValue({
-          id: 1,
-          slug: 'category-slug',
-          image: 'cat.jpg',
-          no_of: 2,
-          no_of_que: 10,
-          maxlevel: 3,
-          web_seo: JSON.stringify({ title: 'SEO Title' }),
-        }),
+  describe('createLanguage', () => {
+    it('should create a language successfully', async () => {
+      const createDto = {
+        language: 'English',
+        code: 'en',
+        status: 1,
+        type: 1,
       };
 
-      const mockFaq = [{ question: 'FAQ 1' }];
-      mockDbService.connection.table
-        .mockImplementationOnce(() => mockQuery) // category query
-        .mockImplementationOnce(() => ({ where: jest.fn().mockResolvedValue(mockFaq) })); // faq query
-
-      const result = await service.getCategoryDetail({ id: 1, languageId: 14 });
-
-      expect(redisService.set).toHaveBeenCalledTimes(2);
-      expect(result).toHaveProperty('faq');
-      expect(result).toHaveProperty('share_url');
-      expect(result.image).toContain('/category/');
-      expect(result.thumb_image).toContain('/category/thumbs/');
-    });
-
-    it('should return null and log error if query throws', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      mockDbService.connection.table.mockImplementation(() => {
-        throw new Error('DB error');
+      mockTransaction.table.mockReturnValue({
+        insert: jest.fn().mockResolvedValueOnce([1]),
+        where: jest.fn().mockReturnValue({
+          first: jest.fn().mockResolvedValueOnce({ id: 1, ...createDto }),
+        }),
       });
 
-      const result = await service.getCategoryDetail({ id: 99, languageId: 1 });
-      expect(result).toBeNull();
+      mockDbService.connection.transaction.mockResolvedValueOnce(
+        mockTransaction
+      );
+
+      const result = await service.createLanguage(createDto);
+
+      expect(result).toEqual({
+        error: false,
+        message: expect.any(String),
+        data: expect.objectContaining({ id: 1, ...createDto }),
+      });
+      expect(mockTransaction.commit).toHaveBeenCalled();
+    });
+
+    it('should handle creation failure', async () => {
+      const createDto = {
+        language: 'English',
+        code: 'en',
+        status: 1,
+        type: 1,
+      };
+
+      mockTransaction.table.mockReturnValue({
+        insert: jest.fn().mockResolvedValueOnce([]),
+      });
+
+      mockDbService.connection.transaction.mockResolvedValueOnce(
+        mockTransaction
+      );
+
+      const result = await service.createLanguage(createDto);
+
+      expect(result).toEqual({
+        error: true,
+        message: 'Failed to create language',
+        data: null,
+      });
+      expect(mockTransaction.rollback).toHaveBeenCalled();
+    });
+  });
+
+  describe('editLanguage', () => {
+    it('should edit a language successfully', async () => {
+      const editDto = {
+        language: 'English Updated',
+        code: 'en',
+        status: 0,
+        type: 0,
+      };
+      const languageId = 1;
+
+      mockTransaction.table.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValueOnce({ id: languageId }),
+        update: jest.fn().mockResolvedValueOnce([1]),
+      });
+
+      mockDbService.connection.transaction.mockResolvedValueOnce(
+        mockTransaction
+      );
+
+      const result = await service.editLanguage(languageId, editDto);
+
+      expect(result).toEqual({
+        error: false,
+        message: expect.any(String),
+        data: expect.objectContaining({ id: languageId }),
+      });
+      expect(mockTransaction.commit).toHaveBeenCalled();
+    });
+  });
+
+  describe('getAllLanguages', () => {
+    it('should return languages with pagination', async () => {
+      const query = {
+        limit: 10,
+        offset: 0,
+        search: 'eng',
+        sortBy: 'id',
+        order: 'DESC',
+        status: 1,
+        type: 1,
+      };
+
+      const mockLanguages = [
+        { id: 1, language: 'English', code: 'en', status: 1, type: 1 },
+      ];
+
+      mockDbService.connection.table.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        whereIn: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        offset: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        count: jest.fn().mockResolvedValueOnce([{ total: 1 }]),
+        select: jest.fn().mockResolvedValueOnce(mockLanguages),
+      });
+
+      const result = await service.getAllLanguages(query);
+
+      expect(result).toEqual({
+        error: false,
+        data: {
+          languages: mockLanguages,
+          total: 1,
+        },
+      });
+    });
+  });
+
+  describe('deleteLanguages', () => {
+    it('should delete languages and related data successfully', async () => {
+      const ids = [1, 2];
+      const mockCategories = [{ id: 1 }, { id: 2 }];
+
+      mockTransaction.table.mockReturnValue({
+        whereIn: jest.fn().mockReturnThis(),
+        select: jest.fn().mockResolvedValueOnce(mockCategories),
+        del: jest.fn().mockResolvedValueOnce(2),
+      });
+
+      mockDbService.connection.transaction.mockResolvedValueOnce(
+        mockTransaction
+      );
+
+      const result = await service.deleteLanguages(ids);
+
+      expect(result).toEqual({
+        error: false,
+        message: expect.stringContaining('Deleted'),
+        data: expect.objectContaining({
+          deleted: expect.any(Array),
+          missing: expect.any(Array),
+        }),
+      });
+      expect(categoryService.deleteCategories).toHaveBeenCalled();
+      expect(mockTransaction.commit).toHaveBeenCalled();
     });
   });
 });

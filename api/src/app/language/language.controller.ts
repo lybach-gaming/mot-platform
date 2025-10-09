@@ -42,7 +42,8 @@ export class LanguageController {
 
   // [Admin] Endpoint to edit a language
   @ApiOperation({
-    summary: '[Admin] Edit a language (update status or type of language)',
+    summary:
+      '[Admin] Edit a language info / Add a language to the list / Remove a language from the list',
   })
   @ApiBody({
     description:

@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 export class DeleteLanguagesDto {
   @ApiProperty({
     description:
-      'List of category IDs to delete (soft delete), change the type to 0',
+      'List of category IDs to delete permanently from Databbase and remove all related data (questions, quizzes, etc.). It is not soft delete.',
     type: [Number],
   })
   @IsArray()
