@@ -15,6 +15,7 @@ import { WebSeoModule } from './web-seo/web-seo.module';
 import { FaqModule } from './faq/faq.module';
 import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middleware';
 import { FileUploadModule } from '../core/file-upload/file-upload.module';
+import { DashboardModule } from './admin-dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { FileUploadModule } from '../core/file-upload/file-upload.module';
     WebSeoModule,
     QuestionModule,
     FaqModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

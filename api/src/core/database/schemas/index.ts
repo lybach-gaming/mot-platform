@@ -18,3 +18,6 @@ export * from './fun_n_learn_story.schema';
 export * from './audio_question.schema';
 export * from './math_quiz.schema';
 export * from './math_question.schema';
+export * from './month_week.schema';
+export * from './admin.schema';
+export * from './contest.schema';
