@@ -5,6 +5,7 @@ import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { transformToString } from '../../common/utils/transform.util';
 import { encryptData, urlJoin } from '../../common/utils/string.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   BASE_URL,
   CACHE_TTL_MIN,
@@ -427,6 +428,11 @@ export class QuestionService {
       quizId,
     } = query;
 
+    // Add validation
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be positive numbers');
+    }
+
     const validSortFields = Object.values(QuestionSortBy);
     const sortField = validSortFields.includes(sortBy)
       ? sortBy
@@ -479,33 +485,34 @@ export class QuestionService {
 
     // Search by question name or slug or question or answer
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${search}%`)
+          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${sanitizedSearch}%`)
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_A}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_B}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_C}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_D}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_E}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -520,11 +527,11 @@ export class QuestionService {
 
     const results = questions.map((question) => {
       const image = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, question.image)
         : null;
 
       const thumbnail = question.image
-        ? `${BASE_URL}${QUESTION_THUMB_PATH_SMALL}${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, question.image)
         : null;
 
       return {
@@ -551,50 +558,41 @@ export class QuestionService {
    * @returns Detailed question info or error response
    */
   async getQuestionDetail(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Question ID is required',
         data: null,
       };
     }
-    const trx = await this.dbService.connection.transaction();
 
-    try {
-      const F = QUESTION_SCHEMA.FIELDS;
+    const F = QUESTION_SCHEMA.FIELDS;
 
-      // Fetch question details
-      const existing = await trx(QUESTION_SCHEMA.TABLE).where(F.ID, id).first();
+    // Fetch question details
+    const existing = await this.dbService
+      .connection(QUESTION_SCHEMA.TABLE)
+      .where(F.ID, id)
+      .first();
 
-      if (!existing) {
-        await trx.rollback();
-        return { error: true, message: 'Question not found', data: null };
-      }
-
-      // Format image URLS
-      const image = existing.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}${existing.image}`
-        : null;
-      const thumbnail = existing.image
-        ? `${BASE_URL}${QUESTION_THUMB_PATH_SMALL}${existing.image}`
-        : null;
-      existing.image_url = image;
-      existing.thumbnail_url = thumbnail;
-
-      await trx.commit();
-      return {
-        error: false,
-        message: 'Question details retrieved successfully',
-        data: transformToString(existing),
-      };
-    } catch (error) {
-      await trx.rollback();
-      this.logger.error(
-        `Failed to retrieve question details with ID ${id}`,
-        error
-      );
-      throw new Error(` Failed to retrieve question details`, { cause: error });
+    if (!existing) {
+      return { error: true, message: 'Question not found', data: null };
     }
+
+    const getQuestionDetail = {
+      ...existing,
+      image_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, existing.image)
+        : null,
+      thumbnail_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, existing.image)
+        : null,
+    };
+
+    return {
+      error: false,
+      message: 'Question details retrieved successfully',
+      data: transformToString(getQuestionDetail),
+    };
   }
 
   /**
