@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from '../web-seo/web-seo.service';
+import { HelpersService } from '../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -26,7 +27,7 @@ import { CreateSubcategoryLevelDto } from './dto/create-subcategory-level.dto';
 import { EditSubcategoryLevelDto } from './dto/edit-subcategory-level.dto';
 import { SubcategoryLevelDetailDto } from './dto/subcategory-level.dto';
 import { SubcategoryLevelSortBy } from '../../common/constants/subcategory-level';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import {
   LANGUAGE_SCHEMA,
@@ -48,7 +49,8 @@ export class SubcategoryLevelService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -161,15 +163,36 @@ export class SubcategoryLevelService {
       try {
         // Generate and format slug
         if (createSubcategoryLevelDto.slug) {
-          // If slug is provided, format it
-          createSubcategoryLevelDto.slug = generateSlug(
-            createSubcategoryLevelDto.slug
-          );
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createSubcategoryLevelDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createSubcategoryLevelDto.slug
+            );
+            if (!isUnique) {
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createSubcategoryLevelDto.subcategory_level_name) {
           // If no slug is provided, generate it from subcategory level name
-          createSubcategoryLevelDto.slug = generateSlug(
-            createSubcategoryLevelDto.subcategory_level_name
-          );
+          createSubcategoryLevelDto.slug =
+            await this.helpersService.ensureValidAndUnique(
+              createSubcategoryLevelDto.subcategory_level_name
+            );
         }
 
         // Handle image upload if present
@@ -230,9 +253,6 @@ export class SubcategoryLevelService {
         // TODO: Cache Manager
         // Will implement in separate cache manager service
 
-        // TODO: Send notification if is_send_notice is true
-        // Will implement in separate notification service
-
         return {
           error: false,
           message: 'Subcategory Level created successfully',
@@ -244,7 +264,7 @@ export class SubcategoryLevelService {
       }
     } catch (error) {
       this.logger.error('Error creating subcategory level', error);
-      throw (new Error('Error creating subcategory level'), { cause: error });
+      throw new Error('Error creating subcategory level', { cause: error });
     }
   }
 
@@ -270,11 +290,58 @@ export class SubcategoryLevelService {
         };
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(`${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_LEVEL_ID}`, id)
+        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory level SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.subcategory_level_name) {
-        dto.slug = generateSlug(dto.subcategory_level_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.subcategory_level_name) {
+          // Case 2: No existing slug, generate from subcategory level name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.subcategory_level_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
@@ -411,6 +478,11 @@ export class SubcategoryLevelService {
       subcategoryId,
     } = query;
 
+    // Add validation
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be positive numbers');
+    }
+
     const validSortFields = Object.values(SubcategoryLevelSortBy);
     const sortField = validSortFields.includes(sortBy)
       ? sortBy
@@ -458,17 +530,18 @@ export class SubcategoryLevelService {
 
     // Search by subcategory level name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
           .where(
             `sl.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.NAME}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `sl.${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.SLUG}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -483,11 +556,19 @@ export class SubcategoryLevelService {
 
     const results = subcategoryLevels.map((subcategoryLevel) => {
       const image = subcategoryLevel.image
-        ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${subcategoryLevel.image}`
+        ? urlJoin(
+            BASE_URL,
+            SUBCATEGORY_LEVEL_IMAGE_PATH,
+            subcategoryLevel.image
+          )
         : null;
 
       const thumbnail = subcategoryLevel.image
-        ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH_SMALL}${subcategoryLevel.image}`
+        ? urlJoin(
+            BASE_URL,
+            SUBCATEGORY_LEVEL_THUMB_PATH_SMALL,
+            subcategoryLevel.image
+          )
         : null;
 
       const prefixLang = subcategoryLevel.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -569,10 +650,18 @@ export class SubcategoryLevelService {
 
       // Format image URLs
       const image = subcategoryLevel.image
-        ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${subcategoryLevel.image}`
+        ? urlJoin(
+            BASE_URL,
+            SUBCATEGORY_LEVEL_IMAGE_PATH,
+            subcategoryLevel.image
+          )
         : null;
       const thumbnail = subcategoryLevel.image
-        ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH_SMALL}${subcategoryLevel.image}`
+        ? urlJoin(
+            BASE_URL,
+            SUBCATEGORY_LEVEL_THUMB_PATH_SMALL,
+            subcategoryLevel.image
+          )
         : null;
       subcategoryLevel.image_url = image;
       subcategoryLevel.thumbnail_url = thumbnail;
@@ -897,10 +986,10 @@ export class SubcategoryLevelService {
       const result: SubcategoryLevelDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_IMAGE_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_LEVEL_IMAGE_PATH, data.image)
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_LEVEL_THUMB_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_LEVEL_THUMB_PATH, data.image)
           : '',
         faq,
         share_url: this.generateShareUrl(

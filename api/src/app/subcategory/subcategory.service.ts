@@ -3,6 +3,7 @@ import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from '../web-seo/web-seo.service';
 import { FaqService } from '../faq/faq.service';
+import { HelpersService } from '../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -30,7 +31,7 @@ import { SubcategoryDetailDto } from './dto/subcategory.dto';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
 import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
 import { SubcategorySortBy } from '../../common/constants/subcategory';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import {
   LANGUAGE_SCHEMA,
@@ -56,7 +57,8 @@ export class SubcategoryService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -163,13 +165,36 @@ export class SubcategoryService {
       try {
         // Generate and format slug
         if (createSubcategoryDto.slug) {
-          // If slug is provided, format it
-          createSubcategoryDto.slug = generateSlug(createSubcategoryDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createSubcategoryDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createSubcategoryDto.slug
+            );
+            if (!isUnique) {
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createSubcategoryDto.subcategory_name) {
           // If no slug is provided, generate it from subcategory name
-          createSubcategoryDto.slug = generateSlug(
-            createSubcategoryDto.subcategory_name
-          );
+          createSubcategoryDto.slug =
+            await this.helpersService.ensureValidAndUnique(
+              createSubcategoryDto.subcategory_name
+            );
         }
 
         // Handle image upload if present
@@ -228,9 +253,6 @@ export class SubcategoryService {
         // TODO: Cache Manager
         // Will implement in separate cache manager service
 
-        // TODO: Send notification if is_send_notice is true
-        // Will implement in separate notification service
-
         return {
           error: false,
           message: 'Subcategory created successfully',
@@ -242,7 +264,7 @@ export class SubcategoryService {
       }
     } catch (error) {
       this.logger.error('Error creating subcategory', error);
-      throw (new Error('Error creating subcategory'), { cause: error });
+      throw new Error('Error creating subcategory', { cause: error });
     }
   }
 
@@ -268,11 +290,58 @@ export class SubcategoryService {
         };
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(`${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`, id)
+        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.subcategory_name) {
-        dto.slug = generateSlug(dto.subcategory_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.subcategory_name) {
+          // Case 2: No existing slug, generate from subcategory name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.subcategory_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
@@ -455,6 +524,11 @@ export class SubcategoryService {
       categoryId,
     } = query;
 
+    // Add validation
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be positive numbers');
+    }
+
     const validSortFields = Object.values(SubcategorySortBy);
     const sortField = validSortFields.includes(sortBy)
       ? sortBy
@@ -495,13 +569,18 @@ export class SubcategoryService {
 
     // Search by subcategory name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`s.${SUBCATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
+          .where(
+            `s.${SUBCATEGORY_SCHEMA.FIELDS.NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
           .orWhere(
             `s.${SUBCATEGORY_SCHEMA.FIELDS.SLUG}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -516,11 +595,11 @@ export class SubcategoryService {
 
     const results = subcategories.map((subcategory) => {
       const image = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
         : null;
 
       const thumbnail = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
         : null;
 
       const prefixLang = subcategory.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -602,10 +681,10 @@ export class SubcategoryService {
 
       // Format image URLs
       const image = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
         : null;
       const thumbnail = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
         : null;
       subcategory.image_url = image;
       subcategory.thumbnail_url = thumbnail;
@@ -1021,10 +1100,10 @@ export class SubcategoryService {
       const result: SubcategoryDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, data.image)
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH, data.image)
           : '',
         has_unlocked: 0,
         faq,

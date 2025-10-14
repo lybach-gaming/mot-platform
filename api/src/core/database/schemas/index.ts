@@ -18,3 +18,5 @@ export * from './fun_n_learn_story.schema';
 export * from './audio_question.schema';
 export * from './math_quiz.schema';
 export * from './math_question.schema';
+export * from './blog.schema';
+export * from './blog-category.schema';

@@ -9,6 +9,7 @@ import { CategoryModule } from './category/category.module';
 import { QuestionModule } from './question/question.module';
 import { QuizModule } from './quiz/quiz.module';
 import { SettingModule } from './setting/setting.module';
+import { HelpersModule } from './helpers/helpers.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { SubcategoryModule } from './subcategory/subcategory.module';
 import { WebSeoModule } from './web-seo/web-seo.module';
@@ -22,6 +23,7 @@ import { FileUploadModule } from '../core/file-upload/file-upload.module';
     RedisModule,
     FileUploadModule,
     SettingModule,
+    HelpersModule,
     AccountModule,
     CategoryModule,
     SubcategoryModule,

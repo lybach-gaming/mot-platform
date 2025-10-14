@@ -18,6 +18,7 @@ import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { HelpersService } from '../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -44,7 +45,6 @@ import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
 import { QuizSortBy } from './../../common/constants/quiz';
-import { generateSlug } from '../../common/utils/generateSlug.util';
 import { Knex } from 'knex';
 import { IListQuizItemResponse } from './types';
 import { IApiListResponse } from '../../common/types/response.type';
@@ -61,7 +61,8 @@ export class QuizService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -197,11 +198,35 @@ export class QuizService {
 
         // Generate and format slug
         if (createQuizDto.slug) {
-          // If slug is provided, format it
-          createQuizDto.slug = generateSlug(createQuizDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createQuizDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createQuizDto.slug
+            );
+            if (!isUnique) {
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createQuizDto.quizz_name) {
           // If no slug is provided, generate it from quiz name
-          createQuizDto.slug = generateSlug(createQuizDto.quizz_name);
+          createQuizDto.slug = await this.helpersService.ensureValidAndUnique(
+            createQuizDto.quizz_name
+          );
         }
 
         // Handle image upload if present
@@ -310,11 +335,58 @@ export class QuizService {
         }
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(`${WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID}`, id)
+        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Quiz SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug: If has no changes, keep existing slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.quizz_name) {
-        dto.slug = generateSlug(dto.quizz_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.quizz_name) {
+          // Case 2: No existing slug, generate from quiz name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.quizz_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
@@ -431,6 +503,11 @@ export class QuizService {
       subcategoryLevelId,
     } = query;
 
+    // Validate limit and offset
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be non-negative');
+    }
+
     const validSortFields = Object.values(QuizSortBy);
     const sortField = validSortFields.includes(sortBy) ? sortBy : QuizSortBy.ID;
 
@@ -487,10 +564,19 @@ export class QuizService {
 
     // Search by quiz name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}`, 'like', `%${search}%`)
-          .orWhere(`q.${QUIZZ_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
+          .where(
+            `q.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
+          .orWhere(
+            `q.${QUIZZ_SCHEMA.FIELDS.SLUG}`,
+            'like',
+            `%${sanitizedSearch}%`
+          );
       });
     }
 
@@ -504,11 +590,11 @@ export class QuizService {
 
     const results = quizzes.map((quiz) => {
       const image = quiz.image
-        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
         : null;
 
       const thumbnail = quiz.image
-        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
         : null;
 
       const prefixLang = quiz.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -590,10 +676,10 @@ export class QuizService {
 
       // Format image URLs
       const image = quiz.image
-        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
         : null;
       const thumbnail = quiz.image
-        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
         : null;
       quiz.image_url = image;
       quiz.thumbnail_url = thumbnail;
@@ -1419,10 +1505,10 @@ export class QuizService {
           const data = quizzes.map((quiz) => ({
             ...quiz,
             image: quiz.image
-              ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+              ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
               : '',
             thumb_image: quiz.image
-              ? `${BASE_URL}${QUIZZES_THUMB_PATH}${quiz.image}`
+              ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, quiz.image)
               : '',
             completed: playedQuizIds.includes(quiz.id_quizz),
           }));

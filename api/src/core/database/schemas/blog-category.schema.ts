@@ -1,0 +1,20 @@
+export const BLOG_CATEGORY_SCHEMA = {
+  TABLE: 'tbl_blog_category',
+  FIELDS: {
+    ID: 'id',
+    LANGUAGE_ID: 'language_id',
+    BLOG_CATEGORY_NAME: 'blog_category_name',
+    IS_ACTIVE: 'is_active',
+    IMAGE: 'image',
+    ROW_ORDER: 'row_order',
+    SLUG: 'slug',
+    SEO_BLOCK: 'seo_block',
+    META_TITLE: 'meta_title',
+    META_DESCRIPTION: 'meta_description',
+    META_KEYWORD: 'meta_keyword',
+    SCHEMA_MARKUP: 'schema_markup',
+    SPONSOR_LINK: 'sponsor_link',
+    SPONSOR_NAME: 'sponsor_name',
+    DESCRIPTION: 'description',
+  },
+} as const;

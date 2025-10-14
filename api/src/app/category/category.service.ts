@@ -3,6 +3,7 @@ import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from './../web-seo/web-seo.service';
 import { FaqService } from '../faq/faq.service';
+import { HelpersService } from './../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -32,7 +33,7 @@ import { CategoryDetailDto } from './dto/category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { EditCategoryDto } from './dto/edit-category.dto';
 import { CategorySortBy } from '../../common/constants/category';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
 import {
   LANGUAGE_SCHEMA,
@@ -60,7 +61,8 @@ export class CategoryService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -155,13 +157,36 @@ export class CategoryService {
       try {
         // Generate and format slug
         if (createCategoryDto.slug) {
-          // If slug is provided, format it
-          createCategoryDto.slug = generateSlug(createCategoryDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createCategoryDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createCategoryDto.slug
+            );
+            if (!isUnique) {
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createCategoryDto.category_name) {
           // If no slug is provided, generate it from category name
-          createCategoryDto.slug = generateSlug(
-            createCategoryDto.category_name
-          );
+          createCategoryDto.slug =
+            await this.helpersService.ensureValidAndUnique(
+              createCategoryDto.category_name
+            );
         }
 
         // Handle image upload if present
@@ -220,9 +245,6 @@ export class CategoryService {
         // TODO: Cache Manager
         // Will implement in separate cache manager service
 
-        // TODO: Send notification if is_send_notice is true
-        // Will implement in separate notification service
-
         return {
           error: false,
           message: 'Category created successfully',
@@ -234,7 +256,7 @@ export class CategoryService {
       }
     } catch (error) {
       this.logger.error('Error creating category', error);
-      throw (new Error('Error creating category'), { cause: error });
+      throw new Error('Error creating category', { cause: error });
     }
   }
 
@@ -260,11 +282,58 @@ export class CategoryService {
         };
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(`${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`, id)
+        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Category SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.category_name) {
-        dto.slug = generateSlug(dto.category_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.category_name) {
+          // Case 2: No existing slug, generate from category name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.category_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
@@ -449,6 +518,11 @@ export class CategoryService {
       type,
     } = query;
 
+    // Add validation
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be positive numbers');
+    }
+
     const validSortFields = Object.values(CategorySortBy);
     const sortField = validSortFields.includes(sortBy)
       ? sortBy
@@ -486,10 +560,19 @@ export class CategoryService {
 
     // Search by category name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&'); // Escape % and _ for LIKE query
       db.where((builder) => {
         builder
-          .where(`c.${CATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
-          .orWhere(`c.${CATEGORY_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
+          .where(
+            `c.${CATEGORY_SCHEMA.FIELDS.NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
+          .orWhere(
+            `c.${CATEGORY_SCHEMA.FIELDS.SLUG}`,
+            'like',
+            `%${sanitizedSearch}%`
+          );
       });
     }
 
@@ -503,11 +586,11 @@ export class CategoryService {
 
     const results = categories.map((category) => {
       const image = category.image
-        ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
         : null;
 
       const thumbnail = category.image
-        ? `${BASE_URL}${CATEGORY_THUMB_PATH_SMALL}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
         : null;
 
       const prefixLang = category.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -589,10 +672,10 @@ export class CategoryService {
 
       // Format image URLs
       const image = category.image
-        ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
         : null;
       const thumbnail = category.image
-        ? `${BASE_URL}${CATEGORY_THUMB_PATH_SMALL}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
         : null;
       category.image_url = image;
       category.thumbnail_url = thumbnail;
@@ -1105,10 +1188,10 @@ export class CategoryService {
       const result: CategoryDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${data.image}`
+          ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, data.image)
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${CATEGORY_THUMB_PATH}${data.image}`
+          ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH, data.image)
           : '',
         no_of: data.no_of?.toString() || '0',
         no_of_que: data.no_of_que?.toString() || '0',
