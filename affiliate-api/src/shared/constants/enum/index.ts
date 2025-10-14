@@ -1,0 +1,17 @@
+export enum QUERY_OPERATOR {
+  in = 'in',
+  nin = 'nin',
+  eq = 'eq',
+  neq = 'neq',
+  lt = 'lt',
+  lte = 'lte',
+  gt = 'gt',
+  gte = 'gte',
+  like = 'like',
+  ilike = 'ilike',
+  isNull = 'isNull',
+  isNotNull = 'isNotNull',
+  unaccentLike = 'unaccentLike',
+  overlapArr = 'overlapArr',
+  lowerLike = 'lowerLike',
+}

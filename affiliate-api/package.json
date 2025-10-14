@@ -46,5 +46,24 @@
         }
       }
     }
+  },
+  "dependencies": {
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "pg": "^8.16.3",
+    "swagger-ui-express": "^5.0.1",
+    "typeorm": "0.3.27",
+    "typeorm-naming-strategies": "^4.1.0"
+  },
+  "scripts": {
+    "migration:create": "ts-node ./node_modules/typeorm/cli.js migration:create ./src/migrations/$npm_config_name",
+    "migration:run": "npm run typeorm -- migration:run"
+  },
+  "devDependencies": {
+    "@types/swagger-ui-express": "^4.1.8",
+    "dotenv": "^16.3.1",
+    "knex": "^2.5.1",
+    "mysql2": "^3.3.0"
   }
 }
