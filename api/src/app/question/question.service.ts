@@ -428,9 +428,27 @@ export class QuestionService {
       quizId,
     } = query;
 
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
+    };
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(`${key} must be a valid positive integer`);
+      }
+    }
+
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be positive numbers');
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(QuestionSortBy);
@@ -488,7 +506,11 @@ export class QuestionService {
       const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${sanitizedSearch}%`)
+          .where(
+            `q.${QUESTION_SCHEMA.FIELDS.QUESTION}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_A}`,
             'like',
