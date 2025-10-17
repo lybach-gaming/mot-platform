@@ -32,10 +32,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { validateOrReject } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { normalizeIndexedFormData } from '../../common/utils/normalizeFormDataBody.util';
-import {
-  QuestionSortBy,
-  QuestionOrderBy,
-} from '../../common/constants/question';
+import { QuestionSortBy } from '../../common/constants/question';
+import { OrderBy } from './../../common/constants/app';
 
 @Controller('/v2')
 @ApiBearerAuth()
@@ -151,16 +149,51 @@ export class QuestionController {
     name: 'order',
     required: false,
     type: String,
-    enum: QuestionOrderBy,
-    default: QuestionOrderBy.DESC,
+    enum: OrderBy,
+    default: OrderBy.DESC,
     description: 'Sorting direction',
+  })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by main category',
+  })
+  @ApiQuery({
+    name: 'subcategoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category',
+  })
+  @ApiQuery({
+    name: 'subcategoryLevelId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category level',
+  })
+  @ApiQuery({
+    name: 'quizId',
+    required: false,
+    type: Number,
+    description: 'Filter by quiz ID (comma-separated)',
   })
   async getAllQuestions(
     @Query('offset') offset = 0,
     @Query('limit') limit = 20,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: QuestionSortBy = QuestionSortBy.ID,
-    @Query('order') order: QuestionOrderBy = QuestionOrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('categoryId') categoryId?: number,
+    @Query('subcategoryId') subcategoryId?: number,
+    @Query('subcategoryLevelId') subcategoryLevelId?: number,
+    @Query('quizId') quizId?: number
   ) {
     return await this.questionService.getAllQuestions({
       offset,
@@ -168,7 +201,23 @@ export class QuestionController {
       search,
       sortBy,
       order,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
     });
+  }
+
+  // [Admin] Get Question Detail by ID
+  @ApiOperation({
+    summary: '[Admin] Get Question Detail',
+    description: 'Retrieve a detailed question by its ID.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @Get('/admin/questions/:id')
+  async getQuestionDetail(@Param('id', ParseIntPipe) id: number) {
+    return await this.questionService.getQuestionDetail(id);
   }
 
   // [Admin] Endpoint to delete a question

@@ -8,7 +8,3 @@ export enum QuestionSortBy {
   QUESTION = 'question',
   QUESTION_TYPE = 'question_type',
 }
-export enum QuestionOrderBy {
-  ASC = 'ASC',
-  DESC = 'DESC',
-}
