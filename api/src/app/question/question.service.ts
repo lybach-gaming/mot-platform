@@ -1,19 +1,19 @@
-import {
-  QuestionSortBy,
-  QuestionOrderBy,
-} from './../../common/constants/question';
+import { QuestionSortBy } from './../../common/constants/question';
 import { Injectable, Logger } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { transformToString } from '../../common/utils/transform.util';
 import { encryptData, urlJoin } from '../../common/utils/string.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   BASE_URL,
   CACHE_TTL_MIN,
   QUESTION_IMG_PATH,
+  QUESTION_THUMB_PATH_SMALL,
   QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
+  OrderBy,
 } from '../../common/constants/app';
 import {
   BOOKMARK_SCHEMA,
@@ -408,15 +408,48 @@ export class QuestionService {
     limit: number;
     search?: string;
     sortBy?: QuestionSortBy;
-    order?: QuestionOrderBy.DESC | QuestionOrderBy.ASC;
+    order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
+    subcategoryId?: number;
+    subcategoryLevelId?: number;
+    quizId?: number;
   }) {
     const {
       offset = 0,
       limit = 20,
       search,
       sortBy = QuestionSortBy.ID,
-      order = QuestionOrderBy.DESC,
+      order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
     } = query;
+
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
+    };
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(`${key} must be a valid positive integer`);
+      }
+    }
+
+    // Add validation
+    if (limit < 0 || offset < 0) {
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
+    }
 
     const validSortFields = Object.values(QuestionSortBy);
     const sortField = validSortFields.includes(sortBy)
@@ -447,35 +480,61 @@ export class QuestionService {
         'quiz.quizz_name as quiz'
       );
 
-    // Search by question name or slug
+    // Add filter conditions
+    if (languageId) {
+      db.where('q.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('q.category', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('q.subcategory', subcategoryId);
+    }
+
+    if (subcategoryLevelId) {
+      db.where('q.subcategory_level', subcategoryLevelId);
+    }
+
+    if (quizId) {
+      db.where('q.quizzes', quizId);
+    }
+
+    // Search by question name or slug or question or answer
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${search}%`)
+          .where(
+            `q.${QUESTION_SCHEMA.FIELDS.QUESTION}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_A}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_B}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_C}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_D}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_E}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -490,11 +549,11 @@ export class QuestionService {
 
     const results = questions.map((question) => {
       const image = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, question.image)
         : null;
 
       const thumbnail = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}thumbs/100x100/${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, question.image)
         : null;
 
       return {
@@ -515,7 +574,51 @@ export class QuestionService {
   }
 
   /**
-   * Delete questions by IDs
+   * [Admin] Get detail questions by ID
+   *
+   * @param id - Question ID to retrieve
+   * @returns Detailed question info or error response
+   */
+  async getQuestionDetail(id: number) {
+    if (!isValidId(id)) {
+      return {
+        error: true,
+        message: 'Question ID is required',
+        data: null,
+      };
+    }
+
+    const F = QUESTION_SCHEMA.FIELDS;
+
+    // Fetch question details
+    const existing = await this.dbService
+      .connection(QUESTION_SCHEMA.TABLE)
+      .where(F.ID, id)
+      .first();
+
+    if (!existing) {
+      return { error: true, message: 'Question not found', data: null };
+    }
+
+    const getQuestionDetail = {
+      ...existing,
+      image_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, existing.image)
+        : null,
+      thumbnail_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, existing.image)
+        : null,
+    };
+
+    return {
+      error: false,
+      message: 'Question details retrieved successfully',
+      data: transformToString(getQuestionDetail),
+    };
+  }
+
+  /**
+   * [Admin] Delete questions by IDs
    *
    * @param dto - DTO containing question IDs to delete
    * @returns Result of deletion operation
