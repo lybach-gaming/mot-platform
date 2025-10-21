@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from '../web-seo/web-seo.service';
@@ -173,6 +173,7 @@ export class SubcategoryLevelService {
               createSubcategoryLevelDto.slug
             );
             if (!isUnique) {
+              await trx.rollback();
               return {
                 error: true,
                 message: 'Slug already exists',
@@ -314,7 +315,12 @@ export class SubcategoryLevelService {
           this.helpersService.assertValid(dto.slug);
           const isUnique = await this.helpersService.isUniqueGlobal(
             dto.slug,
-            web_seo_id
+            web_seo_id,
+            {
+              table: WEB_SEO_SCHEMA.TABLE,
+              idField: WEB_SEO_SCHEMA.FIELDS.ID,
+              slugField: WEB_SEO_SCHEMA.FIELDS.SLUG,
+            }
           );
 
           if (!isUnique) {
@@ -493,7 +499,7 @@ export class SubcategoryLevelService {
 
     for (const [key, value] of Object.entries(filterIds)) {
       if (value !== undefined && !isValidId(value)) {
-        throw new Error(
+        throw new BadRequestException(
           `${friendlyNames[key] || key} must be a positive integer`
         );
       }
@@ -501,12 +507,14 @@ export class SubcategoryLevelService {
 
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be non-negative numbers');
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
     }
 
     const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
-      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(SubcategoryLevelSortBy);
@@ -612,6 +620,7 @@ export class SubcategoryLevelService {
 
     return {
       error: false,
+      message: 'Subcategory levels retrieved successfully',
       data: {
         total: Number(total?.count || 0),
         limit,
@@ -675,6 +684,7 @@ export class SubcategoryLevelService {
 
       // Format image URLs
       const getSubcategoryLevelDetail = {
+        ...subcategoryLevel,
         image_url: subcategoryLevel.image
           ? urlJoin(
               BASE_URL,

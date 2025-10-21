@@ -5,7 +5,7 @@ export const isValidSlug = (s: string): boolean =>
 // (Optional) normalize before save
 export const toSlug = (s: string): string =>
   s
-    .normalize('NFKD') // slpit accent from letter
+    .normalize('NFKD') // split accent from letter
     .replace(/[\u0300-\u036f]/g, '') // remove accent
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with hyphen

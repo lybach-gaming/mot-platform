@@ -29,21 +29,12 @@ const SCOPES: TableScope[] = [
 
 @Injectable()
 export class HelpersService {
-  private readonly INVALID_CHARS_REGEX = new RegExp(
-    '[@#$%^&+=`,<>?{}[\\]|\\\\]'
-  );
-
   constructor(private readonly db: DatabaseService) {}
 
   /** Validate slug format */
   assertValid(slug: string): void {
     if (!slug || typeof slug !== 'string') {
       throw new BadRequestException('Slug must be a non-empty string');
-    }
-
-    // Check invalid characters
-    if (this.INVALID_CHARS_REGEX.test(slug)) {
-      throw new BadRequestException('Slug contains invalid characters');
     }
 
     // Check forward slash
@@ -71,7 +62,7 @@ export class HelpersService {
   ): Promise<boolean> {
     const query = this.db.connection(scope.table).where(scope.slugField, slug);
 
-    if (excludeId) {
+    if (excludeId !== undefined) {
       query.andWhereNot(scope.idField, excludeId);
     }
 
@@ -79,9 +70,19 @@ export class HelpersService {
   }
 
   /** Check if slug exists in any scope */
-  async existsGlobal(slug: string, excludeId?: number): Promise<boolean> {
+  async existsGlobal(
+    slug: string,
+    excludeId?: number,
+    excludeScope?: TableScope
+  ): Promise<boolean> {
     for (const scope of SCOPES) {
-      if (await this.exists(scope, slug, excludeId)) {
+      const scopeExcluded =
+        excludeId !== undefined &&
+        excludeScope &&
+        scope.table === excludeScope.table
+          ? excludeId
+          : undefined;
+      if (await this.exists(scope, slug, scopeExcluded)) {
         return true;
       }
     }
@@ -98,8 +99,12 @@ export class HelpersService {
   }
 
   /** Check if slug is unique across all scopes */
-  async isUniqueGlobal(slug: string, excludeId?: number): Promise<boolean> {
-    return !(await this.existsGlobal(slug, excludeId));
+  async isUniqueGlobal(
+    slug: string,
+    excludeId?: number,
+    excludeScope?: TableScope
+  ): Promise<boolean> {
+    return !(await this.existsGlobal(slug, excludeId, excludeScope));
   }
 
   /** Create valid and unique slug from input */

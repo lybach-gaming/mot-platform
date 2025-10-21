@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import {
   BASE_URL,
   CACHE_TTL_MIN,
@@ -208,6 +208,7 @@ export class QuizService {
               createQuizDto.slug
             );
             if (!isUnique) {
+              await trx.rollback();
               return {
                 error: true,
                 message: 'Slug already exists',
@@ -357,7 +358,12 @@ export class QuizService {
           this.helpersService.assertValid(dto.slug);
           const isUnique = await this.helpersService.isUniqueGlobal(
             dto.slug,
-            web_seo_id
+            web_seo_id,
+            {
+              table: WEB_SEO_SCHEMA.TABLE,
+              idField: WEB_SEO_SCHEMA.FIELDS.ID,
+              slugField: WEB_SEO_SCHEMA.FIELDS.SLUG,
+            }
           );
 
           if (!isUnique) {
@@ -518,7 +524,7 @@ export class QuizService {
 
     for (const [key, value] of Object.entries(filterIds)) {
       if (value !== undefined && !isValidId(value)) {
-        throw new Error(
+        throw new BadRequestException(
           `${friendlyNames[key] || key} must be a positive integer`
         );
       }
@@ -526,12 +532,14 @@ export class QuizService {
 
     // Validate limit and offset
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be non-negative numbers');
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
     }
 
     const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
-      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(QuizSortBy);
@@ -638,6 +646,7 @@ export class QuizService {
 
     return {
       error: false,
+      message: 'Quizzes retrieved successfully',
       data: {
         total: Number(total?.count || 0),
         limit,
@@ -679,7 +688,7 @@ export class QuizService {
       const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
         .where({
           [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: id,
-          [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
+          [WEB_SEO_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         })
         .first();
       if (!webSeo) {
@@ -701,6 +710,7 @@ export class QuizService {
 
       // Format image URLs
       const getQuizDetail = {
+        ...quiz,
         image_url: quiz.image
           ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
           : null,

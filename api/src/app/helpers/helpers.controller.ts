@@ -17,7 +17,7 @@ export class HelpersController {
       'Check if the provided slug is unique globally, excluding an optional ID (Web SEO ID, Blog ID, Blog Category ID).',
   })
   @Post('/admin/check-slug')
-  async checkUniqueSlug(@Body() body: { slug: string; excludeId?: number }) {
+  async checkUniqueSlug(@Body() body: CheckSlugDto) {
     try {
       // Validate format
       this.helpersService.assertValid(body.slug);

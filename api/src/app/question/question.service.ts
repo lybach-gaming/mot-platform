@@ -1,5 +1,5 @@
 import { QuestionSortBy } from './../../common/constants/question';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
@@ -149,7 +149,7 @@ export class QuestionService {
    */
   async createQuestionBatch(dto: BatchCreateQuestionDto) {
     if (!dto.questions || !Array.isArray(dto.questions)) {
-      throw new Error('Invalid questions payload');
+      throw new BadRequestException('Invalid questions payload');
     }
     // Validate batch size
     if (dto.questions.length > this.MAX_BATCH_SIZE) {
@@ -446,7 +446,7 @@ export class QuestionService {
 
     for (const [key, value] of Object.entries(filterIds)) {
       if (value !== undefined && !isValidId(value)) {
-        throw new Error(
+        throw new BadRequestException(
           `${friendlyNames[key] || key} must be a valid positive integer`
         );
       }
@@ -454,12 +454,12 @@ export class QuestionService {
 
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be non-negative numbers');
+      throw new BadRequestException('Limit and offset must be non-negative numbers');
     }
 
     const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
-      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(QuestionSortBy);
@@ -578,6 +578,7 @@ export class QuestionService {
 
     return {
       error: false,
+      message: 'Questions retrieved successfully',
       data: {
         total: Number(total?.count || 0),
         limit,
