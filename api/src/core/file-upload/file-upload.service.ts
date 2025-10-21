@@ -13,7 +13,9 @@ export interface FileUploadOptions {
 
 @Injectable()
 export class FileUploadService {
-  private readonly uploadRoot = process.env.UPLOAD_FILE || 'api/public/uploads';
+  private readonly uploadRoot = path.resolve(
+    process.env.UPLOAD_FILE ?? 'api/public/uploads'
+  );
 
   private readonly THUMB_SIZES = {
     '100x100': [100, 100],
@@ -21,17 +23,13 @@ export class FileUploadService {
     '50x50': [50, 50],
   };
 
-  constructor() {
-    // Ensure upload directory exists
-    this.ensureUploadDirectory();
-  }
-
-  private async ensureUploadDirectory() {
-    try {
-      await fs.mkdir(this.uploadRoot, { recursive: true });
-    } catch (error) {
-      throw new Error(`Failed to create upload directory:`, { cause: error });
+  private resolveWithinRoot(directory: string, ...segments: string[]) {
+    const root = path.resolve(this.uploadRoot);
+    const resolved = path.resolve(root, directory || '', ...segments);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+      throw new Error('Invalid directory path');
     }
+    return resolved;
   }
 
   /**
@@ -44,31 +42,30 @@ export class FileUploadService {
     directory: string
   ): Promise<void> {
     try {
-      const originalPath = path.join(this.uploadRoot, directory, filename);
+      const safeFilename = path.basename(filename);
+      const originalPath = this.resolveWithinRoot(directory, safeFilename);
 
       // Create thumbnails directory if it doesn't exist
       for (const size of Object.keys(this.THUMB_SIZES)) {
-        const thumbDir = path.join(this.uploadRoot, directory, 'thumbs', size);
+        const thumbDir = this.resolveWithinRoot(directory, 'thumbs', size);
         await fs.mkdir(thumbDir, { recursive: true });
       }
 
       // Generate thumbnails for each size
-      for (const [size, [width, height]] of Object.entries(this.THUMB_SIZES)) {
-        const thumbPath = path.join(
-          this.uploadRoot,
-          directory,
-          'thumbs',
-          size,
-          filename
-        );
-
-        await sharp(originalPath)
-          .resize(width, height, {
-            fit: 'cover',
-            position: 'center',
-          })
-          .toFile(thumbPath);
-      }
+      await Promise.all(
+        Object.entries(this.THUMB_SIZES).map(([size, [width, height]]) => {
+          const thumbPath = this.resolveWithinRoot(
+            directory,
+            'thumbs',
+            size,
+            safeFilename
+          );
+          return sharp(originalPath)
+            .rotate()
+            .resize(width, height, { fit: 'cover', position: 'center' })
+            .toFile(thumbPath);
+        })
+      );
     } catch (error) {
       throw new Error(`Failed to generate thumbnails:`, { cause: error });
     }
@@ -110,11 +107,14 @@ export class FileUploadService {
       const uniqueFilename = `${uuidv4()}${fileExt}`;
 
       // Create full directory path
-      const uploadDir = path.join(this.uploadRoot, options.directory);
+      const uploadDir = this.resolveWithinRoot(options.directory);
       await fs.mkdir(uploadDir, { recursive: true });
 
       // Save file
-      const filePath = path.join(uploadDir, uniqueFilename);
+      const filePath = this.resolveWithinRoot(
+        options.directory,
+        uniqueFilename
+      );
       await fs.writeFile(filePath, file.buffer);
 
       // Generate thumbnail if needed
@@ -136,7 +136,8 @@ export class FileUploadService {
   async deleteFile(filename: string, directory: string): Promise<void> {
     try {
       // Delete original file
-      const filePath = path.join(this.uploadRoot, directory, filename);
+      const safeFilename = path.basename(filename);
+      const filePath = this.resolveWithinRoot(directory, safeFilename);
       try {
         await fs.unlink(filePath);
       } catch (err) {
@@ -150,12 +151,11 @@ export class FileUploadService {
       // Delete thumbnails if they exist
       for (const size of Object.keys(this.THUMB_SIZES)) {
         try {
-          const thumbPath = path.join(
-            this.uploadRoot,
+          const thumbPath = this.resolveWithinRoot(
             directory,
             'thumbs',
             size,
-            filename
+            safeFilename
           );
           await fs.unlink(thumbPath);
         } catch (err) {

@@ -48,6 +48,8 @@ This will serve the Storybook for the admin dashboard
 
 #### Mount Images Directory
 
+The following sections describe how to set up bind-mounted image directories for staging and production environments. Ensure that the destination paths align with your API's `UPLOAD_FILE` environment variable configuration.
+
 ##### Staging
 
 - Define paths
@@ -123,8 +125,8 @@ sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api/public/uploads
 
 ```bash
 sudo apt-get install -y acl   # Debian/Ubuntu
-sudo setfacl -R -m u:motstaging:rwx <SRC> # motstaging is the user running the web server (www-data, apache, nginx, etc.)
-sudo setfacl -d -m u:motstaging:rwx <SRC>
+sudo setfacl -R -m u:<PRODUCTION_USER>:rwx <SRC> # Replace <PRODUCTION_USER> with the actual web server user (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:<PRODUCTION_USER>:rwx <SRC>
 ```
 
 - Bind-mount
