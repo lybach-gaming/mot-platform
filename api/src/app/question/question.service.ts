@@ -435,9 +435,20 @@ export class QuestionService {
       subcategoryLevelId,
       quizId,
     };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+      subcategoryId: 'Subcategory ID',
+      subcategoryLevelId: 'Subcategory Level ID',
+      quizId: 'Quiz ID',
+    };
+
     for (const [key, value] of Object.entries(filterIds)) {
       if (value !== undefined && !isValidId(value)) {
-        throw new Error(`${key} must be a valid positive integer`);
+        throw new Error(
+          `${friendlyNames[key] || key} must be a valid positive integer`
+        );
       }
     }
 
@@ -566,10 +577,13 @@ export class QuestionService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      questions: results,
+      error: false,
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        questions: results,
+      },
     };
   }
 

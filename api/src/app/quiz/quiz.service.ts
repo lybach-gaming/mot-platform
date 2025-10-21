@@ -16,6 +16,7 @@ import {
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { HelpersService } from '../helpers/helpers.service';
@@ -242,9 +243,7 @@ export class QuizService {
         quizData.image = imageName;
 
         // Insert the quiz
-        const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE)
-          .insert(quizData)
-          .returning(QUIZZ_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE).insert(quizData);
 
         if (!insertedId) {
           await trx.rollback();
@@ -503,9 +502,36 @@ export class QuizService {
       subcategoryLevelId,
     } = query;
 
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+      subcategoryId: 'Subcategory ID',
+      subcategoryLevelId: 'Subcategory Level ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
     // Validate limit and offset
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be non-negative');
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(QuizSortBy);
@@ -611,10 +637,13 @@ export class QuizService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      quizzes: results,
+      error: false,
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        quizzes: results,
+      },
     };
   }
 
@@ -624,7 +653,7 @@ export class QuizService {
    * @returns Detailed quiz information or error response
    */
   async getQuizDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Quiz ID is required',
@@ -661,7 +690,6 @@ export class QuizService {
           data: null,
         };
       }
-      quiz.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this quiz
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -670,26 +698,25 @@ export class QuizService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         })
         .select('*');
-      if (faq) {
-        quiz.faq = faq;
-      }
 
       // Format image URLs
-      const image = quiz.image
-        ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
-        : null;
-      const thumbnail = quiz.image
-        ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
-        : null;
-      quiz.image_url = image;
-      quiz.thumbnail_url = thumbnail;
+      const getQuizDetail = {
+        image_url: quiz.image
+          ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
+          : null,
+        thumbnail_url: quiz.image
+          ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted quiz data
       await trx.commit();
       return {
         error: false,
         message: 'Quiz details retrieved successfully',
-        data: transformToString(quiz),
+        data: transformToString(getQuizDetail),
       };
     } catch (error) {
       await trx.rollback();

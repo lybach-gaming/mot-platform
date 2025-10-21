@@ -29,6 +29,7 @@ import { SubcategoryLevelDetailDto } from './dto/subcategory-level.dto';
 import { SubcategoryLevelSortBy } from '../../common/constants/subcategory-level';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -210,9 +211,9 @@ export class SubcategoryLevelService {
         subcategoryLevelData.image = imageName;
 
         // Insert the subcategory level
-        const [insertedId] = await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
-          .insert(subcategoryLevelData)
-          .returning(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(SUBCATEGORY_LEVEL_SCHEMA.TABLE).insert(
+          subcategoryLevelData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -478,9 +479,34 @@ export class SubcategoryLevelService {
       subcategoryId,
     } = query;
 
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+      subcategoryId: 'Subcategory ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be positive numbers');
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(SubcategoryLevelSortBy);
@@ -585,10 +611,13 @@ export class SubcategoryLevelService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      subcategory_levels: results,
+      error: false,
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        subcategory_levels: results,
+      },
     };
   }
 
@@ -598,7 +627,7 @@ export class SubcategoryLevelService {
    * @returns Detailed subcategory level information or error response
    */
   async getSubcategoryLevelAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Subcategory level ID is required',
@@ -635,7 +664,6 @@ export class SubcategoryLevelService {
           data: null,
         };
       }
-      subcategoryLevel.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this subcategory level
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -644,34 +672,33 @@ export class SubcategoryLevelService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.SUBCATEGORY_LEVEL,
         })
         .select('*');
-      if (faq) {
-        subcategoryLevel.faq = faq;
-      }
 
       // Format image URLs
-      const image = subcategoryLevel.image
-        ? urlJoin(
-            BASE_URL,
-            SUBCATEGORY_LEVEL_IMAGE_PATH,
-            subcategoryLevel.image
-          )
-        : null;
-      const thumbnail = subcategoryLevel.image
-        ? urlJoin(
-            BASE_URL,
-            SUBCATEGORY_LEVEL_THUMB_PATH_SMALL,
-            subcategoryLevel.image
-          )
-        : null;
-      subcategoryLevel.image_url = image;
-      subcategoryLevel.thumbnail_url = thumbnail;
+      const getSubcategoryLevelDetail = {
+        image_url: subcategoryLevel.image
+          ? urlJoin(
+              BASE_URL,
+              SUBCATEGORY_LEVEL_IMAGE_PATH,
+              subcategoryLevel.image
+            )
+          : null,
+        thumbnail_url: subcategoryLevel.image
+          ? urlJoin(
+              BASE_URL,
+              SUBCATEGORY_LEVEL_THUMB_PATH_SMALL,
+              subcategoryLevel.image
+            )
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted subcategory level data
       await trx.commit();
       return {
         error: false,
         message: 'Subcategory level details retrieved successfully',
-        data: transformToString(subcategoryLevel),
+        data: transformToString(getSubcategoryLevelDetail),
       };
     } catch (error) {
       await trx.rollback();

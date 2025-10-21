@@ -33,6 +33,7 @@ import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
 import { SubcategorySortBy } from '../../common/constants/subcategory';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -212,9 +213,9 @@ export class SubcategoryService {
         subcategoryData.image = imageName;
 
         // Insert the subcategory
-        const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE)
-          .insert(subcategoryData)
-          .returning(SUBCATEGORY_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE).insert(
+          subcategoryData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -524,9 +525,32 @@ export class SubcategoryService {
       categoryId,
     } = query;
 
+    const filterIds = {
+      languageId,
+      categoryId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be positive numbers');
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(SubcategorySortBy);
@@ -616,10 +640,13 @@ export class SubcategoryService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      subcategories: results,
+      error: false,
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        subcategories: results,
+      },
     };
   }
 
@@ -629,7 +656,7 @@ export class SubcategoryService {
    * @returns Detailed subcategory information or error response
    */
   async getSubcategoryAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Subcategory ID is required',
@@ -666,7 +693,6 @@ export class SubcategoryService {
           data: null,
         };
       }
-      subcategory.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this subcategory
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -675,26 +701,26 @@ export class SubcategoryService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.SUBCATEGORY,
         })
         .select('*');
-      if (faq) {
-        subcategory.faq = faq;
-      }
 
       // Format image URLs
-      const image = subcategory.image
-        ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
-        : null;
-      const thumbnail = subcategory.image
-        ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
-        : null;
-      subcategory.image_url = image;
-      subcategory.thumbnail_url = thumbnail;
+      const getSubcategoryDetail = {
+        ...subcategory,
+        image_url: subcategory.image
+          ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
+          : null,
+        thumbnail_url: subcategory.image
+          ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted subcategory data
       await trx.commit();
       return {
         error: false,
         message: 'Subcategory details retrieved successfully',
-        data: transformToString(subcategory),
+        data: transformToString(getSubcategoryDetail),
       };
     } catch (error) {
       await trx.rollback();

@@ -35,6 +35,7 @@ import { EditCategoryDto } from './dto/edit-category.dto';
 import { CategorySortBy } from '../../common/constants/category';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -204,9 +205,9 @@ export class CategoryService {
         categoryData.image = imageName;
 
         // Insert the category
-        const [insertedId] = await trx(CATEGORY_SCHEMA.TABLE)
-          .insert(categoryData)
-          .returning(CATEGORY_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(CATEGORY_SCHEMA.TABLE).insert(
+          categoryData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -518,9 +519,32 @@ export class CategoryService {
       type,
     } = query;
 
+    const filterIds = {
+      languageId,
+      type,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      type: 'Game Type',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new Error(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
     // Add validation
     if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be positive numbers');
+      throw new Error('Limit and offset must be non-negative numbers');
+    }
+
+    const MAX_LIMIT = 1000;
+    if (limit > MAX_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(CategorySortBy);
@@ -607,10 +631,13 @@ export class CategoryService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      categories: results,
+      error: false,
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        categories: results,
+      },
     };
   }
 
@@ -620,7 +647,7 @@ export class CategoryService {
    * @returns Detailed category information or error response
    */
   async getCategoryAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Category ID is required',
@@ -657,7 +684,6 @@ export class CategoryService {
           data: null,
         };
       }
-      category.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this category
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -666,26 +692,26 @@ export class CategoryService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.CATEGORY,
         })
         .select('*');
-      if (faq) {
-        category.faq = faq;
-      }
 
       // Format image URLs
-      const image = category.image
-        ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
-        : null;
-      const thumbnail = category.image
-        ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
-        : null;
-      category.image_url = image;
-      category.thumbnail_url = thumbnail;
+      const getCategoryDetail = {
+        ...category,
+        image: category.image
+          ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
+          : null,
+        thumbnail: category.image
+          ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted category details
       await trx.commit();
       return {
         error: false,
         message: 'Category details retrieved successfully',
-        data: transformToString(category),
+        data: transformToString(getCategoryDetail),
       };
     } catch (error) {
       await trx.rollback();
