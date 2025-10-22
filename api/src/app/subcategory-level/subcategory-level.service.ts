@@ -199,11 +199,10 @@ export class SubcategoryLevelService {
         }
 
         // Handle image upload if present
+        let pendingImageUpload: Express.Multer.File | null = null;
         let imageName = '';
         if (createSubcategoryLevelDto.image_file) {
-          imageName = await this.handleImageUpload(
-            createSubcategoryLevelDto.image_file
-          );
+          pendingImageUpload = createSubcategoryLevelDto.image_file;
         }
 
         // Extract only the fields that belong to subcategory level table
@@ -252,6 +251,16 @@ export class SubcategoryLevelService {
 
         // Commit transaction after all operations are done
         await trx.commit();
+
+        // After commit, handle image upload
+        if (pendingImageUpload) {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update subcategory level with new image name
+          await this.dbService
+            .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+            .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, insertedId)
+            .update({ image: imageName });
+        }
 
         // TODO: Cache Manager
         // Will implement in separate cache manager service
@@ -353,6 +362,8 @@ export class SubcategoryLevelService {
 
       // Image
       let imageName = existing.image;
+      let pendingImageDelete: string | null = null;
+      let pendingImageUpload: Express.Multer.File | null = null;
 
       // Validate mutually exclusive flags
       if (dto.remove_image === 1 && dto.image_file) {
@@ -366,16 +377,16 @@ export class SubcategoryLevelService {
 
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
-        await this.deleteSubcategoryLevelImages(existing.image);
+        pendingImageDelete = existing.image;
         imageName = '';
       }
 
       // Check image_file next
       if (dto.image_file) {
         if (existing.image) {
-          await this.deleteSubcategoryLevelImages(existing.image);
+          pendingImageDelete = existing.image;
         }
-        imageName = await this.handleImageUpload(dto.image_file);
+        pendingImageUpload = dto.image_file;
       }
 
       // Subcategory level data
@@ -452,6 +463,19 @@ export class SubcategoryLevelService {
         .where(`${SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID}`, id)
         .first();
       await trx.commit();
+
+      // After commit, handle image upload/delete
+      if (pendingImageDelete) {
+        await this.deleteSubcategoryLevelImages(pendingImageDelete);
+      }
+      if (pendingImageUpload) {
+        imageName = await this.handleImageUpload(pendingImageUpload);
+        // Update subcategory level with new image name
+        await this.dbService
+          .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+          .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, id)
+          .update({ image: imageName });
+      }
 
       // TODO: Cache Manager
       // Will implement in separate cache manager service

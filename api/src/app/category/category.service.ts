@@ -193,11 +193,10 @@ export class CategoryService {
         }
 
         // Handle image upload if present
+        let pendingImageUpload: Express.Multer.File | null = null;
         let imageName = '';
         if (createCategoryDto.image_file) {
-          imageName = await this.handleImageUpload(
-            createCategoryDto.image_file
-          );
+          pendingImageUpload = createCategoryDto.image_file;
         }
 
         // Extract only the fields that belong to category table
@@ -245,6 +244,15 @@ export class CategoryService {
         // Commit transaction after all operations are done
         await trx.commit();
 
+        // After commit, handle image upload
+        if (pendingImageUpload) {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update category with new image name
+          await this.dbService
+            .connection(CATEGORY_SCHEMA.TABLE)
+            .where(CATEGORY_SCHEMA.FIELDS.ID, insertedId)
+            .update({ image: imageName });
+        }
         // TODO: Cache Manager
         // Will implement in separate cache manager service
 
@@ -345,6 +353,8 @@ export class CategoryService {
 
       // Image
       let imageName = existing.image;
+      let pendingImageDelete: string | null = null;
+      let pendingImageUpload: Express.Multer.File | null = null;
 
       // Validate mutually exclusive flags
       if (dto.remove_image === 1 && dto.image_file) {
@@ -358,19 +368,16 @@ export class CategoryService {
 
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
-        await this.deleteAllRelatedImages(existing.image, CATEGORY_IMAGE_PATH);
+        pendingImageDelete = existing.image;
         imageName = '';
       }
 
       // Check image_file next
       if (dto.image_file) {
         if (existing.image) {
-          await this.deleteAllRelatedImages(
-            existing.image,
-            CATEGORY_IMAGE_PATH
-          );
+          pendingImageDelete = existing.image;
         }
-        imageName = await this.handleImageUpload(dto.image_file);
+        pendingImageUpload = dto.image_file;
       }
 
       // Category data
@@ -496,6 +503,22 @@ export class CategoryService {
         .where(`${CATEGORY_SCHEMA.FIELDS.ID}`, id)
         .first();
       await trx.commit();
+
+      // After commit, handle image upload/delete
+      if (pendingImageDelete) {
+        await this.deleteAllRelatedImages(
+          pendingImageDelete,
+          CATEGORY_IMAGE_PATH
+        );
+      }
+      if (pendingImageUpload) {
+        imageName = await this.handleImageUpload(pendingImageUpload);
+        // Update category with new image name
+        await this.dbService
+          .connection(CATEGORY_SCHEMA.TABLE)
+          .where(CATEGORY_SCHEMA.FIELDS.ID, id)
+          .update({ image: imageName });
+      }
 
       // TODO: Cache Manager
       // Will implement in separate cache manager service
