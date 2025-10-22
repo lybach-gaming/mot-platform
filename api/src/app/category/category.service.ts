@@ -519,6 +519,14 @@ export class CategoryService {
             CATEGORY_IMAGE_PATH
           );
         }
+      } catch (imageError) {
+        this.logger.error(
+          `Failed to delete image for Category ID ${id}`,
+          imageError
+        );
+      }
+
+      try {
         if (pendingImageUpload) {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update category with new image name
@@ -529,7 +537,7 @@ export class CategoryService {
         }
       } catch (imageError) {
         this.logger.error(
-          `Failed to handle image for Category ID ${id}`,
+          `Failed to upload image for Category ID ${id}`,
           imageError
         );
       }
@@ -592,7 +600,12 @@ export class CategoryService {
     }
 
     // Add validation
-    if (limit < 0 || offset < 0) {
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
       throw new BadRequestException(
         'Limit and offset must be non-negative numbers'
       );

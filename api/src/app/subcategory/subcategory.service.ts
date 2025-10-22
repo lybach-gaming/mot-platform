@@ -523,6 +523,14 @@ export class SubcategoryService {
             SUBCATEGORY_IMAGE_PATH
           );
         }
+      } catch (imageError) {
+        this.logger.error(
+          `Image deletion failed for Subcategory ID ${id}`,
+          imageError
+        );
+      }
+
+      try {
         if (pendingImageUpload) {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update subcategory with new image name
@@ -533,7 +541,7 @@ export class SubcategoryService {
         }
       } catch (imageError) {
         this.logger.error(
-          `Image handling failed for Subcategory ID ${id}`,
+          `Image upload failed for Subcategory ID ${id}`,
           imageError
         );
       }

@@ -476,6 +476,14 @@ export class SubcategoryLevelService {
         if (pendingImageDelete) {
           await this.deleteSubcategoryLevelImages(pendingImageDelete);
         }
+      } catch (imageError) {
+        this.logger.error(
+          `Failed to delete image for subcategory level ${id}`,
+          imageError
+        );
+      }
+
+      try {
         if (pendingImageUpload) {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update subcategory level with new image name
@@ -486,7 +494,7 @@ export class SubcategoryLevelService {
         }
       } catch (imageError) {
         this.logger.error(
-          `Failed to process image for subcategory level ${id}`,
+          `Failed to upload image for subcategory level ${id}`,
           imageError
         );
       }

@@ -502,6 +502,14 @@ export class QuizService {
         if (pendingImageDelete) {
           await this.deleteQuizImages(pendingImageDelete);
         }
+      } catch (imageError) {
+        this.logger.error(
+          `Failed to delete image for quiz ID ${id}`,
+          imageError
+        );
+      }
+
+      try {
         if (pendingImageUpload) {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update quiz with new image name
@@ -512,7 +520,7 @@ export class QuizService {
         }
       } catch (imageError) {
         this.logger.error(
-          `Failed to upload/delete image for quiz ID ${id}`,
+          `Failed to upload image for quiz ID ${id}`,
           imageError
         );
       }
