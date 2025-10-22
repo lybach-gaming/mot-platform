@@ -18,6 +18,7 @@ import {
   SUBCATEGORY_LEVEL_THUMB_PATH_SMALL,
   QUIZZES_IMAGE_PATH,
   QUESTION_IMG_PATH,
+  MAX_LIMIT,
   OrderBy,
   QuizMode,
   TypeModeGame,
@@ -353,6 +354,16 @@ export class SubcategoryLevelService {
       // Image
       let imageName = existing.image;
 
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
+      }
+
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
         await this.deleteSubcategoryLevelImages(existing.image);
@@ -506,13 +517,17 @@ export class SubcategoryLevelService {
     }
 
     // Add validation
-    if (limit < 0 || offset < 0) {
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
       throw new BadRequestException(
         'Limit and offset must be non-negative numbers'
       );
     }
 
-    const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
       throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }

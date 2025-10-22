@@ -93,3 +93,6 @@ export enum QuizMode {
 }
 
 export const LANG_ENGLISH_ID = 14;
+
+// Maximum limit for pagination
+export const MAX_LIMIT = 1000;

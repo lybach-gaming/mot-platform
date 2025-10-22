@@ -22,6 +22,7 @@ import {
   FUN_N_LEARN_IMAGE_PATH,
   GUESS_THE_WORD_IMAGE_PATH,
   AUDIO_QUESTION_PATH,
+  MAX_LIMIT,
   OrderBy,
   QuizMode,
   TypeModeGame,
@@ -353,6 +354,16 @@ export class SubcategoryService {
       // Image
       let imageName = existing.image;
 
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
+      }
+
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
         await this.deleteAllRelatedImages(
@@ -550,13 +561,17 @@ export class SubcategoryService {
     }
 
     // Add validation
-    if (limit < 0 || offset < 0) {
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
       throw new BadRequestException(
         'Limit and offset must be non-negative numbers'
       );
     }
 
-    const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
       throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }

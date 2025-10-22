@@ -24,6 +24,7 @@ import {
   GUESS_THE_WORD_IMAGE_PATH,
   AUDIO_QUESTION_PATH,
   MATH_MANIA_IMAGE_PATH,
+  MAX_LIMIT,
   TypeModeGame,
   QuizMode,
   OrderBy,
@@ -345,6 +346,16 @@ export class CategoryService {
       // Image
       let imageName = existing.image;
 
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
+      }
+
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
         await this.deleteAllRelatedImages(existing.image, CATEGORY_IMAGE_PATH);
@@ -398,7 +409,7 @@ export class CategoryService {
         await trx(SUBCATEGORY_SCHEMA.TABLE)
           .where(SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID, id)
           .update({
-            [SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+            [SUBCATEGORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
               ? dto.language_id
               : existing.language_id,
           });
@@ -550,7 +561,6 @@ export class CategoryService {
       );
     }
 
-    const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
       throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
@@ -705,10 +715,10 @@ export class CategoryService {
       // Format image URLs
       const getCategoryDetail = {
         ...category,
-        image: category.image
+        image_url: category.image
           ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
           : null,
-        thumbnail: category.image
+        thumbnail_url: category.image
           ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
           : null,
         web_seo: webSeo ?? null,
@@ -776,9 +786,9 @@ export class CategoryService {
       const subcategories = await trx(SUBCATEGORY_SCHEMA.TABLE)
         .whereIn(SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID, [...existingIds])
         .select(
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID,
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE,
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAINCAT_ID
+          SUBCATEGORY_SCHEMA.FIELDS.ID,
+          SUBCATEGORY_SCHEMA.FIELDS.IMAGE,
+          SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID
         );
 
       // Get all subcategory levels related to these categories

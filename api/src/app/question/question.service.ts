@@ -1,4 +1,3 @@
-import { QuestionSortBy } from './../../common/constants/question';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
@@ -11,10 +10,14 @@ import {
   CACHE_TTL_MIN,
   QUESTION_IMG_PATH,
   QUESTION_THUMB_PATH_SMALL,
-  QUIZZES_IMAGE_PATH,
   SECRET_KEY_ANSWER,
+  MAX_LIMIT,
   OrderBy,
 } from '../../common/constants/app';
+import {
+  QuestionSortBy,
+  MAX_BATCH_SIZE,
+} from './../../common/constants/question';
 import {
   BOOKMARK_SCHEMA,
   QUESTION_SCHEMA,
@@ -36,7 +39,6 @@ import { EditQuestionDto } from './dto/edit-question.dto';
 @Injectable()
 export class QuestionService {
   private readonly logger = new Logger(QuestionService.name);
-  private readonly MAX_BATCH_SIZE = 100; // Limit questions/batch
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -91,7 +93,7 @@ export class QuestionService {
   private async handleImageUpload(file: Express.Multer.File): Promise<string> {
     try {
       const options: FileUploadOptions = {
-        directory: QUIZZES_IMAGE_PATH,
+        directory: QUESTION_IMG_PATH,
         generateThumbnail: true,
         allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
         maxSize: 5 * 1024 * 1024, // 5MB
@@ -148,16 +150,20 @@ export class QuestionService {
    * @returns Result of batch creation
    */
   async createQuestionBatch(dto: BatchCreateQuestionDto) {
-    if (!dto.questions || !Array.isArray(dto.questions)) {
-      throw new BadRequestException('Invalid questions payload');
+    if (
+      !dto.questions ||
+      !Array.isArray(dto.questions) ||
+      dto.questions.length === 0
+    ) {
+      throw new BadRequestException(
+        'Questions payload must be a non-empty array'
+      );
     }
     // Validate batch size
-    if (dto.questions.length > this.MAX_BATCH_SIZE) {
-      return {
-        error: true,
-        message: `Batch size cannot exceed ${this.MAX_BATCH_SIZE} questions`,
-        data: null,
-      };
+    if (dto.questions.length > MAX_BATCH_SIZE) {
+      throw new BadRequestException(
+        `Cannot create more than ${MAX_BATCH_SIZE} questions in a single batch`
+      );
     }
 
     try {
@@ -191,16 +197,9 @@ export class QuestionService {
         }
 
         // Insert questions in chunks
-        for (
-          let i = 0;
-          i < questionsToInsert.length;
-          i += this.MAX_BATCH_SIZE
-        ) {
-          const chunk = questionsToInsert.slice(i, i + this.MAX_BATCH_SIZE);
-          const originalChunk = originalQuestions.slice(
-            i,
-            i + this.MAX_BATCH_SIZE
-          );
+        for (let i = 0; i < questionsToInsert.length; i += MAX_BATCH_SIZE) {
+          const chunk = questionsToInsert.slice(i, i + MAX_BATCH_SIZE);
+          const originalChunk = originalQuestions.slice(i, i + MAX_BATCH_SIZE);
 
           const result = await trx(QUESTION_SCHEMA.TABLE).insert(chunk);
           const firstInsertId = Array.isArray(result) ? result[0] : result;
@@ -453,11 +452,17 @@ export class QuestionService {
     }
 
     // Add validation
-    if (limit < 0 || offset < 0) {
-      throw new BadRequestException('Limit and offset must be non-negative numbers');
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
     }
 
-    const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
       throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }

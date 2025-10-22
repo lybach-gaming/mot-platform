@@ -1,6 +1,6 @@
 // Correct slug: a-z0-9 and hyphens, not starting/ending with '-', no '//'
-export const isValidSlug = (s: string): boolean =>
-  /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s);
+export const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const isValidSlug = (s: string): boolean => SLUG_REGEX.test(s);
 
 // (Optional) normalize before save
 export const toSlug = (s: string): string =>

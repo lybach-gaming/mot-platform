@@ -9,6 +9,7 @@ import {
   QUIZZES_THUMB_PATH,
   QUIZZES_THUMB_PATH_SMALL,
   QUESTION_IMG_PATH,
+  MAX_LIMIT,
   OrderBy,
   TypeModeGame,
   QuizMode,
@@ -45,13 +46,14 @@ import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
-import { QuizSortBy } from './../../common/constants/quiz';
+import {
+  QuizSortBy,
+  MAX_RELATED_QUIZZES,
+  COMPLETED_QUIZ_HQ_MIN_PERCENTAGE,
+} from './../../common/constants/quiz';
 import { Knex } from 'knex';
 import { IListQuizItemResponse } from './types';
 import { IApiListResponse } from '../../common/types/response.type';
-
-const MAX_RELATED_QUIZZES = 5;
-const COMPLETED_QUIZ_HQ_MIN_PERCENTAGE = 75;
 
 @Injectable()
 export class QuizService {
@@ -396,6 +398,16 @@ export class QuizService {
       // Image
       let imageName = existing.image;
 
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
+      }
+
       // Check remove_image flag first
       if (dto.remove_image === 1 && existing.image) {
         await this.deleteQuizImages(existing.image);
@@ -531,13 +543,17 @@ export class QuizService {
     }
 
     // Validate limit and offset
-    if (limit < 0 || offset < 0) {
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
       throw new BadRequestException(
         'Limit and offset must be non-negative numbers'
       );
     }
 
-    const MAX_LIMIT = 1000;
     if (limit > MAX_LIMIT) {
       throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
