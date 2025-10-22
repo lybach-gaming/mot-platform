@@ -186,7 +186,10 @@ export class QuestionService {
             failed.push({
               index,
               question: question.question,
-              error: error,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to prepare question',
             });
 
             this.logger.error(`Failed to prepare question`, {

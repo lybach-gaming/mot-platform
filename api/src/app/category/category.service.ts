@@ -287,8 +287,8 @@ export class CategoryService {
 
       // Get web SEO ID
       const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
-        .where(`${WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID}`, id)
-        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .where(WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID, id)
+        .andWhere(WEB_SEO_SCHEMA.FIELDS.TYPE, TypeModeGame.CATEGORY)
         .first();
 
       if (!webSeo) {

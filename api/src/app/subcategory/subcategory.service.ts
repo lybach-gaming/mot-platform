@@ -295,8 +295,8 @@ export class SubcategoryService {
 
       // Get web SEO ID
       const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
-        .where(`${WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID}`, id)
-        .andWhere(`${WEB_SEO_SCHEMA.FIELDS.SLUG}`, existing.slug)
+        .where(WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID, id)
+        .andWhere(WEB_SEO_SCHEMA.FIELDS.TYPE, TypeModeGame.SUBCATEGORY)
         .first();
 
       if (!webSeo) {
