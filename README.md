@@ -76,8 +76,8 @@ sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads
 
 ```bash
 sudo apt-get install -y acl   # Debian/Ubuntu
-sudo setfacl -R -m u:motstaging:rwx <SRC> # motstaging is the user running the web server (www-data, apache, nginx, etc.)
-sudo setfacl -d -m u:motstaging:rwx <SRC>
+sudo setfacl -R -m u:<STAGING_USER>:rwx <SRC> # Replace <STAGING_USER> with the actual web server user (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:<STAGING_USER>:rwx <SRC>
 ```
 
 - Bind-mount

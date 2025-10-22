@@ -32,6 +32,17 @@ export class FileUploadService {
     return resolved;
   }
 
+  private async ensureInsideRoot(dir: string): Promise<string> {
+    const [dirReal, rootReal] = await Promise.all([
+      fs.realpath(dir), // follow symlink
+      fs.realpath(this.uploadRoot),
+    ]);
+    if (dirReal !== rootReal && !dirReal.startsWith(rootReal + path.sep)) {
+      throw new Error('Invalid directory path');
+    }
+    return dirReal;
+  }
+
   /**
    * Generate thumbnails for an image
    * @param filename Original filename
@@ -49,17 +60,16 @@ export class FileUploadService {
       for (const size of Object.keys(this.THUMB_SIZES)) {
         const thumbDir = this.resolveWithinRoot(directory, 'thumbs', size);
         await fs.mkdir(thumbDir, { recursive: true });
+        await this.ensureInsideRoot(thumbDir);
       }
 
       // Generate thumbnails for each size
       await Promise.all(
-        Object.entries(this.THUMB_SIZES).map(([size, [width, height]]) => {
-          const thumbPath = this.resolveWithinRoot(
-            directory,
-            'thumbs',
-            size,
-            safeFilename
+        Object.entries(this.THUMB_SIZES).map(async ([size, [width, height]]) => {
+          const safeThumbDir = await this.ensureInsideRoot(
+            this.resolveWithinRoot(directory, 'thumbs', size)
           );
+          const thumbPath = path.join(safeThumbDir, safeFilename);
           return sharp(originalPath)
             .rotate()
             .resize(width, height, { fit: 'cover', position: 'center' })
@@ -109,12 +119,10 @@ export class FileUploadService {
       // Create full directory path
       const uploadDir = this.resolveWithinRoot(options.directory);
       await fs.mkdir(uploadDir, { recursive: true });
+      const safeUploadDir = await this.ensureInsideRoot(uploadDir);
 
       // Save file
-      const filePath = this.resolveWithinRoot(
-        options.directory,
-        uniqueFilename
-      );
+      const filePath = path.join(safeUploadDir, uniqueFilename);
       await fs.writeFile(filePath, file.buffer);
 
       // Generate thumbnail if needed
@@ -137,7 +145,10 @@ export class FileUploadService {
     try {
       // Delete original file
       const safeFilename = path.basename(filename);
-      const filePath = this.resolveWithinRoot(directory, safeFilename);
+      const safeDir = await this.ensureInsideRoot(
+        this.resolveWithinRoot(directory)
+      );
+      const filePath = path.join(safeDir, safeFilename);
       try {
         await fs.unlink(filePath);
       } catch (err) {
@@ -151,12 +162,10 @@ export class FileUploadService {
       // Delete thumbnails if they exist
       for (const size of Object.keys(this.THUMB_SIZES)) {
         try {
-          const thumbPath = this.resolveWithinRoot(
-            directory,
-            'thumbs',
-            size,
-            safeFilename
+          const safeThumbDir = await this.ensureInsideRoot(
+            this.resolveWithinRoot(directory, 'thumbs', size)
           );
+          const thumbPath = path.join(safeThumbDir, safeFilename);
           await fs.unlink(thumbPath);
         } catch (err) {
           // Ignore errors if thumbnail doesn't exist
