@@ -261,6 +261,8 @@ export class SubcategoryService {
               .connection(SUBCATEGORY_SCHEMA.TABLE)
               .where(SUBCATEGORY_SCHEMA.FIELDS.ID, insertedId)
               .update({ image: imageName });
+
+            createdSubcategory.image = imageName;
           } catch (imageError) {
             this.logger.error(
               `Image upload failed for Subcategory ID ${insertedId}`,
@@ -516,34 +518,36 @@ export class SubcategoryService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      try {
-        if (pendingImageDelete) {
+      if (pendingImageDelete) {
+        try {
           await this.deleteAllRelatedImages(
             pendingImageDelete,
             SUBCATEGORY_IMAGE_PATH
           );
+        } catch (imageError) {
+          this.logger.error(
+            `Image deletion failed for Subcategory ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Image deletion failed for Subcategory ID ${id}`,
-          imageError
-        );
       }
 
-      try {
-        if (pendingImageUpload) {
+      if (pendingImageUpload) {
+        try {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update subcategory with new image name
           await this.dbService
             .connection(SUBCATEGORY_SCHEMA.TABLE)
             .where(SUBCATEGORY_SCHEMA.FIELDS.ID, id)
             .update({ image: imageName });
+
+          updatedSubcategory.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Image upload failed for Subcategory ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Image upload failed for Subcategory ID ${id}`,
-          imageError
-        );
       }
 
       // TODO: Cache Manager

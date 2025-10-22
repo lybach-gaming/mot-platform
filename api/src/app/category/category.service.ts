@@ -253,6 +253,8 @@ export class CategoryService {
               .connection(CATEGORY_SCHEMA.TABLE)
               .where(CATEGORY_SCHEMA.FIELDS.ID, insertedId)
               .update({ image: imageName });
+
+            createdCategory.image = imageName;
           } catch (imageError) {
             this.logger.error(
               `Failed to upload image for Category ID ${insertedId}`,
@@ -512,34 +514,36 @@ export class CategoryService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      try {
-        if (pendingImageDelete) {
+      if (pendingImageDelete) {
+        try {
           await this.deleteAllRelatedImages(
             pendingImageDelete,
             CATEGORY_IMAGE_PATH
           );
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to delete image for Category ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to delete image for Category ID ${id}`,
-          imageError
-        );
       }
 
-      try {
-        if (pendingImageUpload) {
+      if (pendingImageUpload) {
+        try {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update category with new image name
           await this.dbService
             .connection(CATEGORY_SCHEMA.TABLE)
             .where(CATEGORY_SCHEMA.FIELDS.ID, id)
             .update({ image: imageName });
+
+          updatedCategory.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to upload image for Category ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to upload image for Category ID ${id}`,
-          imageError
-        );
       }
 
       // TODO: Cache Manager

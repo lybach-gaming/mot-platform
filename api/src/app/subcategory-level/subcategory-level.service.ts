@@ -261,6 +261,8 @@ export class SubcategoryLevelService {
               .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
               .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, insertedId)
               .update({ image: imageName });
+
+            createdSubcategoryLevel.image = imageName;
           } catch (imageError) {
             this.logger.error(
               `Failed to upload image for subcategory level ${insertedId}`,
@@ -472,31 +474,33 @@ export class SubcategoryLevelService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      try {
-        if (pendingImageDelete) {
+      if (pendingImageDelete) {
+        try {
           await this.deleteSubcategoryLevelImages(pendingImageDelete);
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to delete image for subcategory level ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to delete image for subcategory level ${id}`,
-          imageError
-        );
       }
 
-      try {
-        if (pendingImageUpload) {
+      if (pendingImageUpload) {
+        try {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update subcategory level with new image name
           await this.dbService
             .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
             .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, id)
             .update({ image: imageName });
+
+          updatedSubcategoryLevel.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to upload image for subcategory level ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to upload image for subcategory level ${id}`,
-          imageError
-        );
       }
 
       // TODO: Cache Manager

@@ -292,6 +292,8 @@ export class QuizService {
               .connection(QUIZZ_SCHEMA.TABLE)
               .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
               .update({ image: imageName });
+
+            createdQuiz.image = imageName;
           } catch (imageError) {
             this.logger.error(
               `Failed to upload image for quiz ID ${insertedId}`,
@@ -498,31 +500,33 @@ export class QuizService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      try {
-        if (pendingImageDelete) {
+      if (pendingImageDelete) {
+        try {
           await this.deleteQuizImages(pendingImageDelete);
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to delete image for quiz ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to delete image for quiz ID ${id}`,
-          imageError
-        );
       }
 
-      try {
-        if (pendingImageUpload) {
+      if (pendingImageUpload) {
+        try {
           imageName = await this.handleImageUpload(pendingImageUpload);
           // Update quiz with new image name
           await this.dbService
             .connection(QUIZZ_SCHEMA.TABLE)
             .where(QUIZZ_SCHEMA.FIELDS.ID, id)
             .update({ image: imageName });
+
+          updatedQuiz.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to upload image for quiz ID ${id}`,
+            imageError
+          );
         }
-      } catch (imageError) {
-        this.logger.error(
-          `Failed to upload image for quiz ID ${id}`,
-          imageError
-        );
       }
 
       // TODO: Cache Manager
