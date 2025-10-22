@@ -254,12 +254,19 @@ export class SubcategoryLevelService {
 
         // After commit, handle image upload
         if (pendingImageUpload) {
-          imageName = await this.handleImageUpload(pendingImageUpload);
-          // Update subcategory level with new image name
-          await this.dbService
-            .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
-            .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, insertedId)
-            .update({ image: imageName });
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update subcategory level with new image name
+            await this.dbService
+              .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+              .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+          } catch (imageError) {
+            this.logger.error(
+              `Failed to upload image for subcategory level ${insertedId}`,
+              imageError
+            );
+          }
         }
 
         // TODO: Cache Manager
@@ -465,16 +472,23 @@ export class SubcategoryLevelService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      if (pendingImageDelete) {
-        await this.deleteSubcategoryLevelImages(pendingImageDelete);
-      }
-      if (pendingImageUpload) {
-        imageName = await this.handleImageUpload(pendingImageUpload);
-        // Update subcategory level with new image name
-        await this.dbService
-          .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
-          .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, id)
-          .update({ image: imageName });
+      try {
+        if (pendingImageDelete) {
+          await this.deleteSubcategoryLevelImages(pendingImageDelete);
+        }
+        if (pendingImageUpload) {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update subcategory level with new image name
+          await this.dbService
+            .connection(SUBCATEGORY_LEVEL_SCHEMA.TABLE)
+            .where(SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+        }
+      } catch (imageError) {
+        this.logger.error(
+          `Failed to process image for subcategory level ${id}`,
+          imageError
+        );
       }
 
       // TODO: Cache Manager

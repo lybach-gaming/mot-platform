@@ -254,12 +254,19 @@ export class SubcategoryService {
 
         // After commit, handle image upload
         if (pendingImageUpload) {
-          imageName = await this.handleImageUpload(pendingImageUpload);
-          // Update subcategory with new image name
-          await this.dbService
-            .connection(SUBCATEGORY_SCHEMA.TABLE)
-            .where(SUBCATEGORY_SCHEMA.FIELDS.ID, insertedId)
-            .update({ image: imageName });
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update subcategory with new image name
+            await this.dbService
+              .connection(SUBCATEGORY_SCHEMA.TABLE)
+              .where(SUBCATEGORY_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+          } catch (imageError) {
+            this.logger.error(
+              `Image upload failed for Subcategory ID ${insertedId}`,
+              imageError
+            );
+          }
         }
 
         // TODO: Cache Manager
@@ -509,19 +516,26 @@ export class SubcategoryService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      if (pendingImageDelete) {
-        await this.deleteAllRelatedImages(
-          pendingImageDelete,
-          SUBCATEGORY_IMAGE_PATH
+      try {
+        if (pendingImageDelete) {
+          await this.deleteAllRelatedImages(
+            pendingImageDelete,
+            SUBCATEGORY_IMAGE_PATH
+          );
+        }
+        if (pendingImageUpload) {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update subcategory with new image name
+          await this.dbService
+            .connection(SUBCATEGORY_SCHEMA.TABLE)
+            .where(SUBCATEGORY_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+        }
+      } catch (imageError) {
+        this.logger.error(
+          `Image handling failed for Subcategory ID ${id}`,
+          imageError
         );
-      }
-      if (pendingImageUpload) {
-        imageName = await this.handleImageUpload(pendingImageUpload);
-        // Update subcategory with new image name
-        await this.dbService
-          .connection(SUBCATEGORY_SCHEMA.TABLE)
-          .where(SUBCATEGORY_SCHEMA.FIELDS.ID, id)
-          .update({ image: imageName });
       }
 
       // TODO: Cache Manager

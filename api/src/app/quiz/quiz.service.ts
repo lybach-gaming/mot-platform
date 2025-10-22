@@ -285,12 +285,19 @@ export class QuizService {
 
         // After commit, handle image upload
         if (pendingImageUpload) {
-          imageName = await this.handleImageUpload(pendingImageUpload);
-          // Update quiz with new image name
-          await this.dbService
-            .connection(QUIZZ_SCHEMA.TABLE)
-            .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
-            .update({ image: imageName });
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update quiz with new image name
+            await this.dbService
+              .connection(QUIZZ_SCHEMA.TABLE)
+              .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+          } catch (imageError) {
+            this.logger.error(
+              `Failed to upload image for quiz ID ${insertedId}`,
+              imageError
+            );
+          }
         }
 
         // TODO: Cache Manager
@@ -491,16 +498,23 @@ export class QuizService {
       await trx.commit();
 
       // After commit, handle image upload/delete
-      if (pendingImageDelete) {
-        await this.deleteQuizImages(pendingImageDelete);
-      }
-      if (pendingImageUpload) {
-        imageName = await this.handleImageUpload(pendingImageUpload);
-        // Update quiz with new image name
-        await this.dbService
-          .connection(QUIZZ_SCHEMA.TABLE)
-          .where(QUIZZ_SCHEMA.FIELDS.ID, id)
-          .update({ image: imageName });
+      try {
+        if (pendingImageDelete) {
+          await this.deleteQuizImages(pendingImageDelete);
+        }
+        if (pendingImageUpload) {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update quiz with new image name
+          await this.dbService
+            .connection(QUIZZ_SCHEMA.TABLE)
+            .where(QUIZZ_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+        }
+      } catch (imageError) {
+        this.logger.error(
+          `Failed to upload/delete image for quiz ID ${id}`,
+          imageError
+        );
       }
 
       // TODO: Cache Manager
