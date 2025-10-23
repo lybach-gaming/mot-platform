@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, ValidationPipe } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -6,6 +6,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
+import { UserStatisticsQueryDto } from './dto/dashboard.dto';
 
 @Controller('v2')
 @ApiTags('Admin Dashboard')
@@ -42,9 +43,11 @@ export class DashboardController {
     description: 'Force sync data',
   })
   async getUserStatistics(
-    @Query('filterType') filterType: 'day' | 'week' | 'month',
-    @Query('syncNow') syncNow?: boolean
+    @Query(ValidationPipe) query: UserStatisticsQueryDto
   ) {
-    return await this.dashboardService.getUserStatistics(filterType, syncNow);
+    return await this.dashboardService.getUserStatistics(
+      query.filterType,
+      query.syncNow
+    );
   }
 }

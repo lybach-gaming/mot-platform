@@ -23,11 +23,6 @@ describe('DashboardService', () => {
 
   const mockDbService = {
     connection: {
-      transaction: jest.fn(() => ({
-        ...mockQueryBuilder,
-        commit: jest.fn(),
-        rollback: jest.fn(),
-      })),
       table: jest.fn(() => mockQueryBuilder),
       raw: jest.fn(),
     },

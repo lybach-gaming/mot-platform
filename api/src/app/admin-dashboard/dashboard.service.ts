@@ -35,9 +35,10 @@ export class DashboardService {
   ) {}
 
   private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+
     return `${year}-${month}-${day}`;
   }
 
@@ -269,18 +270,14 @@ export class DashboardService {
           SELECT COUNT(${USERS_SCHEMA.FIELDS.ID})
           FROM ${USERS_SCHEMA.TABLE}
           WHERE YEAR(${USERS_SCHEMA.FIELDS.DATE_REGISTERED}) = ?
-          AND MONTHNAME(${USERS_SCHEMA.FIELDS.DATE_REGISTERED}) = ${MONTH_WEEK_SCHEMA.TABLE}.${MONTH_WEEK_SCHEMA.FIELDS.NAME}
+          AND MONTH(${USERS_SCHEMA.FIELDS.DATE_REGISTERED}) = ${MONTH_WEEK_SCHEMA.TABLE}.${MONTH_WEEK_SCHEMA.FIELDS.ID}
           GROUP BY MONTH(${USERS_SCHEMA.FIELDS.DATE_REGISTERED})
         ), 0) as user_count
       `,
           [date.getFullYear()]
         )
       )
-      .orderBy(
-        connection.raw(
-          `MONTH(STR_TO_DATE(${MONTH_WEEK_SCHEMA.FIELDS.NAME}, '%M'))`
-        )
-      );
+      .orderBy(MONTH_WEEK_SCHEMA.FIELDS.ID);
   }
 
   private async getWeeklyStats(connection: any, date: Date) {
