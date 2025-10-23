@@ -8,3 +8,6 @@ export enum QuestionSortBy {
   QUESTION = 'question',
   QUESTION_TYPE = 'question_type',
 }
+
+// Constants for maximum batch size when creating questions
+export const MAX_BATCH_SIZE = 100;

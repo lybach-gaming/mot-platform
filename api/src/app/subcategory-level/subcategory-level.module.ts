@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { SubcategoryLevelController } from './subcategory-level.controller';
 import { SubcategoryLevelService } from './subcategory-level.service';
 import { FaqModule } from '../faq/faq.module';
-import { WebSeoModule } from './../web-seo/web-seo.module';
+import { WebSeoModule } from '../web-seo/web-seo.module';
+import { HelpersModule } from '../helpers/helpers.module';
 
 @Module({
-  imports: [WebSeoModule, FaqModule],
+  imports: [WebSeoModule, FaqModule, HelpersModule],
   controllers: [SubcategoryLevelController],
   providers: [SubcategoryLevelService],
   exports: [SubcategoryLevelService],

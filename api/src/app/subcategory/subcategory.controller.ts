@@ -119,12 +119,26 @@ export class SubcategoryController {
     default: OrderBy.DESC,
     description: 'Sorting direction',
   })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by main category',
+  })
   async getAllSubcategories(
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: SubcategorySortBy = SubcategorySortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('categoryId') categoryId?: number
   ) {
     return await this.subcategoryService.getAllSubcategories({
       limit,
@@ -132,6 +146,8 @@ export class SubcategoryController {
       search,
       sortBy,
       order,
+      languageId,
+      categoryId,
     });
   }
 
