@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateLanguageDto {
@@ -28,11 +28,11 @@ export class CreateLanguageDto {
     example: 1,
     enum: [0, 1],
     type: Number,
+    required: false,
     default: 0,
-    required: true,
   })
   @IsNumber()
-  @IsNotEmpty()
+  @IsIn([0, 1])
   @Type(() => Number)
   status!: number;
 
@@ -41,11 +41,11 @@ export class CreateLanguageDto {
     example: 1,
     enum: [0, 1],
     type: Number,
+    required: false,
     default: 0,
-    required: true,
   })
   @IsNumber()
-  @IsNotEmpty()
+  @IsIn([0, 1])
   @Type(() => Number)
   type!: number;
 }

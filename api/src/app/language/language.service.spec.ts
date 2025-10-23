@@ -2,17 +2,43 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LanguageService } from './language.service';
 import { DatabaseService } from '../../core/database/database.service';
 import { CategoryService } from '../category/category.service';
-import { Logger } from '@nestjs/common';
 
 describe('LanguageService', () => {
   let service: LanguageService;
   let dbService: DatabaseService;
   let categoryService: CategoryService;
 
+  // Mock transaction functions using jest.fn()
+  const mockTransactionFn = jest.fn();
+  const mockTableFn = jest.fn();
+  const mockWhereFn = jest.fn();
+  const mockFirstFn = jest.fn();
+  const mockInsertFn = jest.fn();
+  const mockUpdateFn = jest.fn();
+  const mockDeleteFn = jest.fn();
+  const mockLeftJoinFn = jest.fn();
+  const mockSelectFn = jest.fn();
+  const mockOrderByFn = jest.fn();
+  const mockLimitFn = jest.fn();
+  const mockOffsetFn = jest.fn();
+
+  // Setup mock DB service with chainable methods
   const mockDbService = {
     connection: {
-      transaction: jest.fn(),
-      table: jest.fn(),
+      transaction: jest.fn(() => mockTransactionFn),
+      table: jest.fn(() => ({
+        where: mockWhereFn.mockReturnThis(),
+        whereIn: jest.fn().mockReturnThis(),
+        first: mockFirstFn,
+        insert: mockInsertFn,
+        update: mockUpdateFn,
+        del: mockDeleteFn,
+        leftJoin: mockLeftJoinFn.mockReturnThis(),
+        select: mockSelectFn.mockReturnThis(),
+        orderBy: mockOrderByFn.mockReturnThis(),
+        limit: mockLimitFn.mockReturnThis(),
+        offset: mockOffsetFn.mockReturnThis(),
+      })),
       raw: jest.fn((sql) => sql),
     },
   };
@@ -21,11 +47,19 @@ describe('LanguageService', () => {
     deleteCategories: jest.fn(),
   };
 
-  const mockTransaction = {
+  // Setup mock transaction object with proper function chains
+  const mockTransaction = Object.assign(jest.fn(), {
     commit: jest.fn(),
     rollback: jest.fn(),
-    table: jest.fn(),
-  };
+    table: jest.fn(() => ({
+      where: jest.fn().mockReturnThis(),
+      whereIn: jest.fn().mockReturnThis(),
+      first: jest.fn(),
+      insert: jest.fn(),
+      update: jest.fn(),
+      del: jest.fn(),
+    })),
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -39,10 +73,12 @@ describe('LanguageService', () => {
     service = module.get<LanguageService>(LanguageService);
     dbService = module.get<DatabaseService>(DatabaseService);
     categoryService = module.get<CategoryService>(CategoryService);
-  });
 
-  afterEach(() => {
+    // Reset all mocks before each test
     jest.clearAllMocks();
+
+    // Setup default transaction mock
+    mockDbService.connection.transaction.mockResolvedValue(mockTransaction);
   });
 
   describe('createLanguage', () => {
@@ -54,16 +90,12 @@ describe('LanguageService', () => {
         type: 1,
       };
 
+      // Mock transaction table chain
       mockTransaction.table.mockReturnValue({
         insert: jest.fn().mockResolvedValueOnce([1]),
-        where: jest.fn().mockReturnValue({
-          first: jest.fn().mockResolvedValueOnce({ id: 1, ...createDto }),
-        }),
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValueOnce({ id: 1, ...createDto }),
       });
-
-      mockDbService.connection.transaction.mockResolvedValueOnce(
-        mockTransaction
-      );
 
       const result = await service.createLanguage(createDto);
 
@@ -149,15 +181,19 @@ describe('LanguageService', () => {
         { id: 1, language: 'English', code: 'en', status: 1, type: 1 },
       ];
 
-      mockDbService.connection.table.mockReturnValue({
+      const mockQueryChain = {
         where: jest.fn().mockReturnThis(),
         whereIn: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        offset: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        count: jest.fn().mockResolvedValueOnce([{ total: 1 }]),
-        select: jest.fn().mockResolvedValueOnce(mockLanguages),
-      });
+        offset: jest.fn().mockReturnThis(),
+      };
+
+      mockQueryChain.select.mockResolvedValueOnce(mockLanguages);
+      mockDbService.connection.table.mockReturnValue(mockQueryChain);
+      mockDbService.connection.raw.mockReturnValue([{ total: 1 }]);
 
       const result = await service.getAllLanguages(query);
 
@@ -176,15 +212,14 @@ describe('LanguageService', () => {
       const ids = [1, 2];
       const mockCategories = [{ id: 1 }, { id: 2 }];
 
-      mockTransaction.table.mockReturnValue({
+      // Setup proper transaction chain
+      const mockTrxChain = {
         whereIn: jest.fn().mockReturnThis(),
         select: jest.fn().mockResolvedValueOnce(mockCategories),
         del: jest.fn().mockResolvedValueOnce(2),
-      });
+      };
 
-      mockDbService.connection.transaction.mockResolvedValueOnce(
-        mockTransaction
-      );
+      mockTransaction.table.mockReturnValue(mockTrxChain);
 
       const result = await service.deleteLanguages(ids);
 

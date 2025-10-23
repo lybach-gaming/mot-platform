@@ -1,4 +1,4 @@
-// Enum for Category sorting options
+// Enum for Language sorting options
 export enum LanguageSortBy {
   ID = 'id',
   LANGUAGE = 'language',

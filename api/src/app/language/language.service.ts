@@ -1,12 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { CategoryService } from '../category/category.service';
-import { OrderBy } from '../../common/constants/app';
+import { OrderBy, MAX_LIMIT } from '../../common/constants/app';
 import { LanguageDetailDto } from './dto/language.dto';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { EditLanguageDto } from './dto/edit-language.dto';
 import { LanguageSortBy } from '../../common/constants/language';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -73,9 +74,9 @@ export class LanguageService {
         });
 
         // Insert the language
-        const [insertedId] = await trx(LANGUAGE_SCHEMA.TABLE)
-          .insert(languageData)
-          .returning(LANGUAGE_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(LANGUAGE_SCHEMA.TABLE).insert(
+          languageData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -131,6 +132,7 @@ export class LanguageService {
       await this.categoryService.deleteCategories(categoryIds);
     }
 
+    await trx.commit();
     // TODO: Delete related game modes: Daily Quiz, True/False Quiz, Quiz By Language, Exam Quiz, and Blogs
     // Will implement after having these modules
   }
@@ -219,8 +221,38 @@ export class LanguageService {
       type,
     } = query;
 
-    if (limit < 0 || offset < 0) {
-      throw new Error('Limit and offset must be positive numbers');
+    const filterIds = {
+      status,
+      type,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      status: 'Status',
+      type: 'Type',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new BadRequestException(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
+    // Add validation for limit and offset
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
+    }
+
+    if (limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
     }
 
     const validSortFields = Object.values(LanguageSortBy);
@@ -287,10 +319,14 @@ export class LanguageService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      languages: results,
+      error: false,
+      message: 'Languages retrieved successfully',
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        languages: results,
+      },
     };
   }
 
@@ -300,7 +336,7 @@ export class LanguageService {
    * @returns Detailed language information or error response
    */
   async getLanguageAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Language ID is required',

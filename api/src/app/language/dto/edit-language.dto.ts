@@ -1,5 +1,5 @@
 import { CreateLanguageDto } from './create-language.dto';
 import { PartialType } from '@nestjs/swagger';
 
-// Just change the status of the language
+// All fields from CreateLanguageDto are optional for editing
 export class EditLanguageDto extends PartialType(CreateLanguageDto) {}
