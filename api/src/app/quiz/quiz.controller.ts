@@ -63,53 +63,7 @@ export class QuizController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Edit an existing quiz',
-    schema: {
-      type: 'object',
-      properties: {
-        image_file: { type: 'string', format: 'binary' },
-        language_id: { type: 'number' },
-        quiz_mode: { type: 'number' },
-        maincat_id: { type: 'number' },
-        main_subcat_id: { type: 'number' },
-        main_subcat_level_id: { type: 'number', nullable: true },
-        quizz_name: { type: 'string' },
-        slug: { type: 'string' },
-        status: { type: 'string', enum: ['Active', 'Deactive'] },
-        image: { type: 'string', format: 'binary', nullable: true },
-        web_seo: {
-          type: 'object',
-          properties: {
-            sub_heading: { type: 'string' },
-            seo_block: { type: 'string' },
-            meta_title: { type: 'string' },
-            meta_description: { type: 'string' },
-            meta_keywords: { type: 'string' },
-            schema_markup: { type: 'string' },
-            sponsor_link: { type: 'string' },
-            sponsor_name: { type: 'string' },
-          },
-        },
-        enable_faq: { type: 'boolean' },
-        questions: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-        answers: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-        edit_faq_ids: {
-          type: 'array',
-          items: { type: 'number' },
-          description:
-            'IDs of FAQs to edit or keep, which not included will be deleted',
-        },
-        is_featured: { type: 'boolean', nullable: true },
-        is_coming_soon: { type: 'boolean', nullable: true },
-        is_pinned: { type: 'boolean', nullable: true },
-        is_send_notice: { type: 'boolean', nullable: true },
-      },
-    },
+    type: EditQuizDto,
   })
   @Put('/admin/quizzes/:id')
   @UseInterceptors(FileInterceptor('image_file'))
@@ -161,12 +115,40 @@ export class QuizController {
     default: OrderBy.DESC,
     description: 'Sorting direction',
   })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by main category',
+  })
+  @ApiQuery({
+    name: 'subcategoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category',
+  })
+  @ApiQuery({
+    name: 'subcategoryLevelId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category level',
+  })
   async getAllQuizzes(
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: QuizSortBy = QuizSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('categoryId') categoryId?: number,
+    @Query('subcategoryId') subcategoryId?: number,
+    @Query('subcategoryLevelId') subcategoryLevelId?: number
   ) {
     return await this.quizService.getAllQuizzes({
       limit,
@@ -174,6 +156,10 @@ export class QuizController {
       search,
       sortBy,
       order,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
     });
   }
 

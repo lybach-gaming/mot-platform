@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from '../web-seo/web-seo.service';
 import { FaqService } from '../faq/faq.service';
+import { HelpersService } from '../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -21,6 +22,7 @@ import {
   FUN_N_LEARN_IMAGE_PATH,
   GUESS_THE_WORD_IMAGE_PATH,
   AUDIO_QUESTION_PATH,
+  MAX_LIMIT,
   OrderBy,
   QuizMode,
   TypeModeGame,
@@ -30,8 +32,9 @@ import { SubcategoryDetailDto } from './dto/subcategory.dto';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
 import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
 import { SubcategorySortBy } from '../../common/constants/subcategory';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -56,7 +59,8 @@ export class SubcategoryService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -80,22 +84,6 @@ export class SubcategoryService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, SUBCATEGORY_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build subcategory data object from DTO
    * @param dto - The DTO containing subcategory data
    * @param existingSubcategory - Optional existing subcategory data for updates
@@ -113,6 +101,7 @@ export class SubcategoryService {
       SUBCATEGORY_SCHEMA.FIELDS.STATUS,
       SUBCATEGORY_SCHEMA.FIELDS.IS_PREMIUM,
       SUBCATEGORY_SCHEMA.FIELDS.COINS,
+      SUBCATEGORY_SCHEMA.FIELDS.ROW_ORDER,
       SUBCATEGORY_SCHEMA.FIELDS.ENABLE_FAQ,
       SUBCATEGORY_SCHEMA.FIELDS.LEVEL,
       SUBCATEGORY_SCHEMA.FIELDS.IS_COMING_SOON,
@@ -145,6 +134,11 @@ export class SubcategoryService {
         subcategoryData[field] = 1;
       } else if (
         !existingSubcategory &&
+        field === SUBCATEGORY_SCHEMA.FIELDS.ROW_ORDER
+      ) {
+        subcategoryData[field] = 0;
+      } else if (
+        !existingSubcategory &&
         field === SUBCATEGORY_SCHEMA.FIELDS.LEVEL
       ) {
         subcategoryData[field] = 0;
@@ -173,34 +167,56 @@ export class SubcategoryService {
       try {
         // Generate and format slug
         if (createSubcategoryDto.slug) {
-          // If slug is provided, format it
-          createSubcategoryDto.slug = generateSlug(createSubcategoryDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createSubcategoryDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createSubcategoryDto.slug
+            );
+            if (!isUnique) {
+              await trx.rollback();
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createSubcategoryDto.subcategory_name) {
           // If no slug is provided, generate it from subcategory name
-          createSubcategoryDto.slug = generateSlug(
-            createSubcategoryDto.subcategory_name
-          );
+          createSubcategoryDto.slug =
+            await this.helpersService.ensureValidAndUnique(
+              createSubcategoryDto.subcategory_name
+            );
         }
 
         // Handle image upload if present
+        let pendingImageUpload: Express.Multer.File | null = null;
         let imageName = '';
         if (createSubcategoryDto.image_file) {
-          imageName = await this.handleImageUpload(
-            createSubcategoryDto.image_file
-          );
+          pendingImageUpload = createSubcategoryDto.image_file;
         }
 
         // Extract only the fields that belong to subcategory table
         const subcategoryData = this.buildSubcategoryDataFromDto({
           ...createSubcategoryDto,
-          image: imageName, // Set image if uploaded
         });
-        subcategoryData.row_order = 0; // default
+        subcategoryData.image = imageName;
 
         // Insert the subcategory
-        const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE)
-          .insert(subcategoryData)
-          .returning(SUBCATEGORY_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(SUBCATEGORY_SCHEMA.TABLE).insert(
+          subcategoryData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -236,11 +252,27 @@ export class SubcategoryService {
         // Commit transaction after all operations are done
         await trx.commit();
 
+        // After commit, handle image upload
+        if (pendingImageUpload) {
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update subcategory with new image name
+            await this.dbService
+              .connection(SUBCATEGORY_SCHEMA.TABLE)
+              .where(SUBCATEGORY_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+
+            createdSubcategory.image = imageName;
+          } catch (imageError) {
+            this.logger.error(
+              `Image upload failed for Subcategory ID ${insertedId}`,
+              imageError
+            );
+          }
+        }
+
         // TODO: Cache Manager
         // Will implement in separate cache manager service
-
-        // TODO: Send notification if is_send_notice is true
-        // Will implement in separate notification service
 
         return {
           error: false,
@@ -253,7 +285,7 @@ export class SubcategoryService {
       }
     } catch (error) {
       this.logger.error('Error creating subcategory', error);
-      throw (new Error('Error creating subcategory'), { cause: error });
+      throw new Error('Error creating subcategory', { cause: error });
     }
   }
 
@@ -262,7 +294,7 @@ export class SubcategoryService {
    *
    * @param id - ID of the subcategory to edit
    * @param editSubcategoryDto - Data for editing the subcategory
-   * @returns Updated quiz data or error response
+   * @returns Updated subcategory data or error response
    */
   async editSubcategory(id: number, dto: EditSubcategoryDto) {
     const trx = await this.dbService.connection.transaction();
@@ -279,22 +311,94 @@ export class SubcategoryService {
         };
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(WEB_SEO_SCHEMA.FIELDS.SUBCATEGORY_ID, id)
+        .andWhere(WEB_SEO_SCHEMA.FIELDS.TYPE, TypeModeGame.SUBCATEGORY)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Subcategory SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.subcategory_name) {
-        dto.slug = generateSlug(dto.subcategory_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id,
+            {
+              table: WEB_SEO_SCHEMA.TABLE,
+              idField: WEB_SEO_SCHEMA.FIELDS.ID,
+              slugField: WEB_SEO_SCHEMA.FIELDS.SLUG,
+            }
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.subcategory_name) {
+          // Case 2: No existing slug, generate from subcategory name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.subcategory_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
-      if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+      let pendingImageDelete: string | null = null;
+      let pendingImageUpload: Express.Multer.File | null = null;
+
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
       }
 
-      // Quiz data
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        pendingImageDelete = existing.image;
+        imageName = '';
+      }
+
+      // Check image_file next
+      if (dto.image_file) {
+        if (existing.image) {
+          pendingImageDelete = existing.image;
+        }
+        pendingImageUpload = dto.image_file;
+      }
+
+      // Subcategory data
       const subcategoryData = this.buildSubcategoryDataFromDto(dto, existing);
       if (imageName !== existing.image) {
         subcategoryData.image = imageName;
@@ -413,6 +517,39 @@ export class SubcategoryService {
         .first();
       await trx.commit();
 
+      // After commit, handle image upload/delete
+      if (pendingImageDelete) {
+        try {
+          await this.deleteAllRelatedImages(
+            pendingImageDelete,
+            SUBCATEGORY_IMAGE_PATH
+          );
+        } catch (imageError) {
+          this.logger.error(
+            `Image deletion failed for Subcategory ID ${id}`,
+            imageError
+          );
+        }
+      }
+
+      if (pendingImageUpload) {
+        try {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update subcategory with new image name
+          await this.dbService
+            .connection(SUBCATEGORY_SCHEMA.TABLE)
+            .where(SUBCATEGORY_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+
+          updatedSubcategory.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Image upload failed for Subcategory ID ${id}`,
+            imageError
+          );
+        }
+      }
+
       // TODO: Cache Manager
       // Will implement in separate cache manager service
 
@@ -439,6 +576,8 @@ export class SubcategoryService {
     search?: string;
     sortBy?: SubcategorySortBy;
     order?: OrderBy.DESC | OrderBy.ASC;
+    languageId?: number;
+    categoryId?: number;
   }) {
     const {
       limit = 20,
@@ -446,7 +585,43 @@ export class SubcategoryService {
       search,
       sortBy = SubcategorySortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      categoryId,
     } = query;
+
+    const filterIds = {
+      languageId,
+      categoryId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new BadRequestException(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
+    // Add validation
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
+    }
+
+    if (limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
+    }
 
     const validSortFields = Object.values(SubcategorySortBy);
     const sortField = validSortFields.includes(sortBy)
@@ -477,15 +652,29 @@ export class SubcategoryService {
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
 
+    // Add filter conditions
+    if (languageId) {
+      db.where('s.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('s.maincat_id', categoryId);
+    }
+
     // Search by subcategory name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`s.${SUBCATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
+          .where(
+            `s.${SUBCATEGORY_SCHEMA.FIELDS.NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
           .orWhere(
             `s.${SUBCATEGORY_SCHEMA.FIELDS.SLUG}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -500,11 +689,11 @@ export class SubcategoryService {
 
     const results = subcategories.map((subcategory) => {
       const image = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
         : null;
 
       const thumbnail = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
+        ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
         : null;
 
       const prefixLang = subcategory.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -521,10 +710,14 @@ export class SubcategoryService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      subcategories: results,
+      error: false,
+      message: 'Subcategories retrieved successfully',
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        subcategories: results,
+      },
     };
   }
 
@@ -534,7 +727,7 @@ export class SubcategoryService {
    * @returns Detailed subcategory information or error response
    */
   async getSubcategoryAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Subcategory ID is required',
@@ -571,7 +764,6 @@ export class SubcategoryService {
           data: null,
         };
       }
-      subcategory.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this subcategory
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -580,26 +772,26 @@ export class SubcategoryService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.SUBCATEGORY,
         })
         .select('*');
-      if (faq) {
-        subcategory.faq = faq;
-      }
 
       // Format image URLs
-      const image = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${subcategory.image}`
-        : null;
-      const thumbnail = subcategory.image
-        ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH_SMALL}${subcategory.image}`
-        : null;
-      subcategory.image_url = image;
-      subcategory.thumbnail_url = thumbnail;
+      const getSubcategoryDetail = {
+        ...subcategory,
+        image_url: subcategory.image
+          ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, subcategory.image)
+          : null,
+        thumbnail_url: subcategory.image
+          ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH_SMALL, subcategory.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
-      // Return formatted quiz data
+      // Return formatted subcategory data
       await trx.commit();
       return {
         error: false,
         message: 'Subcategory details retrieved successfully',
-        data: transformToString(subcategory),
+        data: transformToString(getSubcategoryDetail),
       };
     } catch (error) {
       await trx.rollback();
@@ -1005,10 +1197,10 @@ export class SubcategoryService {
       const result: SubcategoryDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_IMAGE_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_IMAGE_PATH, data.image)
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${SUBCATEGORY_THUMB_PATH}${data.image}`
+          ? urlJoin(BASE_URL, SUBCATEGORY_THUMB_PATH, data.image)
           : '',
         has_unlocked: 0,
         faq,

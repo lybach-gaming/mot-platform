@@ -21,3 +21,5 @@ export * from './math_question.schema';
 export * from './month_week.schema';
 export * from './admin.schema';
 export * from './contest.schema';
+export * from './blog.schema';
+export * from './blog-category.schema';
