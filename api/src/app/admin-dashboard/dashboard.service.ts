@@ -222,9 +222,11 @@ export class DashboardService {
     connection: any,
     today: string
   ): Promise<number> {
+    const startOfDay = `${today} 00:00:00`;
+    const endOfDay = `${today} 23:59:59`;
     const result = await connection(CONTEST_SCHEMA.TABLE)
-      .where(`${CONTEST_SCHEMA.FIELDS.START_DATE}`, '<=', today)
-      .where(`${CONTEST_SCHEMA.FIELDS.END_DATE}`, '>', today)
+      .where(CONTEST_SCHEMA.FIELDS.START_DATE, '<=', endOfDay)
+      .where(CONTEST_SCHEMA.FIELDS.END_DATE, '>=', startOfDay)
       .count('* as count')
       .first();
     return Number(result?.count || 0);
@@ -302,11 +304,7 @@ export class DashboardService {
           [currentMonth, currentYear]
         )
       )
-      .orderBy(
-        connection.raw(
-          `FIELD(${MONTH_WEEK_SCHEMA.FIELDS.NAME}, 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')`
-        )
-      );
+      .orderBy(MONTH_WEEK_SCHEMA.FIELDS.ID);
   }
 
   private async getDailyStats(connection: any, date: Date) {
