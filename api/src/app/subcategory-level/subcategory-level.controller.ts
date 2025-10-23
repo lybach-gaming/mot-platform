@@ -121,12 +121,33 @@ export class SubcategoryLevelController {
     default: OrderBy.DESC,
     description: 'Sorting direction',
   })
+  @ApiQuery({
+    name: 'languageId',
+    required: false,
+    type: Number,
+    description: 'Filter by language',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by main category',
+  })
+  @ApiQuery({
+    name: 'subcategoryId',
+    required: false,
+    type: Number,
+    description: 'Filter by sub category',
+  })
   async getAllSubcategoryLevels(
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
     @Query('search') search?: string,
     @Query('sortBy') sortBy: SubcategoryLevelSortBy = SubcategoryLevelSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
+    @Query('order') order: OrderBy = OrderBy.DESC,
+    @Query('languageId') languageId?: number,
+    @Query('categoryId') categoryId?: number,
+    @Query('subcategoryId') subcategoryId?: number
   ) {
     return await this.subcategoryLevelService.getAllSubcategoryLevels({
       limit,
@@ -134,6 +155,9 @@ export class SubcategoryLevelController {
       search,
       sortBy,
       order,
+      languageId,
+      categoryId,
+      subcategoryId,
     });
   }
 
