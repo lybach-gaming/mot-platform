@@ -34,6 +34,11 @@ export class DashboardService {
     private readonly redisService: RedisService
   ) {}
 
+  /**
+   * * Formats a Date object to 'YYYY-MM-DD' string.
+   * * @param date - The Date object to format.
+   * * @returns A string representing the formatted date.
+   */
   private formatDate(date: Date): string {
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -42,6 +47,11 @@ export class DashboardService {
     return `${year}-${month}-${day}`;
   }
 
+  /**
+   * * Retrieves dashboard counts with caching.
+   * * @param syncNow - If true, bypasses the cache and fetches fresh data.
+   * * @returns An object containing dashboard counts.
+   */
   async getDashboardCounts(syncNow = false) {
     const cacheKey = this.CACHE_CONFIG.keys.counts;
 
@@ -76,6 +86,12 @@ export class DashboardService {
     }
   }
 
+  /**
+   * * Retrieves user statistics based on the specified filter type with caching.
+   * * @param filterType - The type of filter ('day', 'week', 'month').
+   * * @param syncNow - If true, bypasses the cache and fetches fresh data.
+   * * @returns An object containing user statistics.
+   */
   async getUserStatistics(
     filterType: 'day' | 'week' | 'month',
     syncNow = false
@@ -111,6 +127,12 @@ export class DashboardService {
     }
   }
 
+  /**
+   * * Fetches all dashboard counts from the database.
+   * * @param connection - The database connection object.
+   * * @param today - The current date in 'YYYY-MM-DD' format.
+   * * @returns An object containing all dashboard counts.
+   */
   private async fetchAllCounts(connection: any, today: string) {
     const [
       languages,
@@ -153,6 +175,11 @@ export class DashboardService {
     };
   }
 
+  /**
+   * * Fetches user statistics based on the specified filter type.
+   * * @param filterType - The type of filter ('day', 'week', 'month').
+   * * @returns An array of user statistics.
+   */
   private async fetchUserStats(filterType: 'day' | 'week' | 'month') {
     const connection = this.dbService.connection;
     const today = new Date();
@@ -167,6 +194,12 @@ export class DashboardService {
     }
   }
 
+  /**
+   * * Fetches system statistics: language, category, subcategory, quiz, question counts. user registrations etc.
+   * * @param connection - The database connection object.
+   * * @param date - The current date.
+   * * @returns An array of daily statistics.
+   */
   private async getLanguageCount(connection: any): Promise<number> {
     const result = await connection(LANGUAGE_SCHEMA.TABLE)
       .where(LANGUAGE_SCHEMA.FIELDS.STATUS, 1)
@@ -261,6 +294,12 @@ export class DashboardService {
     return Number(result?.count || 0);
   }
 
+  /**
+   * * * Fetches monthly user registration statistics.
+   * * @param connection - The database connection object.
+   * * @param date - The current date.
+   * * @returns An array of monthly statistics.
+   */
   private async getMonthlyStats(connection: any, date: Date) {
     return await connection(MONTH_WEEK_SCHEMA.TABLE)
       .where(MONTH_WEEK_SCHEMA.FIELDS.TYPE, 1)
@@ -282,6 +321,12 @@ export class DashboardService {
       .orderBy(MONTH_WEEK_SCHEMA.FIELDS.ID);
   }
 
+  /**
+   * * * Fetches weekly user registration statistics.
+   * * @param connection - The database connection object.
+   * * @param date - The current date.
+   * * @returns An array of weekly statistics.
+   */
   private async getWeeklyStats(connection: any, date: Date) {
     const currentMonth = date.getMonth() + 1;
     const currentYear = date.getFullYear();
@@ -307,6 +352,12 @@ export class DashboardService {
       .orderBy(MONTH_WEEK_SCHEMA.FIELDS.ID);
   }
 
+  /**
+   * * * Fetches daily user registration statistics.
+   * * @param connection - The database connection object.
+   * * @param date - The current date.
+   * * @returns An array of daily statistics.
+   */
   private async getDailyStats(connection: any, date: Date) {
     const currentMonth = date.getMonth() + 1;
     const currentYear = date.getFullYear();
