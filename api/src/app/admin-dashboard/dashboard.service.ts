@@ -58,7 +58,12 @@ export class DashboardService {
     if (!syncNow) {
       const cachedData = await this.redisService.get(cacheKey);
       if (cachedData) {
-        return JSON.parse(cachedData);
+        try {
+          return JSON.parse(cachedData);
+        } catch (error) {
+          this.logger.warn('Corrupted cache entry, fetching fresh data', error);
+          await this.redisService.del(cacheKey);
+        }
       }
     }
 
@@ -101,7 +106,12 @@ export class DashboardService {
     if (!syncNow) {
       const cachedData = await this.redisService.get(cacheKey);
       if (cachedData) {
-        return JSON.parse(cachedData);
+        try {
+          return JSON.parse(cachedData);
+        } catch (error) {
+          this.logger.warn('Corrupted cache entry, fetching fresh data', error);
+          await this.redisService.del(cacheKey);
+        }
       }
     }
 

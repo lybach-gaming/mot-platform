@@ -3,6 +3,6 @@ export const MONTH_WEEK_SCHEMA = {
   FIELDS: {
     ID: 'id',
     NAME: 'name',
-    TYPE: 'type', // 1: month, 2: week
+    TYPE: 'type', // 1: month, 2: weekday
   },
 };

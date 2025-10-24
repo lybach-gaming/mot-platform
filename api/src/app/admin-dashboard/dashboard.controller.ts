@@ -6,7 +6,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
-import { UserStatisticsQueryDto } from './dto/dashboard.dto';
+import {
+  UserStatisticsQueryDto,
+  DashboardCountsQueryDto,
+} from './dto/dashboard.dto';
 
 @Controller('v2')
 @ApiTags('Admin Dashboard')
@@ -23,8 +26,10 @@ export class DashboardController {
     required: false,
     description: 'Force sync data',
   })
-  async getDashboardCounts(@Query('syncNow') syncNow?: boolean) {
-    return await this.dashboardService.getDashboardCounts(syncNow);
+  async getDashboardCounts(
+    @Query(ValidationPipe) query: DashboardCountsQueryDto
+  ) {
+    return await this.dashboardService.getDashboardCounts(query.syncNow);
   }
 
   // [Admin] Endpoint to get user registration statistics
