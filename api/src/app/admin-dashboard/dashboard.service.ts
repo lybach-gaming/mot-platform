@@ -315,7 +315,7 @@ export class DashboardService {
           GROUP BY MONTH(${USERS_SCHEMA.FIELDS.DATE_REGISTERED})
         ), 0) as user_count
       `,
-          [date.getFullYear()]
+          [date.getUTCFullYear()]
         )
       )
       .orderBy(MONTH_WEEK_SCHEMA.FIELDS.ID);
@@ -328,8 +328,8 @@ export class DashboardService {
    * * @returns An array of weekly statistics.
    */
   private async getWeeklyStats(connection: any, date: Date) {
-    const currentMonth = date.getMonth() + 1;
-    const currentYear = date.getFullYear();
+    const currentMonth = date.getUTCMonth() + 1;
+    const currentYear = date.getUTCFullYear();
 
     return await connection(MONTH_WEEK_SCHEMA.TABLE)
       .where(MONTH_WEEK_SCHEMA.FIELDS.TYPE, 2)
@@ -359,8 +359,8 @@ export class DashboardService {
    * * @returns An array of daily statistics.
    */
   private async getDailyStats(connection: any, date: Date) {
-    const currentMonth = date.getMonth() + 1;
-    const currentYear = date.getFullYear();
+    const currentMonth = date.getUTCMonth() + 1;
+    const currentYear = date.getUTCFullYear();
 
     return await connection(USERS_SCHEMA.TABLE)
       .select(
