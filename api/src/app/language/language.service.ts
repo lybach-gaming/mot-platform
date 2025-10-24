@@ -280,11 +280,11 @@ export class LanguageService {
       );
 
     // Add filter conditions
-    if (status) {
+    if (status !== undefined) {
       db.where('l.status', status); // 0 = Disabled, 1 = Enabled
     }
 
-    if (type) {
+    if (type !== undefined) {
       db.where('l.type', type); // 0 = Inactive, 1 = Active
     }
 
@@ -379,7 +379,6 @@ export class LanguageService {
    * @param ids - Array of Languages IDs to delete
    * @returns Success or error response
    */
-
   async deleteLanguages(ids: number[]) {
     const trx = await this.dbService.connection.transaction();
     try {

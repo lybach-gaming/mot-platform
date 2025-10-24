@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 export class DeleteLanguagesDto {
   @ApiProperty({
     description:
-      'List of language  IDs to delete permanently from Database and remove all related data (questions, quizzes, etc.). It is not soft delete.',
+      'List of language IDs to delete permanently from Database and remove all related data (questions, quizzes, etc.). It is not soft delete.',
     type: [Number],
   })
   @IsArray()
