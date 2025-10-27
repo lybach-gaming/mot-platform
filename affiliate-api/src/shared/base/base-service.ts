@@ -26,36 +26,41 @@ export abstract class BaseService<T extends CustomBaseEntity> {
     withPagination = true,
     fetchInRaw = false
   ): Promise<PaginationDto<K> | K[]> {
-      const queryBuilder = this.queryFilter.applyFilters(queryParams as QueryFilterDto);
-    
-      let total = 0;
-    
-      // Get total count before applying pagination
-      if (withPagination) {
-          total = await queryBuilder.getCount();
+    const queryBuilder = this.queryFilter.applyFilters(queryParams as QueryFilterDto);
+
+    let total = 0;
+
+    // Get total count before applying pagination
+    if (withPagination) {
+      total = await queryBuilder.getCount();
+    }
+
+    // Apply pagination
+    if (withPagination && queryParams.page && queryParams.limit) {
+      const { page, limit } = queryParams;
+      if (!fetchInRaw) {
+        queryBuilder.skip((page - 1) * limit).take(limit);
       }
-    
-      // Apply pagination
+    }
+    let results;
+    if (!fetchInRaw) {
+      results = await queryBuilder.getMany();
+    } else {
       if (withPagination && queryParams.page && queryParams.limit) {
-          const { page, limit } = queryParams;  
-          console.log("limit", limit)
-          queryBuilder.skip((page - 1) * limit).take(limit);
-      }
-      let results;
-      if (!fetchInRaw){ 
-        results = await queryBuilder.getMany();
-      } else {
         results = await queryBuilder.limit(queryParams.limit).offset((queryParams.page - 1) * queryParams.limit).getRawMany();
+      } else {
+        results = await queryBuilder.getRawMany();
       }
-      // Use an arrow function to bind 'this' to the method
-      const mappedResults = await Promise.all(
-          results.map(entity => mapperFn.call(this, entity))  // Ensures 'this' is correctly bound to the service class
-      );
-    
-      // Return paginated results
-      return withPagination
-        ? new PaginationDto(mappedResults, total, queryParams.page, queryParams.limit)
-        : mappedResults;
+    }
+    // Use an arrow function to bind 'this' to the method
+    const mappedResults = await Promise.all(
+      results.map(entity => mapperFn.call(this, entity))  // Ensures 'this' is correctly bound to the service class
+    );
+
+    // Return paginated results
+    return withPagination
+      ? new PaginationDto(mappedResults, total, queryParams.page, queryParams.limit)
+      : mappedResults;
   }
 
   async isExist(conditions: Partial<T>): Promise<boolean> {
@@ -76,24 +81,30 @@ export abstract class BaseService<T extends CustomBaseEntity> {
 
   async update(id: string, entity: QueryDeepPartialEntity<T>, options?: FindOneOptions<T>): Promise<T> {
     const existing = await this.findOne({ where: { id } as unknown as FindOptionsWhere<T>, ...options });
-  
+
     Object.assign(existing, entity);
     return await this.repository.save(existing);
   }
-  
+
   async delete(id: string): Promise<void> {
     await this.findOne({ where: { id } as FindOptionsWhere<T> });
     await this.repository.delete(id);
   }
-  
+
   async softDelete(id: string): Promise<void> {
     await this.findOne({ where: { id } as FindOptionsWhere<T> });
     await this.repository.softDelete(id);
   }
-  
+
 
   async restore(id: string): Promise<void> {
-    await this.findOne({ where: { id } as FindOptionsWhere<T> });
+    const record = await this.repository.findOne({
+      where: { id } as FindOptionsWhere<T>,
+      withDeleted: true
+    });
+    if (!record) {
+      throw new NotFoundException('Record not found');
+    }
     await this.repository.restore(id);
   }
 

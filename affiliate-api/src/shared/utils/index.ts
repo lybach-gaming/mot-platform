@@ -1,7 +1,7 @@
 
 export const randomSpecialChar = (): string => {
   const specialCharacters = '@$!%()*#?&^<>'
-  const index = Math.floor((specialCharacters.length - 1) * Math.random())
+  const index = Math.floor(Math.random() * specialCharacters.length)
 
   return specialCharacters.substring(index, index + 1)
 }
@@ -38,6 +38,7 @@ export const createSlugSearch = (str: string, forSearch = false): string => {
 }
 
 export const capitalizeFirstLetter = (word: string) => {
+  if (!word) return word
   return word.charAt(0).toUpperCase() + word.slice(1)
 }
 
@@ -96,7 +97,12 @@ export const pluralize = (singularForm: string) => {
   return pluralizeForm
 }
 
-export const zeroPad = (num: number, places: number) => String(num).padStart(places, '0')
+export const zeroPad = (num: number, places: number) => {
+  if (num < 0 || places < 0) {
+    throw new Error('zeroPad requires non-negative inputs')
+  }
+  return String(num).padStart(places, '0')
+}
 
 export const generateRandomString = (length: number): string => {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'

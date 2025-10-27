@@ -9,7 +9,7 @@ import { capitalizeFirstLetter } from '../utils'
 
 @Injectable()
 export class BaseQueryFilter<E extends CustomBaseEntity> {
-  private queryBuilder: SelectQueryBuilder<E>
+  private queryBuilder!: SelectQueryBuilder<E>
 
   constructor(
     @InjectRepository(CustomBaseEntity)
@@ -29,12 +29,12 @@ export class BaseQueryFilter<E extends CustomBaseEntity> {
     filters.forEach((value, index) => {
       const data = value.data
       const key = `${value.operator}${index}`
-  
+
       switch (value.operator) {
         case QUERY_OPERATOR.in:
         case QUERY_OPERATOR.nin:
           this.queryBuilder.andWhere(
-            new Brackets(qb => qb.where(`${value.field} ${value.operator === QUERY_OPERATOR.in ? 'IN' : 'NOT IN'} (:...${key})`, { [key]: data.split(',') }))
+            new Brackets(qb => qb.where(`${value.field} ${value.operator === QUERY_OPERATOR.in ? 'IN' : 'NOT IN'} (:...${key})`, { [key]: data?.split(',') }))
           )
           break
         case QUERY_OPERATOR.eq:
@@ -90,7 +90,7 @@ export class BaseQueryFilter<E extends CustomBaseEntity> {
           break
         case QUERY_OPERATOR.overlapArr:
           this.queryBuilder.andWhere(
-            new Brackets(qb => qb.where(`(${value.field})::varchar[] && ARRAY[:...${key}]::varchar[]`, { [key]: data.split(',') }))
+            new Brackets(qb => qb.where(`(${value.field})::varchar[] && ARRAY[:...${key}]::varchar[]`, { [key]: data?.split(',') }))
           )
           break
         case QUERY_OPERATOR.lowerLike:
@@ -101,44 +101,45 @@ export class BaseQueryFilter<E extends CustomBaseEntity> {
       }
     })
   }
-  
+
 
   private orderByBuilder(orderBy: string) {
+    if (!orderBy) return;
     const [field, sortBy = 'ASC', nulls] = orderBy.split(':');
-  
+
     if (['ASC', 'DESC'].includes(sortBy.toUpperCase())) {
       const nullsOrder = ['NULLS FIRST', 'NULLS LAST'].includes(nulls?.replace('_', ' ').toUpperCase())
         ? (nulls.replace('_', ' ').toUpperCase() as 'NULLS FIRST' | 'NULLS LAST')
         : undefined;
-  
+
       this.queryBuilder.orderBy(field, sortBy.toUpperCase() as 'ASC' | 'DESC', nullsOrder);
     }
   }
 
   private joinBuilder(relations: string[]) {
     const joinedRelations = new Set<string>(); // Track joined paths
-  
-    forEach(relations, expression => {
+
+    forEach(relations, (expression: string) => {
       const parts = expression.split('.'); // Handle nested joins
       let path = this.queryBuilder.alias; // Start from root alias
       let alias = '';
-  
+
       for (const part of parts) {
         alias = capitalizeFirstLetter(part); // Keep alias simple (e.g., "referral" or "user")
         const joinPath = `${path}.${part}`; // Full join path
-  
+
         // Ensure we don’t duplicate joins
-        if (!joinedRelations.has(joinPath) && 
-            !this.queryBuilder.expressionMap.joinAttributes.some(j => j.relationPropertyPath === joinPath)) {
+        if (!joinedRelations.has(joinPath) &&
+          !this.queryBuilder.expressionMap.joinAttributes.some(j => j.relationPropertyPath === joinPath)) {
           this.queryBuilder.leftJoinAndSelect(joinPath, alias);
           joinedRelations.add(joinPath); // Mark as joined
         }
-  
+
         path = alias; // Move deeper for nested joins
       }
     });
   }
-  
+
 
   public applyFilters(queryParams: QueryFilterDto): SelectQueryBuilder<E> {
     this.queryBuilder = this.repository.createQueryBuilder('entity')
