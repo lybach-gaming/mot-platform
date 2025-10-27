@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
+const uuidv4 = () => randomUUID();
 import sharp from 'sharp';
 
 export interface FileUploadOptions {
