@@ -1,8 +1,8 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner, Table, TableIndex, TableUnique } from "typeorm";
 
 export class InitialAffiliateSchema1760413746161 implements MigrationInterface {
 
-public async up(queryRunner: QueryRunner): Promise<void> {
+  public async up(queryRunner: QueryRunner): Promise<void> {
     // projects
     await queryRunner.createTable(new Table({
       name: 'projects',

@@ -17,7 +17,7 @@ export class CacheService {
   }
 
   // Get a value from the cache by key
-  async get<T>(key: string): Promise<string> {
+  async get<T>(key: string): Promise<string | null> {
     return this.redisClient.get(key);
   }
 
@@ -28,7 +28,7 @@ export class CacheService {
 
   // Clear all values from the cache
   async reset(): Promise<void> {
-    await this.redisClient.reset();
+    await this.redisClient.flushdb();
   }
 
   // Get the time to live of a key
