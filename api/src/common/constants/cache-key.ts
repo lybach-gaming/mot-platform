@@ -3,6 +3,11 @@ export enum CacheKey {
   Setting = 'setting:',
   WebSetting = 'web_setting:',
 
+  /* Dashboard */
+  // [Admin]
+  AdminDashboardCounts = 'admin:dashboard:counts',
+  AdminDashboardUserStats = 'admin:dashboard:user_stats:', // + filterType (day, week, month)
+
   /* Category */
   // [Admin]
   AdminCategoryList = 'admin:category:list:',
