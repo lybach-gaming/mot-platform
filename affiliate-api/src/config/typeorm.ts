@@ -9,7 +9,7 @@ const config = {
   url: `${process.env.DATABASE_URL}`,
   autoLoadEntities: true,
   migrationsRun: true,
-  entities: [__dirname + '/**/entity/*.entity{.ts,.js}'],
+  entities: [__dirname + '/**/*.entity{.ts,.js}'],
   ssl: {
     rejectUnauthorized: false,
   },

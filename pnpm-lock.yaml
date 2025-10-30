@@ -11,12 +11,24 @@ importers:
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.2
+        version: 4.0.2(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(rxjs@7.8.2)
       '@nestjs/core':
         specifier: ^11.0.0
         version: 11.1.6(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/platform-express@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: ^11.0.0
         version: 11.1.6(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)
+      '@nestjs/swagger':
+        specifier: ^11.2.1
+        version: 11.2.1(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)
+      '@nestjs/typeorm':
+        specifier: ^11.0.0
+        version: 11.0.0(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3)))
+      '@privy-io/server-auth':
+        specifier: ^1.32.5
+        version: 1.32.5(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.38.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       axios:
         specifier: ^1.6.0
         version: 1.12.2
@@ -29,9 +41,18 @@ importers:
       dotenv:
         specifier: ^17.2.0
         version: 17.2.3
+      ioredis:
+        specifier: ^5.8.1
+        version: 5.8.2
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.2
       next:
         specifier: ~15.2.4
         version: 15.2.5(@babel/core@7.28.4)(@playwright/test@1.56.0)(babel-plugin-macros@3.1.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.93.2)
+      pg:
+        specifier: ^8.16.3
+        version: 8.16.3
       react:
         specifier: 19.0.0
         version: 19.0.0
@@ -44,6 +65,15 @@ importers:
       rxjs:
         specifier: ^7.8.0
         version: 7.8.2
+      swagger-ui-express:
+        specifier: ^5.0.1
+        version: 5.0.1(express@5.1.0)
+      typeorm:
+        specifier: 0.3.27
+        version: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3))
+      typeorm-naming-strategies:
+        specifier: ^4.1.0
+        version: 4.1.0(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3)))
     devDependencies:
       '@eslint/compat':
         specifier: ^1.1.1
@@ -129,9 +159,15 @@ importers:
       '@testing-library/react':
         specifier: 16.1.0
         version: 16.1.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@types/express':
+        specifier: ^4.17.17
+        version: 4.17.23
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14
+      '@types/jsonwebtoken':
+        specifier: ^9.0.2
+        version: 9.0.10
       '@types/lodash':
         specifier: ^4.17.20
         version: 4.17.20
@@ -228,52 +264,6 @@ importers:
       webpack-cli:
         specifier: ^5.1.4
         version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
-
-  affiliate-api:
-    dependencies:
-      '@nestjs/config':
-        specifier: ^4.0.2
-        version: 4.0.2(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(rxjs@7.8.2)
-      '@nestjs/swagger':
-        specifier: ^11.2.1
-        version: 11.2.1(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)
-      '@nestjs/typeorm':
-        specifier: ^11.0.0
-        version: 11.0.0(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3)))
-      '@privy-io/server-auth':
-        specifier: ^1.32.5
-        version: 1.32.5(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.38.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
-      ioredis:
-        specifier: ^5.8.1
-        version: 5.8.2
-      jsonwebtoken:
-        specifier: ^9.0.2
-        version: 9.0.2
-      pg:
-        specifier: ^8.16.3
-        version: 8.16.3
-      swagger-ui-express:
-        specifier: ^5.0.1
-        version: 5.0.1(express@5.1.0)
-      typeorm:
-        specifier: 0.3.27
-        version: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3))
-      typeorm-naming-strategies:
-        specifier: ^4.1.0
-        version: 4.1.0(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3)))
-    devDependencies:
-      '@types/swagger-ui-express':
-        specifier: ^4.1.8
-        version: 4.1.8
-      dotenv:
-        specifier: ^16.3.1
-        version: 16.4.7
-      knex:
-        specifier: ^2.5.1
-        version: 2.5.1(mysql2@3.15.3)(pg@8.16.3)
-      mysql2:
-        specifier: ^3.3.0
-        version: 3.15.3
 
 packages:
 
@@ -3399,6 +3389,9 @@ packages:
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
 
+  '@types/jsonwebtoken@9.0.10':
+    resolution: {integrity: sha512-asx5hIG9Qmf/1oStypjanR7iKTv0gXQ1Ov/jfrX6kS/EO0OFni8orbmGCn0672NHR3kXHwpAwR+B368ZGN/2rA==}
+
   '@types/lodash@4.17.20':
     resolution: {integrity: sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==}
 
@@ -3408,6 +3401,9 @@ packages:
   '@types/minimatch@6.0.0':
     resolution: {integrity: sha512-zmPitbQ8+6zNutpwgcQuLcsEpn/Cj54Kbn7L5pX0Os5kdWplB7xPgEh/g+SWOB/qmows2gpuCaPyduq8ZZRnxA==}
     deprecated: This is a stub types definition. minimatch provides its own type definitions, so you do not need this installed.
+
+  '@types/ms@2.1.0':
+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
   '@types/node-forge@1.3.14':
     resolution: {integrity: sha512-mhVF2BnD4BO+jtOp7z1CdzaK4mbuK0LLQYAvdOLqHTavxFNq4zA1EmYkpnFjP8HOUzedfQkRnp0E2ulSAYSzAw==}
@@ -3471,9 +3467,6 @@ packages:
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
-
-  '@types/swagger-ui-express@4.1.8':
-    resolution: {integrity: sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==}
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
@@ -4104,10 +4097,6 @@ packages:
   aws-sign2@0.7.0:
     resolution: {integrity: sha512-08kcGqnYf/YmjoRhfxyu+CLxBjUtHLXLXX/vUfx9l2LYzG3c1m61nrpyFUZI6zeS+Li/wWMMidD9KgrqtGq3mA==}
 
-  aws-ssl-profiles@1.1.2:
-    resolution: {integrity: sha512-NZKeq9AfyQvEeNlN0zSYAaWrmBffJh3IELMZfRpJVWgrpEbtEpnjvzqBPf+mxoI287JohRDoa+/nsfqqiZmF6g==}
-    engines: {node: '>= 6.0.0'}
-
   aws4@1.13.2:
     resolution: {integrity: sha512-lHe62zvbTB5eEABUVi/AwVh0ZKY9rMMDhmm+eeyuuUQbQ3+J+fONVQOZyj+DdrvD4BY33uYniyRJ4UJIaSKAfw==}
 
@@ -4599,9 +4588,6 @@ packages:
   colorette@1.4.0:
     resolution: {integrity: sha512-Y2oEozpomLn7Q3HFP7dpww7AtMJplbM9lGZP6RDfHqmbeRjiwRg4n6VM6j4KLmRke85uWEI7JqF17f3pqdRA0g==}
 
-  colorette@2.0.19:
-    resolution: {integrity: sha512-3tlv/dIP7FWvj3BsbHrGLJ6l/oKh1O3TcgBqMn+yyCagOxc23fyzDS6HypQbgxWbkpDnf52p1LuR4eWDQ/K9WQ==}
-
   colorette@2.0.20:
     resolution: {integrity: sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w==}
 
@@ -5006,15 +4992,6 @@ packages:
 
   debug@4.3.1:
     resolution: {integrity: sha512-doEwdvm4PCeK4K3RQN2ZC2BYUBaxwLARCqZmMjtF8a51J2Rb0xpVloFRnCODwqjpwnAoao4pelN8l3RJdv3gRQ==}
-    engines: {node: '>=6.0'}
-    peerDependencies:
-      supports-color: '*'
-    peerDependenciesMeta:
-      supports-color:
-        optional: true
-
-  debug@4.3.4:
-    resolution: {integrity: sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==}
     engines: {node: '>=6.0'}
     peerDependencies:
       supports-color: '*'
@@ -5553,10 +5530,6 @@ packages:
       jiti:
         optional: true
 
-  esm@3.2.25:
-    resolution: {integrity: sha512-U1suiZ2oDVWv4zPO56S0NcR5QriEahGtdN2OR6FiOG4WJvcjBVFB0qI4+eKoWFH483PKGuLuu6V8Z4T5g63UVA==}
-    engines: {node: '>=6'}
-
   espree@10.4.0:
     resolution: {integrity: sha512-j6PAQ2uUr79PZhBjP5C5fhl8e39FmRnOjsD5lGnWrFU8i2G776tBK7+nP8KuQUTTyAZUwfQqXAgrVH5MbH9CYQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -5963,9 +5936,6 @@ packages:
   functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
 
-  generate-function@2.3.1:
-    resolution: {integrity: sha512-eeB5GfMNeevm/GRYq20ShmsaGcmI81kIX2K9XQx5miC8KdHaC6Jm0qQ8ZNeGOi7wYB8OsdxKs+Y2oVuTFuVwKQ==}
-
   generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
     engines: {node: '>= 0.4'}
@@ -6010,9 +5980,6 @@ packages:
 
   get-tsconfig@4.12.0:
     resolution: {integrity: sha512-LScr2aNr2FbjAjZh2C6X6BxRx1/x+aTDExct/xyq2XKbYOiG5c0aK7pMsSuyc0brz3ibr/lbQiHD9jzt4lccJw==}
-
-  getopts@2.3.0:
-    resolution: {integrity: sha512-5eDf9fuSXwxBL6q5HX+dhDj+dslFGWzU5thZ9kNKUkcPtaPdatmUFKwHFrLb/uf/WpA4BHET+AX3Scl56cAjpA==}
 
   getos@3.2.1:
     resolution: {integrity: sha512-U56CfOK17OKgTVqozZjUKNdkfEv6jk5WISBJ8SHoagjE6L69zOwl3Z+O8myjY9MEW3i2HPWQBt/LTbCgcC973Q==}
@@ -6380,10 +6347,6 @@ packages:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
     engines: {node: '>= 0.4'}
 
-  interpret@2.2.0:
-    resolution: {integrity: sha512-Ju0Bz/cEia55xDwUWEa8+olFpCiQoypjnQySseKtmjNrnps3P+xfpUmGr90T7yjlVJmOtybRvPXhKMbHr+fWnw==}
-    engines: {node: '>= 0.10'}
-
   interpret@3.1.1:
     resolution: {integrity: sha512-6xwYfHbajpoF0xLW+iwLkhwgvLoZDfjYfoFNu8ftMoXINzwuymNLd9u/KmwtdT2GbR+/Cz66otEGEVVUHX9QLQ==}
     engines: {node: '>=10.13.0'}
@@ -6556,9 +6519,6 @@ packages:
 
   is-promise@4.0.0:
     resolution: {integrity: sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==}
-
-  is-property@1.0.2:
-    resolution: {integrity: sha512-Ks/IoX00TtClbGQr4TWXemAnktAQvYB7HzcCxDGqEZU6oCmb2INHuOoKxbtR+HFkmYWBKv/dOZtGRiAjDhj92g==}
 
   is-reference@1.2.1:
     resolution: {integrity: sha512-U82MsXXiFIrjCK4otLT+o2NA2Cd2g5MLoOVXUZjIOhLurrRxpEXzI8O0KZHr3IjLvlAH1kTPYSuqer5T9ZVBKQ==}
@@ -7074,34 +7034,6 @@ packages:
     resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
     engines: {node: '>= 8'}
 
-  knex@2.5.1:
-    resolution: {integrity: sha512-z78DgGKUr4SE/6cm7ku+jHvFT0X97aERh/f0MUKAKgFnwCYBEW4TFBqtHWFYiJFid7fMrtpZ/gxJthvz5mEByA==}
-    engines: {node: '>=12'}
-    hasBin: true
-    peerDependencies:
-      better-sqlite3: '*'
-      mysql: '*'
-      mysql2: '*'
-      pg: '*'
-      pg-native: '*'
-      sqlite3: '*'
-      tedious: '*'
-    peerDependenciesMeta:
-      better-sqlite3:
-        optional: true
-      mysql:
-        optional: true
-      mysql2:
-        optional: true
-      pg:
-        optional: true
-      pg-native:
-        optional: true
-      sqlite3:
-        optional: true
-      tedious:
-        optional: true
-
   koa-compose@4.1.0:
     resolution: {integrity: sha512-8ODW8TrDuMYvXRwra/Kh7/rJo9BtOfPc6qO8eAfC80CnCvSjSl0bkRM24X6/XBBEyj0v1nRUQ1LyOy3dbqOWXw==}
 
@@ -7281,9 +7213,6 @@ packages:
   long-timeout@0.1.1:
     resolution: {integrity: sha512-BFRuQUqc7x2NWxfJBCyUrN8iYUYznzL9JROmRz1gZ6KlOIgmoD+njPVbb+VNn2nGMKggMsK79iUNErillsrx7w==}
 
-  long@5.3.2:
-    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
-
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
@@ -7303,14 +7232,6 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
-
-  lru-cache@7.18.3:
-    resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
-    engines: {node: '>=12'}
-
-  lru.min@1.1.2:
-    resolution: {integrity: sha512-Nv9KddBcQSlQopmBHXSsZVY5xsdlZkdH/Iey0BlcBYggMd4two7cZnKOK9vmy3nY0O5RGH99z1PCeTpPqszUYg==}
-    engines: {bun: '>=1.0.0', deno: '>=1.30.0', node: '>=8.0.0'}
 
   luxon@3.7.2:
     resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
@@ -7497,16 +7418,8 @@ packages:
     resolution: {integrity: sha512-2eznPJP8z2BFLX50tf0LuODrpINqP1RVIm/CObbTcBRITQgmC/TjcREF1NeTBzIcR5XO/ukWo+YHOjBbFwIupg==}
     hasBin: true
 
-  mysql2@3.15.3:
-    resolution: {integrity: sha512-FBrGau0IXmuqg4haEZRBfHNWB5mUARw6hNwPDXXGg0XzVJ50mr/9hb267lvpVMnhZ1FON3qNd4Xfcez1rbFwSg==}
-    engines: {node: '>= 8.0'}
-
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
-
-  named-placeholders@1.1.3:
-    resolution: {integrity: sha512-eLoBxg6wE/rZkJPhU/xRX1WTpkFEwDJEN96oxFrTsqBdbT5ec295Q+CoHrL9IT0DipqKhmGcaZmwOt8OON5x1w==}
-    engines: {node: '>=12.0.0'}
 
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
@@ -7932,9 +7845,6 @@ packages:
 
   pg-cloudflare@1.2.7:
     resolution: {integrity: sha512-YgCtzMH0ptvZJslLM1ffsY4EuGaU0cx4XSdXLRFae8bPP4dS5xL1tNB3k2o/N64cHJpwU7dxKli/nZ2lUa5fLg==}
-
-  pg-connection-string@2.6.1:
-    resolution: {integrity: sha512-w6ZzNu6oMmIzEAYVw+RLK0+nqHPt8K3ZnknKi+g48Ak2pr3dtljJW3o+D/n2zzCG07Zoe9VOX3aiKpj+BN0pjg==}
 
   pg-connection-string@2.9.1:
     resolution: {integrity: sha512-nkc6NpDcvPVpZXxrreI/FOtX3XemeLl8E0qFr6F2Lrm/I8WOnaWNhIPK2Z7OHpw7gh5XJThi6j6ppgNoaT1w4w==}
@@ -9092,9 +9002,6 @@ packages:
     resolution: {integrity: sha512-uaW0WwXKpL9blXE2o0bRhoL2EGXIrZxQ2ZQ4mgcfoBxdFmQold+qWsD2jLrfZ0trjKL6vOw0j//eAwcALFjKSw==}
     engines: {node: '>= 18'}
 
-  seq-queue@0.0.5:
-    resolution: {integrity: sha512-hr3Wtp/GZIc/6DAGPDcV4/9WoZhjrkXsi5B/07QgX8tsdc6ilr7BFM6PM6rbdAX1kFSDYeZGLipIZZKyQP0O5Q==}
-
   serialize-javascript@6.0.2:
     resolution: {integrity: sha512-Saa1xPByTTq2gdeFZYLLo+RFE35NHZkAbqZeWNd3BpzppeVisAqpDjcp8dyf6uIvEqJRd46jemmyA4iFIeVk8g==}
 
@@ -9272,10 +9179,6 @@ packages:
   sql-highlight@6.1.0:
     resolution: {integrity: sha512-ed7OK4e9ywpE7pgRMkMQmZDPKSVdm0oX5IEtZiKnFucSF0zu6c80GZBe38UqHuVhTWJ9xsKgSMjCG2bml86KvA==}
     engines: {node: '>=14'}
-
-  sqlstring@2.3.3:
-    resolution: {integrity: sha512-qC9iz2FlN7DQl3+wjwn3802RTyjCx7sDvfQEXchwa6CWOx07/WVfh91gBmQ9fahw8snwGEWU3xGzOt4tFyHLxg==}
-    engines: {node: '>= 0.6'}
 
   sshpk@1.18.0:
     resolution: {integrity: sha512-2p2KJZTSqQ/I3+HX42EpYOa2l3f8Erv8MWKsy2I9uf4wA7yFIkXRffYdsx86y6z4vHtV8u7g+pPlr8/4ouAxsQ==}
@@ -9538,9 +9441,6 @@ packages:
   swagger-ui-dist@5.29.4:
     resolution: {integrity: sha512-gJFDz/gyLOCQtWwAgqs6Rk78z9ONnqTnlW11gimG9nLap8drKa3AJBKpzIQMIjl5PD2Ix+Tn+mc/tfoT2tgsng==}
 
-  swagger-ui-dist@5.29.5:
-    resolution: {integrity: sha512-2zFnjONgLXlz8gLToRKvXHKJdqXF6UGgCmv65i8T6i/UrjDNyV1fIQ7FauZA40SaivlGKEvW2tw9XDyDhfcXqQ==}
-
   swagger-ui-express@5.0.1:
     resolution: {integrity: sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==}
     engines: {node: '>= v0.10.32'}
@@ -9577,10 +9477,6 @@ packages:
 
   tar-stream@3.1.7:
     resolution: {integrity: sha512-qJj60CXt7IU1Ffyc3NJMjh6EkuCFej46zUqJ4J7pqYlThyd9bO0XBTmcOIhSzZJVWfsLks0+nle/j538YAW9RQ==}
-
-  tarn@3.0.2:
-    resolution: {integrity: sha512-51LAVKUSZSVfI05vjPESNc5vwqqZpbXCsU+/+wxlOrUjk2SnFTt97v9ZgQrD4YmxYW1Px6w2KjaDitCfkvgxMQ==}
-    engines: {node: '>=8.0.0'}
 
   tcp-port-used@1.0.2:
     resolution: {integrity: sha512-l7ar8lLUD3XS1V2lfoJlCBaeoaWo/2xfYt81hM7VlvR4RrMVFqfmzfhLVk40hAb368uitje5gPtBRL1m/DGvLA==}
@@ -9637,10 +9533,6 @@ packages:
 
   thunky@1.1.0:
     resolution: {integrity: sha512-eHY7nBftgThBqOyHGVN+l8gF0BucP09fMo0oO/Lb0w1OF80dJv+lDVpXG60WMQvkcxAkNybKsrEIE3ZtKGmPrA==}
-
-  tildify@2.0.0:
-    resolution: {integrity: sha512-Cc+OraorugtXNfs50hU9KS369rFXCfgGLpfCfvlc+Ud5u6VWmUQsOAa9HbTvheQdYnrdJqqv1e5oIqXppMYnSw==}
-    engines: {node: '>=8'}
 
   timers-browserify@2.0.12:
     resolution: {integrity: sha512-9phl76Cqm6FhSX9Xe1ZUAMLtm1BLkKj2Qd5ApyWkXzsMRaA7dgr81kf4wJmQf/hAvg8EEyJxDo3du/0KlhPiKQ==}
@@ -12682,13 +12574,13 @@ snapshots:
     optionalDependencies:
       '@nestjs/platform-express': 11.1.6(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)
 
-  '@nestjs/typeorm@11.0.0(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3)))':
+  '@nestjs/typeorm@11.0.0(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/core@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3)))':
     dependencies:
       '@nestjs/common': 11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2)
       '@nestjs/core': 11.1.6(@nestjs/common@11.1.6(class-transformer@0.4.1)(class-validator@0.14.2)(reflect-metadata@0.1.14)(rxjs@7.8.2))(@nestjs/platform-express@11.1.6)(reflect-metadata@0.1.14)(rxjs@7.8.2)
       reflect-metadata: 0.1.14
       rxjs: 7.8.2
-      typeorm: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3))
+      typeorm: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3))
 
   '@next/env@15.2.5': {}
 
@@ -13812,27 +13704,27 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  '@privy-io/public-api@2.45.2(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)':
+  '@privy-io/public-api@2.45.2(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)':
     dependencies:
       '@privy-io/api-base': 1.7.0
       bs58: 5.0.0
       libphonenumber-js: 1.12.24
-      viem: 2.38.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      viem: 2.38.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - bufferutil
       - typescript
       - utf-8-validate
 
-  '@privy-io/server-auth@1.32.5(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.38.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))':
+  '@privy-io/server-auth@1.32.5(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.38.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))':
     dependencies:
       '@hpke/chacha20poly1305': 1.7.1
       '@hpke/core': 1.7.4
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
-      '@privy-io/public-api': 2.45.2(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      '@privy-io/public-api': 2.45.2(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)
       '@scure/base': 1.2.6
-      '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10)
       canonicalize: 2.1.0
       dotenv: 16.4.7
       jose: 4.15.9
@@ -13842,7 +13734,7 @@ snapshots:
       ts-case-convert: 2.1.0
       type-fest: 3.13.1
     optionalDependencies:
-      viem: 2.38.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      viem: 2.38.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -14078,30 +13970,30 @@ snapshots:
     dependencies:
       buffer: 6.0.3
 
-  '@solana/codecs-core@2.3.0(typescript@5.9.3)':
+  '@solana/codecs-core@2.3.0(typescript@5.8.3)':
     dependencies:
-      '@solana/errors': 2.3.0(typescript@5.9.3)
-      typescript: 5.9.3
+      '@solana/errors': 2.3.0(typescript@5.8.3)
+      typescript: 5.8.3
 
-  '@solana/codecs-numbers@2.3.0(typescript@5.9.3)':
+  '@solana/codecs-numbers@2.3.0(typescript@5.8.3)':
     dependencies:
-      '@solana/codecs-core': 2.3.0(typescript@5.9.3)
-      '@solana/errors': 2.3.0(typescript@5.9.3)
-      typescript: 5.9.3
+      '@solana/codecs-core': 2.3.0(typescript@5.8.3)
+      '@solana/errors': 2.3.0(typescript@5.8.3)
+      typescript: 5.8.3
 
-  '@solana/errors@2.3.0(typescript@5.9.3)':
+  '@solana/errors@2.3.0(typescript@5.8.3)':
     dependencies:
       chalk: 5.6.2
       commander: 14.0.2
-      typescript: 5.9.3
+      typescript: 5.8.3
 
-  '@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)':
+  '@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10)':
     dependencies:
       '@babel/runtime': 7.28.4
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@solana/buffer-layout': 4.0.1
-      '@solana/codecs-numbers': 2.3.0(typescript@5.9.3)
+      '@solana/codecs-numbers': 2.3.0(typescript@5.8.3)
       agentkeepalive: 4.6.0
       bn.js: 5.2.2
       borsh: 0.7.0
@@ -14514,7 +14406,7 @@ snapshots:
 
   '@tokenizer/inflate@0.2.7':
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       fflate: 0.8.2
       token-types: 6.1.1
     transitivePeerDependencies:
@@ -14666,6 +14558,11 @@ snapshots:
 
   '@types/json5@0.0.29': {}
 
+  '@types/jsonwebtoken@9.0.10':
+    dependencies:
+      '@types/ms': 2.1.0
+      '@types/node': 18.16.20
+
   '@types/lodash@4.17.20': {}
 
   '@types/mime@1.3.5': {}
@@ -14673,6 +14570,8 @@ snapshots:
   '@types/minimatch@6.0.0':
     dependencies:
       minimatch: 9.0.5
+
+  '@types/ms@2.1.0': {}
 
   '@types/node-forge@1.3.14':
     dependencies:
@@ -14734,11 +14633,6 @@ snapshots:
       '@types/node': 18.16.20
 
   '@types/stack-utils@2.0.3': {}
-
-  '@types/swagger-ui-express@4.1.8':
-    dependencies:
-      '@types/express': 4.17.23
-      '@types/serve-static': 1.15.9
 
   '@types/tough-cookie@4.0.5': {}
 
@@ -15169,9 +15063,9 @@ snapshots:
 
   abab@2.0.6: {}
 
-  abitype@1.1.0(typescript@5.9.3)(zod@3.25.76):
+  abitype@1.1.0(typescript@5.8.3)(zod@3.25.76):
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 5.8.3
       zod: 3.25.76
 
   abort-controller@3.0.0:
@@ -15446,8 +15340,6 @@ snapshots:
 
   aws-sign2@0.7.0: {}
 
-  aws-ssl-profiles@1.1.2: {}
-
   aws4@1.13.2: {}
 
   axe-core@4.11.0: {}
@@ -15690,7 +15582,7 @@ snapshots:
     dependencies:
       bytes: 3.1.2
       content-type: 1.0.5
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       http-errors: 2.0.0
       iconv-lite: 0.6.3
       on-finished: 2.4.1
@@ -16031,8 +15923,6 @@ snapshots:
   colord@2.9.3: {}
 
   colorette@1.4.0: {}
-
-  colorette@2.0.19: {}
 
   colorette@2.0.20: {}
 
@@ -16572,14 +16462,6 @@ snapshots:
   debug@4.3.1:
     dependencies:
       ms: 2.1.2
-
-  debug@4.3.4:
-    dependencies:
-      ms: 2.1.2
-
-  debug@4.4.3:
-    dependencies:
-      ms: 2.1.3
 
   debug@4.4.3(supports-color@8.1.1):
     dependencies:
@@ -17281,8 +17163,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  esm@3.2.25: {}
-
   espree@10.4.0:
     dependencies:
       acorn: 8.15.0
@@ -17441,7 +17321,7 @@ snapshots:
       content-type: 1.0.5
       cookie: 0.7.2
       cookie-signature: 1.2.2
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
@@ -17610,7 +17490,7 @@ snapshots:
 
   finalhandler@2.1.0:
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
       escape-html: 1.0.3
       on-finished: 2.4.1
@@ -17810,10 +17690,6 @@ snapshots:
 
   functions-have-names@1.2.3: {}
 
-  generate-function@2.3.1:
-    dependencies:
-      is-property: 1.0.2
-
   generator-function@2.0.1: {}
 
   generic-names@4.0.0:
@@ -17861,8 +17737,6 @@ snapshots:
   get-tsconfig@4.12.0:
     dependencies:
       resolve-pkg-maps: 1.0.0
-
-  getopts@2.3.0: {}
 
   getos@3.2.1:
     dependencies:
@@ -18301,15 +18175,13 @@ snapshots:
       hasown: 2.0.2
       side-channel: 1.1.0
 
-  interpret@2.2.0: {}
-
   interpret@3.1.1: {}
 
   ioredis@5.8.2:
     dependencies:
       '@ioredis/commands': 1.4.0
       cluster-key-slot: 1.1.2
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       denque: 2.1.0
       lodash.defaults: 4.2.0
       lodash.isarguments: 3.1.0
@@ -18457,8 +18329,6 @@ snapshots:
   is-potential-custom-element-name@1.0.1: {}
 
   is-promise@4.0.0: {}
-
-  is-property@1.0.2: {}
 
   is-reference@1.2.1:
     dependencies:
@@ -19393,28 +19263,6 @@ snapshots:
 
   klona@2.0.6: {}
 
-  knex@2.5.1(mysql2@3.15.3)(pg@8.16.3):
-    dependencies:
-      colorette: 2.0.19
-      commander: 10.0.1
-      debug: 4.3.4
-      escalade: 3.2.0
-      esm: 3.2.25
-      get-package-type: 0.1.0
-      getopts: 2.3.0
-      interpret: 2.2.0
-      lodash: 4.17.21
-      pg-connection-string: 2.6.1
-      rechoir: 0.8.0
-      resolve-from: 5.0.0
-      tarn: 3.0.2
-      tildify: 2.0.0
-    optionalDependencies:
-      mysql2: 3.15.3
-      pg: 8.16.3
-    transitivePeerDependencies:
-      - supports-color
-
   koa-compose@4.1.0: {}
 
   koa@3.0.1:
@@ -19612,8 +19460,6 @@ snapshots:
 
   long-timeout@0.1.1: {}
 
-  long@5.3.2: {}
-
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
@@ -19631,10 +19477,6 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
-
-  lru-cache@7.18.3: {}
-
-  lru.min@1.1.2: {}
 
   luxon@3.7.2: {}
 
@@ -19802,27 +19644,11 @@ snapshots:
       dns-packet: 5.6.1
       thunky: 1.1.0
 
-  mysql2@3.15.3:
-    dependencies:
-      aws-ssl-profiles: 1.1.2
-      denque: 2.1.0
-      generate-function: 2.3.1
-      iconv-lite: 0.7.0
-      long: 5.3.2
-      lru.min: 1.1.2
-      named-placeholders: 1.1.3
-      seq-queue: 0.0.5
-      sqlstring: 2.3.3
-
   mz@2.7.0:
     dependencies:
       any-promise: 1.3.0
       object-assign: 4.1.1
       thenify-all: 1.6.0
-
-  named-placeholders@1.1.3:
-    dependencies:
-      lru-cache: 7.18.3
 
   nanoid@3.3.11: {}
 
@@ -20243,7 +20069,7 @@ snapshots:
       object-keys: 1.1.1
       safe-push-apply: 1.0.0
 
-  ox@0.9.6(typescript@5.9.3)(zod@3.25.76):
+  ox@0.9.6(typescript@5.8.3)(zod@3.25.76):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -20251,10 +20077,10 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.1.0(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.1.0(typescript@5.8.3)(zod@3.25.76)
       eventemitter3: 5.0.1
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 5.8.3
     transitivePeerDependencies:
       - zod
 
@@ -20396,8 +20222,6 @@ snapshots:
 
   pg-cloudflare@1.2.7:
     optional: true
-
-  pg-connection-string@2.6.1: {}
 
   pg-connection-string@2.9.1: {}
 
@@ -21336,7 +21160,7 @@ snapshots:
 
   router@2.2.0:
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       depd: 2.0.0
       is-promise: 4.0.0
       parseurl: 1.3.3
@@ -21583,7 +21407,7 @@ snapshots:
 
   send@1.2.0:
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
@@ -21596,8 +21420,6 @@ snapshots:
       statuses: 2.0.2
     transitivePeerDependencies:
       - supports-color
-
-  seq-queue@0.0.5: {}
 
   serialize-javascript@6.0.2:
     dependencies:
@@ -21847,8 +21669,6 @@ snapshots:
   sprintf-js@1.0.3: {}
 
   sql-highlight@6.1.0: {}
-
-  sqlstring@2.3.3: {}
 
   sshpk@1.18.0:
     dependencies:
@@ -22168,14 +21988,10 @@ snapshots:
     dependencies:
       '@scarf/scarf': 1.4.0
 
-  swagger-ui-dist@5.29.5:
-    dependencies:
-      '@scarf/scarf': 1.4.0
-
   swagger-ui-express@5.0.1(express@5.1.0):
     dependencies:
       express: 5.1.0
-      swagger-ui-dist: 5.29.5
+      swagger-ui-dist: 5.29.4
 
   symbol-tree@3.2.4: {}
 
@@ -22235,8 +22051,6 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-
-  tarn@3.0.2: {}
 
   tcp-port-used@1.0.2:
     dependencies:
@@ -22307,8 +22121,6 @@ snapshots:
   through@2.3.8: {}
 
   thunky@1.1.0: {}
-
-  tildify@2.0.0: {}
 
   timers-browserify@2.0.12:
     dependencies:
@@ -22453,27 +22265,6 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.5.29(@swc/helpers@0.5.17)
 
-  ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3):
-    dependencies:
-      '@cspotcode/source-map-support': 0.8.1
-      '@tsconfig/node10': 1.0.11
-      '@tsconfig/node12': 1.0.11
-      '@tsconfig/node14': 1.0.3
-      '@tsconfig/node16': 1.0.4
-      '@types/node': 18.16.20
-      acorn: 8.15.0
-      acorn-walk: 8.3.4
-      arg: 4.1.3
-      create-require: 1.1.1
-      diff: 4.0.2
-      make-error: 1.3.6
-      typescript: 5.9.3
-      v8-compile-cache-lib: 3.0.1
-      yn: 3.1.1
-    optionalDependencies:
-      '@swc/core': 1.5.29(@swc/helpers@0.5.17)
-    optional: true
-
   tsconfig-paths-webpack-plugin@4.0.0:
     dependencies:
       chalk: 4.1.2
@@ -22578,18 +22369,18 @@ snapshots:
 
   typedarray@0.0.6: {}
 
-  typeorm-naming-strategies@4.1.0(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3))):
+  typeorm-naming-strategies@4.1.0(typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3))):
     dependencies:
-      typeorm: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3))
+      typeorm: 0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3))
 
-  typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mysql2@3.15.3)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3)):
+  typeorm@0.3.27(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(pg@8.16.3)(reflect-metadata@0.1.14)(ts-node@10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3)):
     dependencies:
       '@sqltools/formatter': 1.2.5
       ansis: 3.17.0
       app-root-path: 3.1.0
       buffer: 6.0.3
       dayjs: 1.11.18
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
       dedent: 1.7.0(babel-plugin-macros@3.1.0)
       dotenv: 16.4.7
       glob: 10.4.5
@@ -22601,9 +22392,8 @@ snapshots:
       yargs: 17.7.2
     optionalDependencies:
       ioredis: 5.8.2
-      mysql2: 3.15.3
       pg: 8.16.3
-      ts-node: 10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.9.3)
+      ts-node: 10.9.2(@swc/core@1.5.29(@swc/helpers@0.5.17))(@types/node@18.16.20)(typescript@5.8.3)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -22767,18 +22557,18 @@ snapshots:
       core-util-is: 1.0.2
       extsprintf: 1.3.0
 
-  viem@2.38.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76):
+  viem@2.38.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.1.0(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.1.0(typescript@5.8.3)(zod@3.25.76)
       isows: 1.0.7(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
-      ox: 0.9.6(typescript@5.9.3)(zod@3.25.76)
+      ox: 0.9.6(typescript@5.8.3)(zod@3.25.76)
       ws: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 5.8.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
