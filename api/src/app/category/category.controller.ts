@@ -24,8 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { EditCategoryDto } from './dto/edit-category.dto';
 import { DeleteCategoriesDto } from './dto/delete-category.dto';
-import { CategorySortBy } from '../../common/constants/category';
-import { OrderBy } from '../../common/constants/app';
+import { GetAllCategoriesDto } from './dto/filter-category.dto';
 
 interface CategoryParams {
   id?: number;
@@ -80,72 +79,8 @@ export class CategoryController {
   // [Admin] Endpoint to get all categories
   @ApiOperation({ summary: '[Admin] Get all categories' })
   @Get('/admin/categories')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of categories per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: CategorySortBy,
-    default: CategorySortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  @ApiQuery({
-    name: 'languageId',
-    required: false,
-    type: Number,
-    description: 'Filter by language',
-  })
-  @ApiQuery({
-    name: 'type',
-    required: false,
-    type: Number,
-    description: 'Filter by type (game modes)',
-    example:
-      '1 - quizz hd, 2 - fund n learn, 3 - guess the word, 4 - audio question, 5 - math mania, 6 - true false',
-  })
-  async getAllCategories(
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: CategorySortBy = CategorySortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC,
-    @Query('languageId') languageId?: number,
-    @Query('type') type?: number
-  ) {
-    return await this.categoryService.getAllCategories({
-      limit,
-      offset,
-      search,
-      sortBy,
-      order,
-      languageId,
-      type,
-    });
+  async getAllCategories(@Query() query: GetAllCategoriesDto) {
+    return await this.categoryService.getAllCategories(query);
   }
 
   // [Admin] Endpoint to get category details
