@@ -1,11 +1,9 @@
-import { Column, Entity, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { ApiProperty } from '@nestjs/swagger';
+import { Column, Entity, Index } from 'typeorm';
+// import { ApiProperty } from '@nestjs/swagger';
+import { CustomBaseEntity } from '../../shared/base/base-entity';
 
 @Entity({ name: 'users' })
-export class UserEntity {
-  @PrimaryGeneratedColumn('increment')
-  @ApiProperty()
-  id: number;
+export class UserEntity extends CustomBaseEntity {
 
   @Column({ name: 'project_id', type: 'int' })
   @Index()
@@ -74,11 +72,7 @@ export class UserEntity {
   @Column({ name: 'privacy', type: 'json', nullable: true })
   privacy?: Record<string, unknown> | null;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  // createdAt and updatedAt are inherited from TimestampBaseEntity
 }
 
 
