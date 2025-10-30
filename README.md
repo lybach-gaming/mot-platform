@@ -7,7 +7,7 @@ This is the official Nx monorepo for the MOT platform, containing both the NestJ
 ### 1. Install dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 This will install all dependencies for the workspace.
@@ -21,7 +21,7 @@ You can run each app in its own terminal window:
 #### Run the NestJS API
 
 ```bash
-npx nx serve api
+pnpm nx serve api
 ```
 
 This will serve the API at: http://localhost:3333/api
@@ -29,27 +29,27 @@ This will serve the API at: http://localhost:3333/api
 #### Run the Next.js Admin Dashboard
 
 ```bash
-npx nx run @mot-platform/admin:dev
+pnpm nx run @mot-platform/admin:dev
 ```
 
 This will serve the dashboard at: http://localhost:3000
 
 ---
 
-#### Run the NestJS API
+#### Run the Affiliate API (NestJS)
 
 ```bash
-npx nx serve affiliate-api
+pnpm nx serve @mot-platform/affiliate-api
 ```
 
-This will serve the Affiliate API at: http://localhost:3000
+This will serve the Affiliate API at: http://localhost:8080/api
 
 ---
 
 #### Run the Next.js Influencer Dashboard
 
 ```bash
-npx nx run @mot-platform/influencer-web:dev
+pnpm nx run @mot-platform/influencer-web:dev
 ```
 
 This will serve the Influencer dashboard at: http://localhost:3000
@@ -59,7 +59,7 @@ This will serve the Influencer dashboard at: http://localhost:3000
 #### Run Storybook for Admin
 
 ```bash
-npx nx run @mot-platform/admin:storybook
+pnpm nx run @mot-platform/admin:storybook
 ```
 
 This will serve the Storybook for the admin dashboard
@@ -81,8 +81,8 @@ Each app can have its own unit and E2E test setup.
 Example (for admin):
 
 ```bash
-npx nx test admin
-npx nx e2e admin-e2e
+pnpm nx test admin
+pnpm nx e2e admin-e2e
 ```
 
 ---
@@ -92,14 +92,14 @@ npx nx e2e admin-e2e
 ### Lint your code:
 
 ```bash
-npx nx lint api
-npx nx lint admin
+pnpm nx lint api
+pnpm nx lint admin
 ```
 
 ### Format your code:
 
 ```bash
-npx nx format:write
+pnpm nx format:write
 ```
 
 ---
@@ -109,13 +109,13 @@ npx nx format:write
 ### Visualize the project graph
 
 ```bash
-npx nx graph
+pnpm nx graph
 ```
 
 ### Run affected apps (CI/CD)
 
 ```bash
-npx nx affected:build
+pnpm nx affected:build
 ```
 
 ---
