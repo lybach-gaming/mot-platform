@@ -1,5 +1,3 @@
-import { OrderBy } from './../../common/constants/app';
-import { QuizSortBy } from './../../common/constants/quiz';
 import {
   Body,
   Controller,
@@ -19,7 +17,6 @@ import {
   ApiOperation,
   ApiConsumes,
   ApiBody,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { GetDetailQuizzesDto } from './dto/get-detail-quizzes.dto';
@@ -31,6 +28,7 @@ import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
 import { DeleteQuizzesDto } from './dto/delete-quizzes.dto';
+import { GetAllQuizzesDto } from './dto/filter-quiz.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('/v2')
@@ -81,86 +79,8 @@ export class QuizController {
   // [Admin] Endpoint to get all quizzes
   @ApiOperation({ summary: '[Admin] Get all quizzes' })
   @Get('/admin/quizzes')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of quizzes per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: QuizSortBy,
-    default: QuizSortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  @ApiQuery({
-    name: 'languageId',
-    required: false,
-    type: Number,
-    description: 'Filter by language',
-  })
-  @ApiQuery({
-    name: 'categoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by main category',
-  })
-  @ApiQuery({
-    name: 'subcategoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by sub category',
-  })
-  @ApiQuery({
-    name: 'subcategoryLevelId',
-    required: false,
-    type: Number,
-    description: 'Filter by sub category level',
-  })
-  async getAllQuizzes(
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: QuizSortBy = QuizSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC,
-    @Query('languageId') languageId?: number,
-    @Query('categoryId') categoryId?: number,
-    @Query('subcategoryId') subcategoryId?: number,
-    @Query('subcategoryLevelId') subcategoryLevelId?: number
-  ) {
-    return await this.quizService.getAllQuizzes({
-      limit,
-      offset,
-      search,
-      sortBy,
-      order,
-      languageId,
-      categoryId,
-      subcategoryId,
-      subcategoryLevelId,
-    });
+  async getAllQuizzes(@Query() query: GetAllQuizzesDto) {
+    return await this.quizService.getAllQuizzes(query);
   }
 
   // [Admin] Endpoint to get quiz details
