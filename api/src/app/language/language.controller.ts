@@ -9,19 +9,12 @@ import {
   Delete,
   Param,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiQuery,
-  ApiBody,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiBody, ApiTags } from '@nestjs/swagger';
 import { LanguageService } from './language.service';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { EditLanguageDto } from './dto/edit-language.dto';
 import { DeleteLanguagesDto } from './dto/delete-language.dto';
-import { LanguageSortBy } from '../../common/constants/language';
-import { OrderBy } from '../../common/constants/app';
+import { GetAllLanguagesDto } from './dto/filter-language.dto';
 
 @Controller('v2')
 @ApiTags('Language')
@@ -60,70 +53,8 @@ export class LanguageController {
   // [Admin] Endpoint to get all languages
   @ApiOperation({ summary: '[Admin] Get all languages' })
   @Get('/admin/languages')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of languages per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by language name or code',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: LanguageSortBy,
-    default: LanguageSortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    type: Number,
-    description: 'Filter by status (0 = Disabled, 1 = Enabled)',
-  })
-  @ApiQuery({
-    name: 'type',
-    required: false,
-    type: Number,
-    description: 'Filter by type (0 = Inactive, 1 = Active)',
-  })
-  async getAllLanguages(
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: LanguageSortBy = LanguageSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC,
-    @Query('status') status?: number,
-    @Query('type') type?: number
-  ) {
-    return await this.languageService.getAllLanguages({
-      limit,
-      offset,
-      search,
-      sortBy,
-      order,
-      status,
-      type,
-    });
+  async getAllLanguages(@Query() query: GetAllLanguagesDto) {
+    return await this.languageService.getAllLanguages(query);
   }
 
   // [Admin] Endpoint to get language details
