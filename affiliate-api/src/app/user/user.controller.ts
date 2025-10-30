@@ -12,19 +12,24 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   // Profile Management
+  @Get(':userId')
+  getProfileById(@Param('userId') userId: string) {
+    return this.userService.getByIdOrThrow(Number(userId));
+  }
+
   @Get('me/profile')
   @UseGuards(AuthGuard)
-  getMyProfile(@CurrentUser() user: any) {
+  getMyProfile(@CurrentUser() user: { id: number }) {
     return this.userService.getMe(Number(user?.id));
   }
 
   @Patch('me/profile')
   @UseGuards(AuthGuard)
-  updateMyProfile(@CurrentUser() user: any, @Body() body: UpdateProfileDto) {
+  updateMyProfile(@CurrentUser() user: { id: number }, @Body() body: UpdateProfileDto) {
     return this.userService.updateProfile(Number(user?.id), body);
   }
 
-  @Get(':slug')
+  @Get('ref/:slug')
   getBySlug(@Param('slug') slug: string) {
     return this.userService.getByReferralSlug(slug);
   }
@@ -32,27 +37,27 @@ export class UserController {
   // Preferences & Configuration
   @Get('me/preferences')
   @UseGuards(AuthGuard)
-  getMyPreferences(@CurrentUser() user: any) {
+  getMyPreferences(@CurrentUser() user: { id: number }) {
     return this.userService.getMe(Number(user?.id));
   }
 
   @Patch('me/preferences')
   @UseGuards(AuthGuard)
-  updateMyPreferences(@CurrentUser() user: any, @Body() body: UpdateSettingsDto) {
+  updateMyPreferences(@CurrentUser() user: { id: number }, @Body() body: UpdateSettingsDto) {
     return this.userService.updateSettings(Number(user?.id), body);
   }
 
   // Email
   @Post('email')
   @UseGuards(AuthGuard)
-  setEmail(@CurrentUser() user: any, @Body() body: { email: string }) {
+  setEmail(@CurrentUser() user: { id: number }, @Body() body: { email: string }) {
     return this.userService.setEmail(Number(user?.id), body.email);
   }
 
   // Optional fallback verification token flow
   @Post('email/verify/callback')
   @UseGuards(AuthGuard)
-  verifyEmailCallback(@CurrentUser() user: any, @Body() _body: { token: string }) {
+  verifyEmailCallback(@CurrentUser() user: { id: number }) {
     return this.userService.markEmailVerified(Number(user?.id));
   }
 
@@ -65,8 +70,8 @@ export class UserController {
 
   @Delete('me/sessions/:sessionId')
   @UseGuards(AuthGuard)
-  revokeSession(@Param('sessionId') _sessionId: string) {
-    return { revoked: true };
+  revokeSession(@Param('sessionId') sessionId: string) {
+    return { revoked: true, sessionId };
   }
 
   @Post('me/2fa/setup')
@@ -77,14 +82,14 @@ export class UserController {
 
   @Post('me/2fa/enable')
   @UseGuards(AuthGuard)
-  enableTOTP(@Body() _body: { code: string }) {
-    return { enabled: false };
+  enableTOTP(@Body() body: { code: string }) {
+    return { enabled: false, code: body.code };
   }
 
   @Post('me/2fa/disable')
   @UseGuards(AuthGuard)
-  disableTOTP(@Body() _body: { code?: string }) {
-    return { disabled: true };
+  disableTOTP(@Body() body: { code?: string }) {
+    return { disabled: true, code: body?.code ?? null };
   }
 
   @Get('me/wallets')
@@ -95,8 +100,8 @@ export class UserController {
 
   @Delete('me/wallets/:address')
   @UseGuards(AuthGuard)
-  unlinkWallet(@Param('address') _address: string) {
-    return { unlinked: true };
+  unlinkWallet(@Param('address') address: string) {
+    return { unlinked: true, address };
   }
 
   @Post('me/password')

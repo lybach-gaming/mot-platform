@@ -1,31 +1,30 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useUserProfile } from '../../hooks/useUser';
-import { useUserSettings } from '../../hooks/useUser';
-import { UserProfile } from '../../components/UserProfile';
-import { UserSettings } from '../../components/UserSettings';
-import { UserForm } from '../../components/UserForm';
+import { useParams } from 'next/navigation';
+import { useUserProfile } from '../../../hooks/useUser';
+import { useUserSettings } from '../../../hooks/useUser';
+import { UserProfile } from '../../../components/UserProfile';
+import { UserSettings } from '../../../components/UserSettings';
+import { UserForm } from '../../../components/UserForm';
 
-export default function ProfilePage() {
-  // For demo purposes, using user ID 1 - in real app, get from auth context
-  const userId = 1;
+export default function ProfileByIdPage() {
+  const params = useParams();
+  const idParam = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const userId = Number(idParam);
+
   const { userProfile, loading: profileLoading, error: profileError } = useUserProfile(userId);
   const { userSettings, loading: settingsLoading, error: settingsError, updateSettings } = useUserSettings(userId);
   
   const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'edit'>('profile');
-  const [isEditing, setIsEditing] = useState(false);
 
   const handleEditProfile = () => {
     setActiveTab('edit');
-    setIsEditing(true);
   };
 
   const handleSaveProfile = async (userData: any) => {
     try {
-      // In a real app, you would call the update API here
       console.log('Saving profile:', userData);
-      setIsEditing(false);
       setActiveTab('profile');
     } catch (error) {
       console.error('Failed to save profile:', error);
@@ -39,6 +38,17 @@ export default function ProfilePage() {
       console.error('Failed to save settings:', error);
     }
   };
+
+  if (!Number.isFinite(userId)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl mb-4">Invalid profile ID</div>
+          <p className="text-gray-600">Please provide a numeric user id in the URL.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (profileLoading || settingsLoading) {
     return (
@@ -65,13 +75,11 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
           <p className="mt-2 text-gray-600">Manage your profile and account settings</p>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="mb-8">
           <nav className="flex space-x-8">
             <button
@@ -97,7 +105,6 @@ export default function ProfilePage() {
           </nav>
         </div>
 
-        {/* Content */}
         {activeTab === 'profile' && userProfile && (
           <UserProfile user={userProfile} onEdit={handleEditProfile} />
         )}
@@ -117,7 +124,6 @@ export default function ProfilePage() {
               <button
                 onClick={() => {
                   setActiveTab('profile');
-                  setIsEditing(false);
                 }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
@@ -127,7 +133,7 @@ export default function ProfilePage() {
             <UserForm
               user={{
                 id: userProfile.id,
-                projectId: 0, // This would come from the full user object
+                projectId: 0,
                 projectUserId: '',
                 address: userProfile.address,
                 email: userProfile.email,
@@ -149,7 +155,6 @@ export default function ProfilePage() {
               onSubmit={handleSaveProfile}
               onCancel={() => {
                 setActiveTab('profile');
-                setIsEditing(false);
               }}
             />
           </div>
@@ -158,3 +163,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+
