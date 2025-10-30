@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, Min, IsEnum, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubcategorySortBy } from '../../../common/constants/subcategory';
+import { SubcategoryLevelSortBy } from '../../../common/constants/subcategory-level';
 import { OrderBy } from '../../../common/constants/app';
 
-export class GetAllSubcategoriesDto {
+export class GetAllSubcategoryLevelsDto {
   @ApiProperty({
-    description: 'Number of subcategories per page',
+    description: 'Number of subcategory levels per page',
     example: 20,
     type: Number,
     required: false,
@@ -32,7 +32,7 @@ export class GetAllSubcategoriesDto {
   offset?: number = 0;
 
   @ApiProperty({
-    description: 'Search by subcategory name or slug',
+    description: 'Search by subcategory level name or slug',
     example: 'electronics',
     type: String,
     required: false,
@@ -43,15 +43,15 @@ export class GetAllSubcategoriesDto {
 
   @ApiProperty({
     description: 'Field to sort by',
-    example: SubcategorySortBy.ID,
-    enum: SubcategorySortBy,
+    example: SubcategoryLevelSortBy.ID,
+    enum: SubcategoryLevelSortBy,
     type: String,
     required: false,
-    default: SubcategorySortBy.ID,
+    default: SubcategoryLevelSortBy.ID,
   })
   @IsOptional()
-  @IsEnum(SubcategorySortBy)
-  sortBy?: SubcategorySortBy = SubcategorySortBy.ID;
+  @IsEnum(SubcategoryLevelSortBy)
+  sortBy?: SubcategoryLevelSortBy = SubcategoryLevelSortBy.ID;
 
   @ApiProperty({
     description: 'Sorting direction',
@@ -86,4 +86,15 @@ export class GetAllSubcategoriesDto {
   @Type(() => Number)
   @IsNumber()
   categoryId?: number;
+
+  @ApiProperty({
+    description: 'Filter by sub category',
+    example: 1,
+    type: Number,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  subcategoryId?: number;
 }

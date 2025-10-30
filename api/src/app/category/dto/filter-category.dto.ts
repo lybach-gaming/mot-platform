@@ -40,7 +40,7 @@ export class GetAllCategoriesDto {
 
   @ApiProperty({
     description: 'Search by category name or slug',
-    example: 'en',
+    example: 'electronics',
     type: String,
     required: false,
   })

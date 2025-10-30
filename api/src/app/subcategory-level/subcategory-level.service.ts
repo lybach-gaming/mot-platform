@@ -27,6 +27,7 @@ import {
 import { CreateSubcategoryLevelDto } from './dto/create-subcategory-level.dto';
 import { EditSubcategoryLevelDto } from './dto/edit-subcategory-level.dto';
 import { SubcategoryLevelDetailDto } from './dto/subcategory-level.dto';
+import { GetAllSubcategoryLevelsDto } from './dto/filter-subcategory-level.dto';
 import { SubcategoryLevelSortBy } from '../../common/constants/subcategory-level';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
@@ -525,16 +526,7 @@ export class SubcategoryLevelService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of Subcategory levels
    */
-  async getAllSubcategoryLevels(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: SubcategoryLevelSortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    languageId?: number;
-    categoryId?: number;
-    subcategoryId?: number;
-  }) {
+  async getAllSubcategoryLevels(query: GetAllSubcategoryLevelsDto) {
     const {
       limit = 20,
       offset = 0,

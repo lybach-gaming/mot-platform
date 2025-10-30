@@ -80,21 +80,22 @@ export class GetAllLanguagesDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @IsIn([0, 1])
-  @Type(() => Number)
   status?: number;
 
   @ApiProperty({
-    description: 'Filter by type (0 = Inactive, 1 = Active)',
+    description:
+      'Filter by type (0 = Inactive, 1 = Active). If type = 1, language is added to the list; if type = 0, language is removed from the list.',
     example: 1,
     enum: [0, 1],
     type: Number,
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @IsIn([0, 1])
-  @Type(() => Number)
   type?: number;
 }
