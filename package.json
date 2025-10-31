@@ -49,6 +49,8 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-environment-node": "^29.7.0",
+    "jsonc-eslint-parser": "^2.1.0",
+    "msw": "^2.11.6",
     "nx": "^21.2.1",
     "postcss": "^8.4.38",
     "prettier": "^2.6.2",
@@ -65,7 +67,8 @@
     "packages/*",
     "api",
     "api-e2e",
-    "admin"
+    "admin",
+    "libs/*"
   ],
   "dependencies": {
     "@nestjs/common": "^11.0.0",
