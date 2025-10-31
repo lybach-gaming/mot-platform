@@ -33,6 +33,7 @@ import {
 import { CategoryDetailDto } from './dto/category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { EditCategoryDto } from './dto/edit-category.dto';
+import { GetAllCategoriesDto } from './dto/filter-category.dto';
 import { CategorySortBy } from '../../common/constants/category';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
@@ -566,15 +567,7 @@ export class CategoryService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of categories
    */
-  async getAllCategories(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: CategorySortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    languageId?: number;
-    type?: number;
-  }) {
+  async getAllCategories(query: GetAllCategoriesDto) {
     const {
       limit = 20,
       offset = 0,

@@ -46,6 +46,7 @@ import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
+import { GetAllQuizzesDto } from './dto/filter-quiz.dto';
 import {
   QuizSortBy,
   MAX_RELATED_QUIZZES,
@@ -549,17 +550,7 @@ export class QuizService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of quizzes
    */
-  async getAllQuizzes(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: QuizSortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    languageId?: number;
-    categoryId?: number;
-    subcategoryId?: number;
-    subcategoryLevelId?: number;
-  }) {
+  async getAllQuizzes(query: GetAllQuizzesDto) {
     const {
       limit = 20,
       offset = 0,

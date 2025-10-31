@@ -5,6 +5,7 @@ import { OrderBy, MAX_LIMIT } from '../../common/constants/app';
 import { LanguageDetailDto } from './dto/language.dto';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { EditLanguageDto } from './dto/edit-language.dto';
+import { GetAllLanguagesDto } from './dto/filter-language.dto';
 import { LanguageSortBy } from '../../common/constants/language';
 import { transformToString } from '../../common/utils/transform.util';
 import { isValidId } from '../../common/utils/number.util';
@@ -202,15 +203,7 @@ export class LanguageService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of languages
    */
-  async getAllLanguages(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: LanguageSortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    status?: number;
-    type?: number;
-  }) {
+  async getAllLanguages(query: GetAllLanguagesDto) {
     const {
       limit = 20,
       offset = 0,

@@ -18,7 +18,6 @@ import {
   ApiConsumes,
   ApiBody,
   ApiParam,
-  ApiQuery,
   getSchemaPath,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -27,13 +26,12 @@ import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
 import { DeleteQuestionsDto } from './dto/delete-question.dto';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
+import { GetAllQuestionsDto } from './dto/filter-question.dto';
 import { QuestionService } from './question.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { validateOrReject } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { normalizeIndexedFormData } from '../../common/utils/normalizeFormDataBody.util';
-import { QuestionSortBy } from '../../common/constants/question';
-import { OrderBy } from './../../common/constants/app';
 
 @Controller('/v2')
 @ApiBearerAuth()
@@ -119,94 +117,8 @@ export class QuestionController {
   // [Admin] Get all questions
   @ApiOperation({ summary: '[Admin] Get all questions' })
   @Get('/admin/questions')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of questions per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: QuestionSortBy,
-    default: QuestionSortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  @ApiQuery({
-    name: 'languageId',
-    required: false,
-    type: Number,
-    description: 'Filter by language',
-  })
-  @ApiQuery({
-    name: 'categoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by main category',
-  })
-  @ApiQuery({
-    name: 'subcategoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by sub category',
-  })
-  @ApiQuery({
-    name: 'subcategoryLevelId',
-    required: false,
-    type: Number,
-    description: 'Filter by sub category level',
-  })
-  @ApiQuery({
-    name: 'quizId',
-    required: false,
-    type: Number,
-    description: 'Filter by quiz ID (comma-separated)',
-  })
-  async getAllQuestions(
-    @Query('offset') offset = 0,
-    @Query('limit') limit = 20,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: QuestionSortBy = QuestionSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC,
-    @Query('languageId') languageId?: number,
-    @Query('categoryId') categoryId?: number,
-    @Query('subcategoryId') subcategoryId?: number,
-    @Query('subcategoryLevelId') subcategoryLevelId?: number,
-    @Query('quizId') quizId?: number
-  ) {
-    return await this.questionService.getAllQuestions({
-      offset,
-      limit,
-      search,
-      sortBy,
-      order,
-      languageId,
-      categoryId,
-      subcategoryId,
-      subcategoryLevelId,
-      quizId,
-    });
+  async getAllQuestions(@Query() query: GetAllQuestionsDto) {
+    return await this.questionService.getAllQuestions(query);
   }
 
   // [Admin] Get Question Detail by ID

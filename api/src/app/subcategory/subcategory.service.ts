@@ -31,6 +31,7 @@ import {
 import { SubcategoryDetailDto } from './dto/subcategory.dto';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
 import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
+import { GetAllSubcategoriesDto } from './dto/filter-subcategory.dto';
 import { SubcategorySortBy } from '../../common/constants/subcategory';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
@@ -570,15 +571,7 @@ export class SubcategoryService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of subcategories
    */
-  async getAllSubcategories(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: SubcategorySortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    languageId?: number;
-    categoryId?: number;
-  }) {
+  async getAllSubcategories(query: GetAllSubcategoriesDto) {
     const {
       limit = 20,
       offset = 0,

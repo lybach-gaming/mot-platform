@@ -24,8 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateSubcategoryLevelDto } from './dto/create-subcategory-level.dto';
 import { EditSubcategoryLevelDto } from './dto/edit-subcategory-level.dto';
 import { DeleteSubcategoryLevelsDto } from './dto/delete-subcategory-levels.dto';
-import { SubcategoryLevelSortBy } from '../../common/constants/subcategory-level';
-import { OrderBy } from '../../common/constants/app';
+import { GetAllSubcategoryLevelsDto } from './dto/filter-subcategory-level.dto';
 
 interface SubcategoryLevelParams {
   id?: number;
@@ -87,78 +86,8 @@ export class SubcategoryLevelController {
   // [Admin] Endpoint to get all subcategory levels
   @ApiOperation({ summary: '[Admin] Get all subcategory levels' })
   @Get('/admin/subcategory-levels')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of subcategory levels per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: SubcategoryLevelSortBy,
-    default: SubcategoryLevelSortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  @ApiQuery({
-    name: 'languageId',
-    required: false,
-    type: Number,
-    description: 'Filter by language',
-  })
-  @ApiQuery({
-    name: 'categoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by main category',
-  })
-  @ApiQuery({
-    name: 'subcategoryId',
-    required: false,
-    type: Number,
-    description: 'Filter by sub category',
-  })
-  async getAllSubcategoryLevels(
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: SubcategoryLevelSortBy = SubcategoryLevelSortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC,
-    @Query('languageId') languageId?: number,
-    @Query('categoryId') categoryId?: number,
-    @Query('subcategoryId') subcategoryId?: number
-  ) {
-    return await this.subcategoryLevelService.getAllSubcategoryLevels({
-      limit,
-      offset,
-      search,
-      sortBy,
-      order,
-      languageId,
-      categoryId,
-      subcategoryId,
-    });
+  async getAllSubcategoryLevels(@Query() query: GetAllSubcategoryLevelsDto) {
+    return await this.subcategoryLevelService.getAllSubcategoryLevels(query);
   }
 
   // [Admin] Endpoint to get subcategory level details

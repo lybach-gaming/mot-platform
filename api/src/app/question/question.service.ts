@@ -35,6 +35,7 @@ import {
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
+import { GetAllQuestionsDto } from './dto/filter-question.dto';
 
 @Injectable()
 export class QuestionService {
@@ -405,18 +406,7 @@ export class QuestionService {
    * @returns Paginated list of questions
    * @throws Error if database query fails
    */
-  async getAllQuestions(query: {
-    offset: number;
-    limit: number;
-    search?: string;
-    sortBy?: QuestionSortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-    languageId?: number;
-    categoryId?: number;
-    subcategoryId?: number;
-    subcategoryLevelId?: number;
-    quizId?: number;
-  }) {
+  async getAllQuestions(query: GetAllQuestionsDto) {
     const {
       offset = 0,
       limit = 20,
