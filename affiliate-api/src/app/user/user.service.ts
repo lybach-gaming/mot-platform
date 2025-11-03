@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { UserEntity } from './user.entity';
+import { BaseService } from '../../shared/base/base-service';
 
 export interface UpdateProfileDto {
   username?: string;
@@ -26,25 +27,21 @@ export interface UpdateSettingsDto {
 }
 
 @Injectable()
-export class UserService {
+export class UserService extends BaseService<UserEntity> {
   constructor(
     @InjectRepository(UserEntity)
     private readonly repo: Repository<UserEntity>
-  ) {}
-
-  async getByIdOrThrow(id: number): Promise<UserEntity> {
-    const user = await this.repo.findOne({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
-    return user;
+  ) {
+    super(repo);
   }
 
   async getMe(userId: number): Promise<UserEntity> {
-    return this.getByIdOrThrow(userId);
+    return this.findOne({ where: { id: userId } });
   }
 
   async updateProfile(userId: number, dto: UpdateProfileDto): Promise<UserEntity> {
     await this.repo.update({ id: userId }, dto);
-    return this.getByIdOrThrow(userId);
+    return this.findOne({ where: { id: userId } });
   }
 
   async updateSettings(userId: number, dto: UpdateSettingsDto): Promise<UserEntity> {
@@ -58,17 +55,17 @@ export class UserService {
     if (dto.payoutCurrency !== undefined) update.payoutCurrency = dto.payoutCurrency;
     if (dto.privacy !== undefined) update.privacy = dto.privacy as Record<string, unknown> | null;
     await this.repo.update({ id: userId }, update as QueryDeepPartialEntity<UserEntity>);
-    return this.getByIdOrThrow(userId);
+    return this.findOne({ where: { id: userId } });
   }
 
   async setEmail(userId: number, email: string): Promise<UserEntity> {
     await this.repo.update({ id: userId }, { email, emailVerified: false });
-    return this.getByIdOrThrow(userId);
+    return this.findOne({ where: { id: userId } });
   }
 
   async markEmailVerified(userId: number): Promise<UserEntity> {
     await this.repo.update({ id: userId }, { emailVerified: true });
-    return this.getByIdOrThrow(userId);
+    return this.findOne({ where: { id: userId } });
   }
 
   async getByReferralSlug(slug: string): Promise<UserEntity | null> {

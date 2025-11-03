@@ -25,6 +25,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onEdit }) => {
         {/* Avatar */}
         <div className="flex-shrink-0">
           {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={user.avatarUrl}
               alt={user.displayName || user.username || 'User'}
@@ -102,3 +103,4 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onEdit }) => {
     </div>
   );
 };
+

@@ -14,7 +14,7 @@ export class UserController {
   // Profile Management
   @Get(':userId')
   getProfileById(@Param('userId') userId: string) {
-    return this.userService.getByIdOrThrow(Number(userId));
+    return this.userService.findOne({ where: { id: Number(userId) } });
   }
 
   @Get('me/profile')

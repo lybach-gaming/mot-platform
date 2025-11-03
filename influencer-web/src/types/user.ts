@@ -63,3 +63,4 @@ export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   locale: string;
 }
+
