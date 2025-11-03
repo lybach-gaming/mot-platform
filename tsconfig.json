@@ -22,10 +22,10 @@
       "path": "./affiliate-api"
     },
     {
-      "path": "./influencer-web-e2e"
+      "path": "./affiliate-web-e2e"
     },
     {
-      "path": "./influencer-web"
+      "path": "./affiliate-web"
     }
   ],
   "ts-node": {
