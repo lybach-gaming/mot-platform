@@ -11,6 +11,8 @@ export interface User {
   displayName?: string;
   avatarUrl?: string;
   bio?: string;
+  country?: string;
+  timezone?: string;
   twoFactorEnabled: boolean;
   notificationsEmail: boolean;
   notificationsPush: boolean;
@@ -31,6 +33,8 @@ export interface CreateUserRequest {
   displayName?: string;
   avatarUrl?: string;
   bio?: string;
+  country?: string;
+  timezone?: string;
   twoFactorEnabled?: boolean;
   notificationsEmail?: boolean;
   notificationsPush?: boolean;
@@ -62,5 +66,6 @@ export interface UserSettings {
   notificationsPush: boolean;
   theme: 'light' | 'dark' | 'system';
   locale: string;
+  timezone?: string;
 }
 

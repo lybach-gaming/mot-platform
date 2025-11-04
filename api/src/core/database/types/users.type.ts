@@ -34,4 +34,6 @@ export interface IUser {
   is_credited: boolean;
   is_verify: EUserVerifyStatus;
   newsletter_opt_in: boolean | null;
+  locale?: string;
+  timezone?: string;
 }

@@ -262,6 +262,7 @@ export const useUserSettings = (id: number) => {
     notificationsPush: user.notificationsPush,
     theme: user.theme,
     locale: user.locale,
+    timezone: user.timezone,
   } : null;
 
   const updateSettings = useCallback(async (settings: UserSettings) => {
