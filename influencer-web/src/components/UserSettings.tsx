@@ -18,6 +18,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({
     notificationsPush: settings.notificationsPush,
     theme: settings.theme,
     locale: settings.locale,
+    timezone: settings.timezone || '',
   });
 
   const handleChange = (
@@ -144,6 +145,46 @@ export const UserSettings: React.FC<UserSettingsProps> = ({
                 <option value="ko">Korean</option>
                 <option value="zh">Chinese</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Regional Settings */}
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Regional Preferences</h3>
+          
+          <div className="grid grid-cols-1 gap-6">
+            <div>
+              <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-1">
+                Timezone
+              </label>
+              <select
+                id="timezone"
+                name="timezone"
+                value={formData.timezone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select timezone...</option>
+                <option value="America/New_York">Eastern Time (ET)</option>
+                <option value="America/Chicago">Central Time (CT)</option>
+                <option value="America/Denver">Mountain Time (MT)</option>
+                <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                <option value="Europe/London">London (GMT/BST)</option>
+                <option value="Europe/Paris">Paris (CET/CEST)</option>
+                <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                <option value="Asia/Tokyo">Tokyo (JST)</option>
+                <option value="Asia/Seoul">Seoul (KST)</option>
+                <option value="Asia/Shanghai">Shanghai (CST)</option>
+                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Australia/Sydney">Sydney (AEDT/AEST)</option>
+                <option value="Pacific/Auckland">Auckland (NZDT/NZST)</option>
+                <option value="UTC">UTC</option>
+              </select>
+              <p className="text-sm text-gray-500 mt-1">
+                Set your preferred timezone for displaying dates and times
+              </p>
             </div>
           </div>
         </div>
