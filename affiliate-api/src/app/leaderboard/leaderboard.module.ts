@@ -6,7 +6,7 @@ import { AffiliateEntity } from '../affiliate/affiliate.entity';
 import { ReferralEntity } from '../referral/referral.entity';
 import { PaymentEntity } from '../payment/payment.entity';
 import { UserEntity } from '../user/user.entity';
-import { CacheModule } from '../../shared/cache/cache.module';
+import { RedisCacheModule } from '../../shared/cache/cache.module';
 
 @Module({
   imports: [
@@ -16,7 +16,7 @@ import { CacheModule } from '../../shared/cache/cache.module';
       PaymentEntity,
       UserEntity
     ]),
-    CacheModule
+    RedisCacheModule
   ],
   controllers: [LeaderboardController],
   providers: [LeaderboardService],
