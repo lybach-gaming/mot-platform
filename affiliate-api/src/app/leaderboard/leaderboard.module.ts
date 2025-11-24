@@ -7,12 +7,6 @@ import { ReferralEntity } from '../referral/referral.entity';
 import { PaymentEntity } from '../payment/payment.entity';
 import { UserEntity } from '../user/user.entity';
 import { RedisCacheModule } from '../../shared/cache/cache.module';
-import {
-  RankingService,
-  ReferralsService,
-  EarningsService,
-  MetricsService
-} from './services';
 
 @Module({
   imports: [
@@ -25,13 +19,7 @@ import {
     RedisCacheModule
   ],
   controllers: [LeaderboardController],
-  providers: [
-    LeaderboardService,
-    RankingService,
-    ReferralsService,
-    EarningsService,
-    MetricsService
-  ],
+  providers: [LeaderboardService],
   exports: [LeaderboardService]
 })
 export class LeaderboardModule {}

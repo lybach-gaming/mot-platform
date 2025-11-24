@@ -1,7 +1,6 @@
 import { Column, Entity, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { CustomBaseEntity } from '../../shared/base/base-entity';
 import { UserEntity } from '../user/user.entity';
-import { decimalTransformer } from '../../shared/utils/decimal-transformer';
 
 @Entity({ name: 'events' })
 export class EventEntity extends CustomBaseEntity {
@@ -14,14 +13,7 @@ export class EventEntity extends CustomBaseEntity {
   @Index()
   name: string;
 
-  @Column({
-    name: 'value',
-    type: 'decimal',
-    precision: 18,
-    scale: 8,
-    nullable: true,
-    transformer: decimalTransformer
-  })
+  @Column({ name: 'value', type: 'decimal', precision: 18, scale: 8, nullable: true })
   value?: number;
 
   @Column({ name: 'user_id', type: 'int', nullable: true })
