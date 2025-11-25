@@ -1,6 +1,7 @@
 import { Column, Entity, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { CustomBaseEntity } from '../../shared/base/base-entity';
 import { UserEntity } from '../user/user.entity';
+import { decimalTransformer } from '../../shared/utils/decimal-transformer';
 
 @Entity({ name: 'payments' })
 @Index(['projectId', 'transactionHash'], { unique: true })
@@ -30,7 +31,14 @@ export class PaymentEntity extends CustomBaseEntity {
   @Column({ name: 'invited_by_address', type: 'varchar', nullable: true })
   invitedByAddress?: string;
 
-  @Column({ name: 'value', type: 'decimal', precision: 30, scale: 8, default: 0 })
+  @Column({
+    name: 'value',
+    type: 'decimal',
+    precision: 30,
+    scale: 8,
+    default: 0,
+    transformer: decimalTransformer
+  })
   value: number;
 
   @Column({ name: 'quantity', type: 'int', nullable: true })
