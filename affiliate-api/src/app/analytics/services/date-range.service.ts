@@ -10,15 +10,15 @@ export interface DateRange {
 export class DateRangeService {
   getPeriodRange(period: TimePeriod, customFrom?: Date, customTo?: Date): DateRange {
     const now = new Date();
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const endDate = this.getEndOfDayUTC(now);
 
     if (period === TimePeriod.CUSTOM) {
       if (!customFrom || !customTo) {
         throw new Error('Custom period requires both from and to dates');
       }
       return {
-        startDate: new Date(customFrom.getFullYear(), customFrom.getMonth(), customFrom.getDate(), 0, 0, 0, 0),
-        endDate: new Date(customTo.getFullYear(), customTo.getMonth(), customTo.getDate(), 23, 59, 59, 999)
+        startDate: this.getStartOfDayUTC(customFrom),
+        endDate: this.getEndOfDayUTC(customTo)
       };
     }
 
@@ -46,17 +46,35 @@ export class DateRangeService {
         break;
 
       case TimePeriod.ALL_TIME:
-        startDate = new Date(2020, 0, 1);
-        break;
+        startDate = new Date(Date.UTC(2020, 0, 1, 0, 0, 0, 0));
+        return { startDate, endDate };
 
       default:
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 30);
     }
 
-    startDate.setHours(0, 0, 0, 0);
+    startDate = this.getStartOfDayUTC(startDate);
 
     return { startDate, endDate };
+  }
+
+  private getStartOfDayUTC(date: Date): Date {
+    return new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0, 0, 0, 0
+    ));
+  }
+
+  private getEndOfDayUTC(date: Date): Date {
+    return new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23, 59, 59, 999
+    ));
   }
 
   getPreviousPeriod(period: TimePeriod, currentRange: DateRange): DateRange {
@@ -72,10 +90,10 @@ export class DateRangeService {
     const now = new Date();
 
     for (let i = months - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startDate = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
-      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
-      const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      const date = new Date(now.getUTCFullYear(), now.getUTCMonth() - i, 1);
+      const startDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+      const endDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+      const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', timeZone: 'UTC' });
 
       ranges.push({ startDate, endDate, label });
     }

@@ -1,39 +1,48 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ClickEntity, ConversionEntity } from '../entities';
+import { ClickEntity } from '../entities';
 import { DateRangeService } from './date-range.service';
 import { GeographyResponseDto, CountryPerformanceDto, PaginationMetaDto } from '../dto';
 import { TimePeriod } from '../types/period.types';
+import { roundToTwoDecimals } from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class GeographyService {
+  private readonly ALLOWED_SORT_FIELDS = ['country', 'clicks', 'conversions', 'revenue', 'commission', 'conversionRate'];
+
   constructor(
     @InjectRepository(ClickEntity)
     private clickRepo: Repository<ClickEntity>,
-    @InjectRepository(ConversionEntity)
-    private conversionRepo: Repository<ConversionEntity>,
     private dateRangeService: DateRangeService
   ) {}
 
   async getGeographyAnalytics(
     projectId: number,
     period: TimePeriod,
-    page: number = 1,
-    limit: number = 10,
-    sortBy: string = 'conversions',
+    page = 1,
+    limit = 10,
+    sortBy = 'conversions',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
     customFrom?: Date,
     customTo?: Date
   ): Promise<GeographyResponseDto> {
+    if (!this.ALLOWED_SORT_FIELDS.includes(sortBy)) {
+      sortBy = 'conversions';
+    }
+
     const range = this.dateRangeService.getPeriodRange(period, customFrom, customTo);
     const { startDate, endDate } = range;
 
-    const countries = await this.getCountriesWithMetrics(projectId, startDate, endDate);
-    const sortedCountries = this.sortCountries(countries, sortBy, sortOrder);
-
-    const totalItems = sortedCountries.length;
-    const paginatedCountries = sortedCountries.slice((page - 1) * limit, page * limit);
+    const { countries, totalItems } = await this.getCountriesWithMetricsSQL(
+      projectId,
+      startDate,
+      endDate,
+      page,
+      limit,
+      sortBy,
+      sortOrder
+    );
 
     const meta: PaginationMetaDto = {
       page,
@@ -45,7 +54,7 @@ export class GeographyService {
     };
 
     return {
-      countries: paginatedCountries,
+      countries,
       meta,
       period,
       dateRange: {
@@ -55,101 +64,109 @@ export class GeographyService {
     };
   }
 
-  private async getCountriesWithMetrics(
+  private async getCountriesWithMetricsSQL(
     projectId: number,
     startDate: Date,
-    endDate: Date
-  ): Promise<CountryPerformanceDto[]> {
-    const clicksByCountry = await this.clickRepo
-      .createQueryBuilder('c')
-      .select('c.country', 'country')
-      .addSelect('COUNT(*)', 'clicks')
-      .where('c.project_id = :projectId', { projectId })
-      .andWhere('c.created_at BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .andWhere('c.country IS NOT NULL')
-      .groupBy('c.country')
-      .getRawMany();
-
-    const conversionsByCountry = await this.conversionRepo
-      .createQueryBuilder('conv')
-      .select('conv.country', 'country')
-      .addSelect('COUNT(*)', 'conversions')
-      .addSelect('COALESCE(SUM(conv.order_value), 0)', 'revenue')
-      .addSelect('COALESCE(SUM(conv.commission_amount), 0)', 'commission')
-      .where('conv.project_id = :projectId', { projectId })
-      .andWhere('conv.created_at BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .andWhere('conv.country IS NOT NULL')
-      .groupBy('conv.country')
-      .getRawMany();
-
-    const countryMap = new Map<string, CountryPerformanceDto>();
-
-    clicksByCountry.forEach(row => {
-      const country = row.country;
-      const clicks = parseInt(row.clicks || '0', 10);
-
-      countryMap.set(country, {
-        country,
-        countryName: this.getCountryName(country),
-        clicks,
-        conversions: 0,
-        conversionRate: 0,
-        revenue: 0,
-        commission: 0
-      });
-    });
-
-    conversionsByCountry.forEach(row => {
-      const country = row.country;
-      const conversions = parseInt(row.conversions || '0', 10);
-      const revenue = parseFloat(row.revenue || '0');
-      const commission = parseFloat(row.commission || '0');
-
-      if (countryMap.has(country)) {
-        const existing = countryMap.get(country)!;
-        existing.conversions = conversions;
-        existing.conversionRate = existing.clicks > 0
-          ? Math.round((conversions / existing.clicks) * 10000) / 100
-          : 0;
-        existing.revenue = Math.round(revenue * 100) / 100;
-        existing.commission = Math.round(commission * 100) / 100;
-      } else {
-        countryMap.set(country, {
-          country,
-          countryName: this.getCountryName(country),
-          clicks: 0,
-          conversions,
-          conversionRate: 0,
-          revenue: Math.round(revenue * 100) / 100,
-          commission: Math.round(commission * 100) / 100
-        });
-      }
-    });
-
-    return Array.from(countryMap.values());
-  }
-
-  private sortCountries(
-    countries: CountryPerformanceDto[],
+    endDate: Date,
+    page: number,
+    limit: number,
     sortBy: string,
     sortOrder: 'ASC' | 'DESC'
-  ): CountryPerformanceDto[] {
-    return countries.sort((a, b) => {
-      const aValue = a[sortBy as keyof CountryPerformanceDto] || 0;
-      const bValue = b[sortBy as keyof CountryPerformanceDto] || 0;
+  ): Promise<{ countries: CountryPerformanceDto[]; totalItems: number }> {
+    const sqlSortField = this.getSQLSortField(sortBy);
 
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'ASC' ? aValue - bValue : bValue - aValue;
-      }
+    const query = `
+      WITH clicks_by_country AS (
+        SELECT
+          country,
+          COUNT(*) as clicks
+        FROM clicks
+        WHERE project_id = $1
+          AND created_at BETWEEN $2 AND $3
+          AND country IS NOT NULL
+        GROUP BY country
+      ),
+      conversions_by_country AS (
+        SELECT
+          country,
+          COUNT(*) as conversions,
+          COALESCE(SUM(order_value), 0) as revenue,
+          COALESCE(SUM(commission_amount), 0) as commission
+        FROM conversions
+        WHERE project_id = $1
+          AND created_at BETWEEN $2 AND $3
+          AND country IS NOT NULL
+        GROUP BY country
+      ),
+      combined AS (
+        SELECT
+          COALESCE(c.country, conv.country) as country,
+          COALESCE(c.clicks, 0) as clicks,
+          COALESCE(conv.conversions, 0) as conversions,
+          COALESCE(conv.revenue, 0) as revenue,
+          COALESCE(conv.commission, 0) as commission,
+          CASE
+            WHEN COALESCE(c.clicks, 0) > 0
+            THEN ROUND((COALESCE(conv.conversions, 0)::numeric / c.clicks::numeric * 100), 2)
+            ELSE 0
+          END as conversion_rate
+        FROM clicks_by_country c
+        FULL OUTER JOIN conversions_by_country conv ON c.country = conv.country
+      )
+      SELECT
+        country,
+        clicks,
+        conversions,
+        revenue,
+        commission,
+        conversion_rate
+      FROM combined
+      ORDER BY ${sqlSortField} ${sortOrder}
+      LIMIT $4 OFFSET $5
+    `;
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === 'ASC'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
+    const countQuery = `
+      WITH all_countries AS (
+        SELECT DISTINCT country FROM clicks
+        WHERE project_id = $1 AND created_at BETWEEN $2 AND $3 AND country IS NOT NULL
+        UNION
+        SELECT DISTINCT country FROM conversions
+        WHERE project_id = $1 AND created_at BETWEEN $2 AND $3 AND country IS NOT NULL
+      )
+      SELECT COUNT(*) as total FROM all_countries
+    `;
 
-      return 0;
-    });
+    const offset = (page - 1) * limit;
+    const [results, countResult] = await Promise.all([
+      this.clickRepo.query(query, [projectId, startDate, endDate, limit, offset]),
+      this.clickRepo.query(countQuery, [projectId, startDate, endDate])
+    ]);
+
+    const totalItems = parseInt(countResult[0]?.total || '0', 10);
+
+    const countries: CountryPerformanceDto[] = results.map((row: Record<string, string | number>) => ({
+      country: String(row.country),
+      countryName: this.getCountryName(String(row.country)),
+      clicks: parseInt(String(row.clicks || '0'), 10),
+      conversions: parseInt(String(row.conversions || '0'), 10),
+      conversionRate: parseFloat(String(row.conversion_rate || '0')),
+      revenue: roundToTwoDecimals(parseFloat(String(row.revenue || '0'))),
+      commission: roundToTwoDecimals(parseFloat(String(row.commission || '0')))
+    }));
+
+    return { countries, totalItems };
+  }
+
+  private getSQLSortField(sortBy: string): string {
+    const fieldMap: Record<string, string> = {
+      country: 'country',
+      clicks: 'clicks',
+      conversions: 'conversions',
+      revenue: 'revenue',
+      commission: 'commission',
+      conversionRate: 'conversion_rate'
+    };
+    return fieldMap[sortBy] || 'conversions';
   }
 
   private getCountryName(countryCode: string): string {

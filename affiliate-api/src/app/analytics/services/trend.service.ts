@@ -4,6 +4,11 @@ import { Repository } from 'typeorm';
 import { ImpressionEntity, ClickEntity, ConversionEntity } from '../entities';
 import { DateRangeService } from './date-range.service';
 import { TrendResponseDto, TrendDataPointDto } from '../dto';
+import {
+  calculateCTR,
+  calculateConversionRate,
+  roundToTwoDecimals
+} from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class TrendService {
@@ -74,19 +79,16 @@ export class TrendService {
     const revenue = parseFloat(revenueResult?.revenue || '0');
     const commission = parseFloat(revenueResult?.commission || '0');
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-
     return {
       date: this.dateRangeService.formatDate(startDate),
       label,
       impressions,
       clicks,
       conversions,
-      revenue: Math.round(revenue * 100) / 100,
-      commission: Math.round(commission * 100) / 100,
-      ctr: Math.round(ctr * 100) / 100,
-      conversionRate: Math.round(conversionRate * 100) / 100
+      revenue: roundToTwoDecimals(revenue),
+      commission: roundToTwoDecimals(commission),
+      ctr: calculateCTR(clicks, impressions),
+      conversionRate: calculateConversionRate(conversions, clicks)
     };
   }
 }

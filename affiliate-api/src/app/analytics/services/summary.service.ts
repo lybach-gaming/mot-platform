@@ -5,6 +5,13 @@ import { ImpressionEntity, ClickEntity, ConversionEntity } from '../entities';
 import { DateRangeService, DateRange } from './date-range.service';
 import { SummaryResponseDto, CoreMetricsDto } from '../dto';
 import { TimePeriod } from '../types/period.types';
+import {
+  calculateCTR,
+  calculateConversionRate,
+  calculateAverageOrderValue,
+  calculateROI,
+  roundToTwoDecimals
+} from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class SummaryService {
@@ -86,21 +93,16 @@ export class SummaryService {
     const revenue = parseFloat(revenueResult?.revenue || '0');
     const commission = parseFloat(revenueResult?.commission || '0');
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-    const averageOrderValue = conversions > 0 ? revenue / conversions : 0;
-    const roi = commission > 0 ? ((revenue - commission) / commission) * 100 : 0;
-
     return {
       impressions,
       clicks,
       conversions,
-      ctr: Math.round(ctr * 100) / 100,
-      conversionRate: Math.round(conversionRate * 100) / 100,
-      revenue: Math.round(revenue * 100) / 100,
-      commission: Math.round(commission * 100) / 100,
-      averageOrderValue: Math.round(averageOrderValue * 100) / 100,
-      roi: Math.round(roi * 100) / 100
+      ctr: calculateCTR(clicks, impressions),
+      conversionRate: calculateConversionRate(conversions, clicks),
+      revenue: roundToTwoDecimals(revenue),
+      commission: roundToTwoDecimals(commission),
+      averageOrderValue: calculateAverageOrderValue(revenue, conversions),
+      roi: calculateROI(revenue, commission)
     };
   }
 }

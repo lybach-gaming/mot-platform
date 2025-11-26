@@ -6,6 +6,12 @@ import { DateRangeService } from './date-range.service';
 import { CampaignResponseDto, CampaignPerformanceDto, PaginationMetaDto } from '../dto';
 import { TimePeriod } from '../types/period.types';
 import { CampaignStatus } from '../types/campaign.types';
+import {
+  calculateCTR,
+  calculateConversionRate,
+  calculateROI,
+  roundToTwoDecimals
+} from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class CampaignAnalyticsService {
@@ -21,6 +27,17 @@ export class CampaignAnalyticsService {
     private dateRangeService: DateRangeService
   ) {}
 
+  private readonly ALLOWED_SORT_FIELDS = [
+    'impressions',
+    'clicks',
+    'conversions',
+    'revenue',
+    'commission',
+    'ctr',
+    'conversionRate',
+    'roi'
+  ];
+
   async getCampaignAnalytics(
     projectId: number,
     period: TimePeriod,
@@ -32,6 +49,10 @@ export class CampaignAnalyticsService {
     customFrom?: Date,
     customTo?: Date
   ): Promise<CampaignResponseDto> {
+    if (!this.ALLOWED_SORT_FIELDS.includes(sortBy)) {
+      sortBy = 'conversions';
+    }
+
     const range = this.dateRangeService.getPeriodRange(period, customFrom, customTo);
     const { startDate, endDate } = range;
 
@@ -117,10 +138,6 @@ export class CampaignAnalyticsService {
     const revenue = parseFloat(revenueResult?.revenue || '0');
     const commission = parseFloat(revenueResult?.commission || '0');
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-    const roi = commission > 0 ? ((revenue - commission) / commission) * 100 : 0;
-
     return {
       campaignId: campaign.id,
       campaignName: campaign.name,
@@ -128,11 +145,11 @@ export class CampaignAnalyticsService {
       impressions,
       clicks,
       conversions,
-      ctr: Math.round(ctr * 100) / 100,
-      conversionRate: Math.round(conversionRate * 100) / 100,
-      revenue: Math.round(revenue * 100) / 100,
-      commission: Math.round(commission * 100) / 100,
-      roi: Math.round(roi * 100) / 100
+      ctr: calculateCTR(clicks, impressions),
+      conversionRate: calculateConversionRate(conversions, clicks),
+      revenue: roundToTwoDecimals(revenue),
+      commission: roundToTwoDecimals(commission),
+      roi: calculateROI(revenue, commission)
     };
   }
 

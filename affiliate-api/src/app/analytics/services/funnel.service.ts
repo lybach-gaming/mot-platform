@@ -5,6 +5,7 @@ import { ImpressionEntity, ClickEntity, ConversionEntity } from '../entities';
 import { DateRangeService } from './date-range.service';
 import { FunnelResponseDto, FunnelStageDto } from '../dto';
 import { TimePeriod } from '../types/period.types';
+import { calculatePercentage, calculateDropoff } from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class FunnelService {
@@ -66,21 +67,19 @@ export class FunnelService {
         stage: 'clicks',
         label: 'Clicks',
         count: clicks,
-        percentage: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
-        dropoff: impressions > 0 ? Math.round(((impressions - clicks) / impressions) * 10000) / 100 : 0
+        percentage: calculatePercentage(clicks, impressions),
+        dropoff: calculateDropoff(impressions, clicks)
       },
       {
         stage: 'conversions',
         label: 'Conversions',
         count: conversions,
-        percentage: impressions > 0 ? Math.round((conversions / impressions) * 10000) / 100 : 0,
-        dropoff: clicks > 0 ? Math.round(((clicks - conversions) / clicks) * 10000) / 100 : 0
+        percentage: calculatePercentage(conversions, impressions),
+        dropoff: calculateDropoff(clicks, conversions)
       }
     ];
 
-    const overallConversionRate = impressions > 0
-      ? Math.round((conversions / impressions) * 10000) / 100
-      : 0;
+    const overallConversionRate = calculatePercentage(conversions, impressions);
 
     return {
       stages,
