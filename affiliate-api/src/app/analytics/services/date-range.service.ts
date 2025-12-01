@@ -3,7 +3,7 @@ import { TimePeriod } from '../types/period.types';
 
 export interface DateRange {
   startDate: Date;
-  endDate: Date;
+  endDate: Date,
 }
 
 @Injectable()
@@ -27,22 +27,22 @@ export class DateRangeService {
     switch (period) {
       case TimePeriod.LAST_7_DAYS:
         startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 7);
+        startDate.setUTCDate(startDate.getUTCDate() - 7);
         break;
 
       case TimePeriod.LAST_30_DAYS:
         startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
+        startDate.setUTCDate(startDate.getUTCDate() - 30);
         break;
 
       case TimePeriod.LAST_90_DAYS:
         startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 90);
+        startDate.setUTCDate(startDate.getUTCDate() - 90);
         break;
 
       case TimePeriod.LAST_YEAR:
         startDate = new Date(now);
-        startDate.setFullYear(startDate.getFullYear() - 1);
+        startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
         break;
 
       case TimePeriod.ALL_TIME:
@@ -85,17 +85,17 @@ export class DateRangeService {
     return { startDate, endDate };
   }
 
-  getMonthlyRanges(months: number = 12): Array<DateRange & { label: string }> {
+  getMonthlyRanges(months = 12): Array<DateRange & { label: string }> {
     const ranges: Array<DateRange & { label: string }> = [];
     const now = new Date();
 
-    for (let i = months - 1; i >= 0; i--) {
+    for (let i = months - 1; i >= 0; i = i - 1) {
       const date = new Date(now.getUTCFullYear(), now.getUTCMonth() - i, 1);
       const startDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
       const endDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
       const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', timeZone: 'UTC' });
 
-      ranges.push({ startDate, endDate, label });
+      ranges.push({ startDate, endDate, label, });
     }
 
     return ranges;

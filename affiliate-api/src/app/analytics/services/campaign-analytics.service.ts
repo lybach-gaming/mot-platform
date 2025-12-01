@@ -41,9 +41,9 @@ export class CampaignAnalyticsService {
   async getCampaignAnalytics(
     projectId: number,
     period: TimePeriod,
-    page: number = 1,
-    limit: number = 10,
-    sortBy: string = 'conversions',
+    page = 1,
+    limit = 10,
+    sortBy = 'conversions',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
     status?: CampaignStatus,
     customFrom?: Date,

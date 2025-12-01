@@ -9,7 +9,7 @@ import { roundToTwoDecimals } from '../../../shared/utils/calculation.utils';
 
 @Injectable()
 export class GeographyService {
-  private readonly ALLOWED_SORT_FIELDS = ['country', 'clicks', 'conversions', 'revenue', 'commission', 'conversionRate'];
+  private readonly ALLOWED_SORT_FIELDS = ['country', 'clicks', 'conversions', 'revenue', 'commission'];
 
   constructor(
     @InjectRepository(ClickEntity)
