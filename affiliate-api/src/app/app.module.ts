@@ -7,6 +7,7 @@ import typeorm from '../config/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +27,7 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
     AuthModule,
     UserModule,
     LeaderboardModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
