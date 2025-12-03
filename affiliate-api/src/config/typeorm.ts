@@ -10,7 +10,7 @@ const config = {
   autoLoadEntities: true,
   migrationsRun: true,
   entities: [__dirname + '/**/*.entity{.ts,.js}'],
-  ssl: {
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : {
     rejectUnauthorized: false,
   },
   logging: true,

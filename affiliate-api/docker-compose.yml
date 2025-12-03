@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: affiliate-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: affiliate_user
+      POSTGRES_PASSWORD: affiliate_password_123
+      POSTGRES_DB: affiliate_db
+    ports:
+      - "54320:5432"  # External port 54320 to avoid conflicts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U affiliate_user -d affiliate_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: affiliate-redis
+    restart: always
+    ports:
+      - "63790:6379"  # External port 63790 to avoid conflicts
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
