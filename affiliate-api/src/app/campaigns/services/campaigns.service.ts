@@ -7,43 +7,43 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OfferEntity, OfferPromotionEntity } from '../entities';
-import { OfferStatus } from '../types';
+import { CampaignEntity, CampaignPromotionEntity } from '../entities';
+import { CampaignStatus } from '../types';
 import {
-  CreateOfferDto,
-  UpdateOfferDto,
-  PromoteOfferDto,
-  OfferQueryDto,
-  OfferResponseDto,
-  OffersListResponseDto,
+  CreateCampaignDto,
+  UpdateCampaignDto,
+  PromoteCampaignDto,
+  CampaignQueryDto,
+  CampaignResponseDto,
+  CampaignsListResponseDto,
   PromotionResponseDto
 } from '../dto';
 
 @Injectable()
-export class OffersService {
-  private readonly logger = new Logger(OffersService.name);
+export class CampaignsService {
+  private readonly logger = new Logger(CampaignsService.name);
 
   constructor(
-    @InjectRepository(OfferEntity)
-    private offerRepo: Repository<OfferEntity>,
-    @InjectRepository(OfferPromotionEntity)
-    private promotionRepo: Repository<OfferPromotionEntity>
+    @InjectRepository(CampaignEntity)
+    private campaignRepo: Repository<CampaignEntity>,
+    @InjectRepository(CampaignPromotionEntity)
+    private promotionRepo: Repository<CampaignPromotionEntity>
   ) {}
 
-  async findAll(query: OfferQueryDto): Promise<OffersListResponseDto> {
-    const queryBuilder = this.offerRepo.createQueryBuilder('offer');
+  async findAll(query: CampaignQueryDto): Promise<CampaignsListResponseDto> {
+    const queryBuilder = this.campaignRepo.createQueryBuilder('campaign');
 
     // Apply filters
     if (query.status) {
-      queryBuilder.andWhere('offer.status = :status', { status: query.status });
+      queryBuilder.andWhere('campaign.status = :status', { status: query.status });
     }
 
     if (query.topic) {
-      queryBuilder.andWhere('offer.topic = :topic', { topic: query.topic });
+      queryBuilder.andWhere('campaign.topic = :topic', { topic: query.topic });
     }
 
     if (query.minRating) {
-      queryBuilder.andWhere('offer.rating >= :minRating', { minRating: query.minRating });
+      queryBuilder.andWhere('campaign.rating >= :minRating', { minRating: query.minRating });
     }
 
     // Get total count before pagination
@@ -56,12 +56,12 @@ export class OffersService {
     // Apply pagination
     queryBuilder.skip((query.page - 1) * query.limit).take(query.limit);
 
-    const offers = await queryBuilder.getMany();
+    const campaigns = await queryBuilder.getMany();
 
     const totalPages = Math.ceil(totalItems / query.limit);
 
     return {
-      offers,
+      campaigns,
       page: query.page,
       limit: query.limit,
       totalItems,
@@ -71,47 +71,51 @@ export class OffersService {
     };
   }
 
-  async findOne(id: number): Promise<OfferResponseDto> {
-    const offer = await this.offerRepo.findOne({ where: { id } });
+  async findOne(id: number): Promise<CampaignResponseDto> {
+    const campaign = await this.campaignRepo.findOne({ where: { id } });
 
-    if (!offer) {
-      throw new NotFoundException(`Offer with ID ${id} not found`);
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found`);
     }
 
-    return offer;
+    return campaign;
   }
 
-  async create(dto: CreateOfferDto, userId: number): Promise<OfferResponseDto> {
+  async create(dto: CreateCampaignDto, userId: number): Promise<CampaignResponseDto> {
     // Check slug uniqueness
-    const existing = await this.offerRepo.findOne({ where: { slug: dto.slug } });
+    const existing = await this.campaignRepo.findOne({ where: { slug: dto.slug } });
     if (existing) {
-      throw new BadRequestException(`Offer with slug "${dto.slug}" already exists`);
+      throw new BadRequestException(`Campaign with slug "${dto.slug}" already exists`);
     }
 
     // Validate commission model structure
     this.validateCommissionModel(dto.commissionModel);
 
-    const offer = this.offerRepo.create({
+    const campaign = this.campaignRepo.create({
       ...dto,
       createdBy: userId,
       updatedBy: userId,
       activeAffiliates: 0
     });
 
-    const saved = await this.offerRepo.save(offer);
-    this.logger.log(`Offer ${saved.id} "${saved.name}" created by user ${userId}`);
+    const saved = await this.campaignRepo.save(campaign);
+    this.logger.log(`Campaign ${saved.id} "${saved.name}" created by user ${userId}`);
 
     return saved;
   }
 
-  async update(id: number, dto: UpdateOfferDto, userId: number): Promise<OfferResponseDto> {
-    const offer = await this.findOne(id);
+  async update(id: number, dto: UpdateCampaignDto, userId: number): Promise<CampaignResponseDto> {
+    const campaign = await this.campaignRepo.findOne({ where: { id } });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found`);
+    }
 
     // Check slug uniqueness if changed
-    if (dto.slug && dto.slug !== offer.slug) {
-      const existing = await this.offerRepo.findOne({ where: { slug: dto.slug } });
+    if (dto.slug && dto.slug !== campaign.slug) {
+      const existing = await this.campaignRepo.findOne({ where: { slug: dto.slug } });
       if (existing) {
-        throw new BadRequestException(`Offer with slug "${dto.slug}" already exists`);
+        throw new BadRequestException(`Campaign with slug "${dto.slug}" already exists`);
       }
     }
 
@@ -120,38 +124,38 @@ export class OffersService {
       this.validateCommissionModel(dto.commissionModel);
     }
 
-    Object.assign(offer, dto);
-    offer.updatedBy = userId;
+    Object.assign(campaign, dto);
+    campaign.updatedBy = userId;
 
-    const saved = await this.offerRepo.save(offer);
-    this.logger.log(`Offer ${id} "${saved.name}" updated by user ${userId}`);
+    const saved = await this.campaignRepo.save(campaign);
+    this.logger.log(`Campaign ${id} "${saved.name}" updated by user ${userId}`);
 
     return saved;
   }
 
   async delete(id: number): Promise<void> {
-    const offer = await this.findOne(id);
-    await this.offerRepo.remove(offer);
-    this.logger.log(`Offer ${id} "${offer.name}" deleted`);
+    const campaign = await this.findOne(id);
+    await this.campaignRepo.remove(campaign);
+    this.logger.log(`Campaign ${id} "${campaign.name}" deleted`);
   }
 
-  async promoteOffer(
-    offerId: number,
+  async promoteCampaign(
+    campaignId: number,
     affiliateId: number,
-    dto: PromoteOfferDto
+    dto: PromoteCampaignDto
   ): Promise<PromotionResponseDto> {
-    const offer = await this.findOne(offerId);
+    const campaign = await this.findOne(campaignId);
 
-    // Validate offer is active
-    if (offer.status !== OfferStatus.ACTIVE) {
+    // Validate campaign is active
+    if (campaign.status !== CampaignStatus.ACTIVE) {
       throw new ForbiddenException(
-        `Cannot promote offer "${offer.name}" - status is ${offer.status}. Only active offers can be promoted.`
+        `Cannot promote campaign "${campaign.name}" - status is ${campaign.status}. Only active campaigns can be promoted.`
       );
     }
 
     // Check if already promoting
     const existing = await this.promotionRepo.findOne({
-      where: { offerId, affiliateId }
+      where: { campaignId, affiliateId }
     });
 
     if (existing) {
@@ -161,11 +165,11 @@ export class OffersService {
       existing.metadata = dto.metadata;
       await this.promotionRepo.save(existing);
 
-      this.logger.log(`Affiliate ${affiliateId} re-promoted offer ${offerId} "${offer.name}"`);
+      this.logger.log(`Affiliate ${affiliateId} re-promoted campaign ${campaignId} "${campaign.name}"`);
     } else {
       // Create new promotion record
       const promotion = this.promotionRepo.create({
-        offerId,
+        campaignId,
         affiliateId,
         channel: dto.channel,
         metadata: dto.metadata
@@ -173,16 +177,16 @@ export class OffersService {
       await this.promotionRepo.save(promotion);
 
       // Increment active affiliates counter
-      await this.offerRepo.increment({ id: offerId }, 'activeAffiliates', 1);
+      await this.campaignRepo.increment({ id: campaignId }, 'activeAffiliates', 1);
 
-      this.logger.log(`Affiliate ${affiliateId} started promoting offer ${offerId} "${offer.name}"`);
+      this.logger.log(`Affiliate ${affiliateId} started promoting campaign ${campaignId} "${campaign.name}"`);
     }
 
     return {
       success: true,
-      message: 'Offer promotion registered successfully',
-      offerId: offer.id,
-      offerName: offer.name,
+      message: 'Campaign promotion registered successfully',
+      campaignId: campaign.id,
+      campaignName: campaign.name,
       promotedAt: new Date(),
       channel: dto.channel
     };
@@ -238,12 +242,12 @@ export class OffersService {
 
   private mapSortField(sortBy?: string): string {
     const fieldMap: Record<string, string> = {
-      rating: 'offer.rating',
-      activeAffiliates: 'offer.activeAffiliates',
-      name: 'offer.name',
-      createdAt: 'offer.createdAt'
+      rating: 'campaign.rating',
+      activeAffiliates: 'campaign.activeAffiliates',
+      name: 'campaign.name',
+      createdAt: 'campaign.createdAt'
     };
 
-    return fieldMap[sortBy || 'rating'] || 'offer.rating';
+    return fieldMap[sortBy || 'rating'] || 'campaign.rating';
   }
 }

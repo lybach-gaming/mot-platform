@@ -1,1 +1,1 @@
-export * from './offers.service';
+export * from './campaigns.service';

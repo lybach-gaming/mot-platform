@@ -1,26 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OfferStatus, OfferTopic } from '../../types';
+import { CampaignStatus, CampaignTopic } from '../../types';
 
-export class OfferQueryDto {
+export class CampaignQueryDto {
   @ApiProperty({
     required: false,
-    enum: OfferStatus,
-    description: 'Filter by offer status'
+    enum: CampaignStatus,
+    description: 'Filter by campaign status'
   })
   @IsOptional()
-  @IsEnum(OfferStatus)
-  status?: OfferStatus;
+  @IsEnum(CampaignStatus)
+  status?: CampaignStatus;
 
   @ApiProperty({
     required: false,
-    enum: OfferTopic,
-    description: 'Filter by offer topic'
+    enum: CampaignTopic,
+    description: 'Filter by campaign topic'
   })
   @IsOptional()
-  @IsEnum(OfferTopic)
-  topic?: OfferTopic;
+  @IsEnum(CampaignTopic)
+  topic?: CampaignTopic;
 
   @ApiProperty({
     required: false,

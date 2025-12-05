@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OffersController } from './offers.controller';
-import { OffersService } from './services';
-import { OfferEntity, OfferPromotionEntity } from './entities';
+import { CampaignsController } from './campaigns.controller';
+import { CampaignsService } from './services';
+import { CampaignEntity, CampaignPromotionEntity } from './entities';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OfferEntity, OfferPromotionEntity])],
-  controllers: [OffersController],
-  providers: [OffersService],
-  exports: [OffersService]
+  imports: [TypeOrmModule.forFeature([CampaignEntity, CampaignPromotionEntity])],
+  controllers: [CampaignsController],
+  providers: [CampaignsService],
+  exports: [CampaignsService]
 })
-export class OffersModule {}
+export class CampaignsModule {}

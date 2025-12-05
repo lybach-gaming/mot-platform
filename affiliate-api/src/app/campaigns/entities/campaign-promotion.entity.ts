@@ -1,20 +1,20 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { CustomBaseEntity } from '../../../shared/base/base-entity';
-import { OfferEntity } from './offer.entity';
+import { CampaignEntity } from './campaign.entity';
 import { AffiliateEntity } from '../../affiliate/affiliate.entity';
 
-@Entity({ name: 'offer_promotions' })
-@Unique(['offerId', 'affiliateId'])
-@Index(['offerId'])
+@Entity({ name: 'campaign_promotions' })
+@Unique(['campaignId', 'affiliateId'])
+@Index(['campaignId'])
 @Index(['affiliateId'])
 @Index(['promotedAt'])
-export class OfferPromotionEntity extends CustomBaseEntity {
-  @Column({ name: 'offer_id', type: 'int' })
-  offerId: number;
+export class CampaignPromotionEntity extends CustomBaseEntity {
+  @Column({ name: 'campaign_id', type: 'int' })
+  campaignId: number;
 
-  @ManyToOne(() => OfferEntity, offer => offer.promotions, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'offer_id' })
-  offer: OfferEntity;
+  @ManyToOne(() => CampaignEntity, campaign => campaign.promotions, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'campaign_id' })
+  campaign: CampaignEntity;
 
   @Column({ name: 'affiliate_id', type: 'int' })
   affiliateId: number;

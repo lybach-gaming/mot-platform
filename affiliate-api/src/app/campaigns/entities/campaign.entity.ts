@@ -1,16 +1,16 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { CustomBaseEntity } from '../../../shared/base/base-entity';
 import { UserEntity } from '../../user/user.entity';
-import { OfferPromotionEntity } from './offer-promotion.entity';
-import { OfferTopic, OfferStatus } from '../types/offer.types';
+import { CampaignPromotionEntity } from './campaign-promotion.entity';
+import { CampaignTopic, CampaignStatus } from '../types/campaign.types';
 import { CommissionModel } from '../types/commission.types';
 
-@Entity({ name: 'offers' })
+@Entity({ name: 'campaigns' })
 @Index(['status'])
 @Index(['topic'])
 @Index(['rating'])
 @Index(['slug'], { unique: true })
-export class OfferEntity extends CustomBaseEntity {
+export class CampaignEntity extends CustomBaseEntity {
   @Column({ name: 'name', type: 'varchar', length: 255 })
   name: string;
 
@@ -20,9 +20,9 @@ export class OfferEntity extends CustomBaseEntity {
   @Column({
     name: 'topic',
     type: 'enum',
-    enum: OfferTopic
+    enum: CampaignTopic
   })
-  topic: OfferTopic;
+  topic: CampaignTopic;
 
   @Column({ name: 'description', type: 'text' })
   description: string;
@@ -30,10 +30,10 @@ export class OfferEntity extends CustomBaseEntity {
   @Column({
     name: 'status',
     type: 'enum',
-    enum: OfferStatus,
-    default: OfferStatus.DISABLED
+    enum: CampaignStatus,
+    default: CampaignStatus.DISABLED
   })
-  status: OfferStatus;
+  status: CampaignStatus;
 
   @Column({ name: 'commission_description', type: 'text', nullable: true })
   commissionDescription?: string;
@@ -67,6 +67,6 @@ export class OfferEntity extends CustomBaseEntity {
   @JoinColumn({ name: 'updated_by' })
   updater?: UserEntity;
 
-  @OneToMany(() => OfferPromotionEntity, promotion => promotion.offer)
-  promotions: OfferPromotionEntity[];
+  @OneToMany(() => CampaignPromotionEntity, promotion => promotion.campaign)
+  promotions: CampaignPromotionEntity[];
 }

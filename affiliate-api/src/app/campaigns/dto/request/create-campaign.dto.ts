@@ -13,10 +13,10 @@ import {
   Max
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OfferTopic, OfferStatus } from '../../types';
+import { CampaignTopic, CampaignStatus } from '../../types';
 import { CommissionModelDto } from './commission-model.dto';
 
-export class CreateOfferDto {
+export class CreateCampaignDto {
   @ApiProperty({ example: 'Premium Membership' })
   @IsString()
   @IsNotEmpty()
@@ -31,9 +31,9 @@ export class CreateOfferDto {
   })
   slug: string;
 
-  @ApiProperty({ enum: OfferTopic, example: OfferTopic.SOFTWARE })
-  @IsEnum(OfferTopic)
-  topic: OfferTopic;
+  @ApiProperty({ enum: CampaignTopic, example: CampaignTopic.SOFTWARE })
+  @IsEnum(CampaignTopic)
+  topic: CampaignTopic;
 
   @ApiProperty({ example: 'Get 30% recurring commission on all premium memberships' })
   @IsString()
@@ -41,13 +41,13 @@ export class CreateOfferDto {
   description: string;
 
   @ApiProperty({
-    enum: OfferStatus,
-    default: OfferStatus.DISABLED,
+    enum: CampaignStatus,
+    default: CampaignStatus.DISABLED,
     required: false
   })
   @IsOptional()
-  @IsEnum(OfferStatus)
-  status?: OfferStatus;
+  @IsEnum(CampaignStatus)
+  status?: CampaignStatus;
 
   @ApiProperty({ required: false, example: 'Earn recurring commissions for lifetime of subscription' })
   @IsOptional()

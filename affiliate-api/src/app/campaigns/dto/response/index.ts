@@ -1,2 +1,2 @@
-export * from './offer-response.dto';
+export * from './campaign-response.dto';
 export * from './promotion-response.dto';

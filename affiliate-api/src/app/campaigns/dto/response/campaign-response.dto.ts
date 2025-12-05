@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OfferTopic, OfferStatus, CommissionModel } from '../../types';
+import { CampaignTopic, CampaignStatus, CommissionModel } from '../../types';
 
-export class OfferResponseDto {
+export class CampaignResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
 
@@ -11,14 +11,14 @@ export class OfferResponseDto {
   @ApiProperty({ example: 'premium-membership' })
   slug: string;
 
-  @ApiProperty({ enum: OfferTopic, example: OfferTopic.SOFTWARE })
-  topic: OfferTopic;
+  @ApiProperty({ enum: CampaignTopic, example: CampaignTopic.SOFTWARE })
+  topic: CampaignTopic;
 
   @ApiProperty({ example: 'Get 30% recurring commission on all premium memberships' })
   description: string;
 
-  @ApiProperty({ enum: OfferStatus, example: OfferStatus.ACTIVE })
-  status: OfferStatus;
+  @ApiProperty({ enum: CampaignStatus, example: CampaignStatus.ACTIVE })
+  status: CampaignStatus;
 
   @ApiProperty({ required: false, example: 'Earn recurring commissions for lifetime of subscription' })
   commissionDescription?: string;
@@ -39,9 +39,9 @@ export class OfferResponseDto {
   updatedAt: Date;
 }
 
-export class OffersListResponseDto {
-  @ApiProperty({ type: [OfferResponseDto] })
-  offers: OfferResponseDto[];
+export class CampaignsListResponseDto {
+  @ApiProperty({ type: [CampaignResponseDto] })
+  campaigns: CampaignResponseDto[];
 
   @ApiProperty({ example: 1 })
   page: number;

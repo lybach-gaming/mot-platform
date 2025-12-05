@@ -4,14 +4,14 @@ export class PromotionResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({ example: 'Offer promotion registered successfully' })
+  @ApiProperty({ example: 'Campaign promotion registered successfully' })
   message: string;
 
   @ApiProperty({ example: 1 })
-  offerId: number;
+  campaignId: number;
 
   @ApiProperty({ example: 'Premium Membership' })
-  offerName: string;
+  campaignName: string;
 
   @ApiProperty({ example: '2024-01-15T10:00:00Z' })
   promotedAt: Date;

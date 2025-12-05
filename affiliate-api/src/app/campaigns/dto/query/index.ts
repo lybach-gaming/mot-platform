@@ -1,1 +1,1 @@
-export * from './offer-query.dto';
+export * from './campaign-query.dto';

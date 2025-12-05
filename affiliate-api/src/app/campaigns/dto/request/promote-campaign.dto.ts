@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, IsObject } from 'class-validator';
 
-export class PromoteOfferDto {
+export class PromoteCampaignDto {
   @ApiProperty({ required: false, example: 'email' })
   @IsOptional()
   @IsString()

@@ -7,8 +7,8 @@ import {
   Body,
   Param,
   Query,
+  Request,
   ParseIntPipe,
-  UseGuards
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,113 +17,118 @@ import {
   ApiBearerAuth,
   ApiParam
 } from '@nestjs/swagger';
-import { OffersService } from './services';
+import { CampaignsService } from './services';
 import {
-  CreateOfferDto,
-  UpdateOfferDto,
-  PromoteOfferDto,
-  OfferQueryDto,
-  OfferResponseDto,
-  OffersListResponseDto,
+  CreateCampaignDto,
+  UpdateCampaignDto,
+  PromoteCampaignDto,
+  CampaignQueryDto,
+  CampaignResponseDto,
+  CampaignsListResponseDto,
   PromotionResponseDto
 } from './dto';
 
-@Controller('offers')
-@ApiTags('Offers')
-export class OffersController {
-  constructor(private readonly offersService: OffersService) {}
+@Controller('campaigns')
+@ApiTags('Campaigns')
+export class CampaignsController {
+  constructor(private readonly campaignsService: CampaignsService) {}
 
   @Get()
   @ApiOperation({
-    summary: 'Get all offers',
-    description: 'Retrieve all available offers with optional filtering by status, topic, and minimum rating'
+    summary: 'Get all campaigns',
+    description: 'Retrieve all available campaigns with optional filtering by status, topic, and minimum rating'
   })
-  @ApiResponse({ status: 200, type: OffersListResponseDto, description: 'List of offers with pagination' })
-  async getOffers(@Query() query: OfferQueryDto): Promise<OffersListResponseDto> {
-    return this.offersService.findAll(query);
+  @ApiResponse({ status: 200, type: CampaignsListResponseDto, description: 'List of campaigns with pagination' })
+  async getCampaigns(@Query() query: CampaignQueryDto): Promise<CampaignsListResponseDto> {
+    return this.campaignsService.findAll(query);
   }
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Get specific offer by ID',
-    description: 'Retrieve detailed information about a specific offer'
+    summary: 'Get specific campaign by ID',
+    description: 'Retrieve detailed information about a specific campaign'
   })
-  @ApiParam({ name: 'id', type: Number, description: 'Offer ID' })
-  @ApiResponse({ status: 200, type: OfferResponseDto, description: 'Offer details' })
-  @ApiResponse({ status: 404, description: 'Offer not found' })
-  async getOffer(@Param('id', ParseIntPipe) id: number): Promise<OfferResponseDto> {
-    return this.offersService.findOne(id);
+  @ApiParam({ name: 'id', type: Number, description: 'Campaign ID' })
+  @ApiResponse({ status: 200, type: CampaignResponseDto, description: 'Campaign details' })
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  async getCampaign(@Param('id', ParseIntPipe) id: number): Promise<CampaignResponseDto> {
+    return this.campaignsService.findOne(id);
   }
 
   @Post(':id/promote')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Promote an active offer',
-    description: 'Register that an affiliate is promoting an offer. Only active offers can be promoted.'
+    summary: 'Promote an active campaign',
+    description: 'Register that an affiliate is promoting a campaign. Only active campaigns can be promoted.'
   })
-  @ApiParam({ name: 'id', type: Number, description: 'Offer ID' })
+  @ApiParam({ name: 'id', type: Number, description: 'Campaign ID' })
   @ApiResponse({ status: 200, type: PromotionResponseDto, description: 'Promotion registered successfully' })
-  @ApiResponse({ status: 403, description: 'Offer is not active' })
-  @ApiResponse({ status: 404, description: 'Offer not found' })
-  async promoteOffer(
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
+  @ApiResponse({ status: 403, description: 'Campaign is not active' })
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  async promoteCampaign(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: PromoteOfferDto
+    @Body() dto: PromoteCampaignDto,
+    @Request() req: any
   ): Promise<PromotionResponseDto> {
-    // TODO: Get affiliateId from authenticated user
-    // For now, using a placeholder - this will be replaced with actual auth
-    const affiliateId = 1;
-    return this.offersService.promoteOffer(id, affiliateId, dto);
+    // Extract affiliateId from authenticated user
+    // Assuming JWT strategy populates req.user with { id, affiliateId, ... }
+    const affiliateId = req.user?.affiliateId || req.user?.id;
+    return this.campaignsService.promoteCampaign(id, affiliateId, dto);
   }
 
   @Post()
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Create new offer (Admin only)',
-    description: 'Create a new offer with commission model configuration. Requires admin role.'
+    summary: 'Create new campaign (Admin only)',
+    description: 'Create a new campaign with commission model configuration. Requires admin role.'
   })
-  @ApiResponse({ status: 201, type: OfferResponseDto, description: 'Offer created successfully' })
+  @ApiResponse({ status: 201, type: CampaignResponseDto, description: 'Campaign created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or slug already exists' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  async createOffer(@Body() dto: CreateOfferDto): Promise<OfferResponseDto> {
-    // TODO: Get userId from authenticated user
-    // For now, using a placeholder - this will be replaced with actual auth
-    const userId = 1;
-    return this.offersService.create(dto, userId);
+  async createCampaign(
+    @Body() dto: CreateCampaignDto,
+    @Request() req: any
+  ): Promise<CampaignResponseDto> {
+    const userId = req.user.id;
+    return this.campaignsService.create(dto, userId);
   }
 
   @Put(':id')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Update offer (Admin only)',
-    description: 'Update an existing offer. Requires admin role.'
+    summary: 'Update campaign (Admin only)',
+    description: 'Update an existing campaign. Requires admin role.'
   })
-  @ApiParam({ name: 'id', type: Number, description: 'Offer ID' })
-  @ApiResponse({ status: 200, type: OfferResponseDto, description: 'Offer updated successfully' })
-  @ApiResponse({ status: 404, description: 'Offer not found' })
+  @ApiParam({ name: 'id', type: Number, description: 'Campaign ID' })
+  @ApiResponse({ status: 200, type: CampaignResponseDto, description: 'Campaign updated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or slug already exists' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  async updateOffer(
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  async updateCampaign(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateOfferDto
-  ): Promise<OfferResponseDto> {
-    // TODO: Get userId from authenticated user
-    // For now, using a placeholder - this will be replaced with actual auth
-    const userId = 1;
-    return this.offersService.update(id, dto, userId);
+    @Body() dto: UpdateCampaignDto,
+    @Request() req: any
+  ): Promise<CampaignResponseDto> {
+    const userId = req.user.id;
+    return this.campaignsService.update(id, dto, userId);
   }
 
   @Delete(':id')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Delete offer (Admin only)',
-    description: 'Permanently delete an offer. Requires admin role.'
+    summary: 'Delete campaign (Admin only)',
+    description: 'Permanently delete a campaign. Requires admin role.'
   })
-  @ApiParam({ name: 'id', type: Number, description: 'Offer ID' })
-  @ApiResponse({ status: 200, description: 'Offer deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Offer not found' })
+  @ApiParam({ name: 'id', type: Number, description: 'Campaign ID' })
+  @ApiResponse({ status: 200, description: 'Campaign deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  async deleteOffer(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
-    await this.offersService.delete(id);
-    return { message: 'Offer deleted successfully' };
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  async deleteCampaign(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    await this.campaignsService.delete(id);
+    return { message: 'Campaign deleted successfully' };
   }
 }
