@@ -1,19 +1,24 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { Global, Module } from '@nestjs/common';
+import Keyv from 'keyv';
+import KeyvRedis from '@keyv/redis';
 
 import { CacheService } from './cache.service';
-import { config } from 'src/config/index';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const redisStore = require('cache-manager-redis-store').redisStore;
+import { config } from '../../config/index';
 
 @Global()
 @Module({
   imports: [
-    CacheModule.register({
-      store: redisStore,
-      url: config.redisUrl,
-      // ttl: 60 * 5,
+    CacheModule.registerAsync({
+      useFactory: async () => {
+        const keyvRedis = new KeyvRedis(config.redisUrl);
+        const keyv = new Keyv({ store: keyvRedis });
+
+        return {
+          store: keyv,
+          // ttl: 60 * 5 * 1000, // ttl in milliseconds
+        };
+      },
     }),
   ],
   providers: [CacheService],

@@ -33,7 +33,9 @@ export class AccountService {
         USERS_SCHEMA.FIELDS.STATUS,
         USERS_SCHEMA.FIELDS.REMOVE_ADS,
         USERS_SCHEMA.FIELDS.COINS,
-        USERS_SCHEMA.FIELDS.DATE_REGISTERED
+        USERS_SCHEMA.FIELDS.DATE_REGISTERED,
+        USERS_SCHEMA.FIELDS.LOCALE,
+        USERS_SCHEMA.FIELDS.TIMEZONE
       )
       .where(USERS_SCHEMA.FIELDS.ID, userId)
       .first();
@@ -124,5 +126,30 @@ export class AccountService {
     };
 
     return { data: response, error: false };
+  }
+
+  async updateUserPreferences(
+    userId: number,
+    dto: { locale?: string; timezone?: string },
+  ): Promise<IApiResponse<{ message: string }>> {
+    const updateData: Record<string, string> = {};
+
+    if (dto.locale !== undefined) {
+      updateData[USERS_SCHEMA.FIELDS.LOCALE] = dto.locale;
+    }
+    if (dto.timezone !== undefined) {
+      updateData[USERS_SCHEMA.FIELDS.TIMEZONE] = dto.timezone;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return { message: 'No fields to update', error: true };
+    }
+
+    await this.dbService.connection
+      .table(USERS_SCHEMA.TABLE)
+      .where(USERS_SCHEMA.FIELDS.ID, userId)
+      .update(updateData);
+
+    return { message: 'User preferences updated successfully', error: false };
   }
 }

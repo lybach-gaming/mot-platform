@@ -46,13 +46,13 @@ This will serve the Affiliate API at: http://localhost:8080/api
 
 ---
 
-#### Run the Next.js Influencer Dashboard
+#### Run the Next.js Affiliate Dashboard
 
 ```bash
-pnpm nx run @mot-platform/influencer-web:dev
+pnpm nx run @mot-platform/affiliate-web:dev
 ```
 
-This will serve the Influencer dashboard at: http://localhost:3000
+This will serve the Affiliate dashboard at: http://localhost:3000
 
 ---
 
@@ -172,6 +172,7 @@ NODE_ENV=staging npx ts-node test-knex-connection.ts
 # Run DB connection test script with the staging environment (Windows PowerShell syntax)
 $env:NODE_ENV = "staging"; npx ts-node test-knex-connection.ts
 ```
+
 ---
 
 ## 🌐 Community & Documentation

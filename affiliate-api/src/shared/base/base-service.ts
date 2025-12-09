@@ -59,7 +59,12 @@ export abstract class BaseService<T extends CustomBaseEntity> {
 
     // Return paginated results
     return withPagination
-      ? new PaginationDto(mappedResults, total, queryParams.page, queryParams.limit)
+      ? new PaginationDto(
+        mappedResults,
+        total,
+        queryParams.page ?? 1,
+        queryParams.limit ?? mappedResults.length
+      )
       : mappedResults;
   }
 
@@ -79,25 +84,25 @@ export abstract class BaseService<T extends CustomBaseEntity> {
     return this.repository.find();
   }
 
-  async update(id: string, entity: QueryDeepPartialEntity<T>, options?: FindOneOptions<T>): Promise<T> {
+  async update(id: string | number, entity: QueryDeepPartialEntity<T>, options?: FindOneOptions<T>): Promise<T> {
     const existing = await this.findOne({ where: { id } as unknown as FindOptionsWhere<T>, ...options });
 
     Object.assign(existing, entity);
     return await this.repository.save(existing);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string | number): Promise<void> {
     await this.findOne({ where: { id } as FindOptionsWhere<T> });
     await this.repository.delete(id);
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string | number): Promise<void> {
     await this.findOne({ where: { id } as FindOptionsWhere<T> });
     await this.repository.softDelete(id);
   }
 
 
-  async restore(id: string): Promise<void> {
+  async restore(id: string | number): Promise<void> {
     const record = await this.repository.findOne({
       where: { id } as FindOptionsWhere<T>,
       withDeleted: true

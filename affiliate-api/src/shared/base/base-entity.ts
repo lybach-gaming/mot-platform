@@ -1,38 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  BaseEntity,
-  BeforeInsert,
-  CreateDateColumn,
-  UpdateDateColumn,
-  PrimaryGeneratedColumn,
-  BeforeUpdate,
-} from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { BaseEntity, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
 
 export abstract class CustomBaseEntity extends BaseEntity {
-  @ApiProperty({ description: 'Unique identifier', example: '550e8400-e29b-41d4-a716-446655440000' })
-  @PrimaryGeneratedColumn('uuid') // Ensures UUID generation
-  id!: string;
+  @ApiProperty({ description: 'Unique identifier' })
+  @PrimaryGeneratedColumn('increment')
+  id!: number;
 
-  @ApiProperty({ description: 'Record creation timestamp', example: '2025-02-05T10:30:00Z' })
-  @CreateDateColumn()
+  @ApiProperty({ description: 'Record creation timestamp' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @ApiProperty({ description: 'Record update timestamp', example: '2025-02-05T10:30:00Z' })
-  @UpdateDateColumn()
+  @ApiProperty({ description: 'Record update timestamp' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
-
-  @BeforeInsert()
-  updateTimestampBeforeInsert() {
-    if (!this.id) {
-      this.id = uuidv4(); // Generates UUID if not set
-    }
-    this.createdAt = new Date();
-    this.updatedAt = this.updatedAt ?? new Date();
-  }
-
-  @BeforeUpdate()
-  updateTimestampBeforeUpdate() {
-    this.updatedAt = new Date();
-  }
 }

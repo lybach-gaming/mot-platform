@@ -19,5 +19,7 @@ export const USERS_SCHEMA = {
     IS_CREDITED: 'is_credited',
     IS_VERIFY: 'is_verify',
     NEWSLETTER_OPT_IN: 'newsletter_opt_in',
+    LOCALE: 'locale',
+    TIMEZONE: 'timezone',
   },
 };
