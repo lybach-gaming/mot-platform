@@ -1,8 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsOptional, IsInt, Min, Max, IsEnum, IsIn } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsEnum } from 'class-validator';
 import { PeriodQueryDto } from './period-query.dto';
 import { CampaignStatus } from '../../types';
+
+export enum SortByField {
+  CLICKS = 'clicks',
+  CONVERSIONS = 'conversions',
+  REVENUE = 'revenue',
+  ROI = 'roi'
+}
+
+export enum SortOrder {
+  ASC = 'asc',
+  DESC = 'desc'
+}
 
 export class CampaignQueryDto extends PeriodQueryDto {
   @ApiProperty({
@@ -35,23 +47,23 @@ export class CampaignQueryDto extends PeriodQueryDto {
 
   @ApiProperty({
     description: 'Sort by field',
-    enum: ['clicks', 'conversions', 'revenue', 'roi'],
+    enum: SortByField,
     required: false,
-    default: 'revenue'
+    default: SortByField.REVENUE
   })
   @IsOptional()
-  @IsIn(['clicks', 'conversions', 'revenue', 'roi'])
-  sortBy?: string = 'revenue';
+  @IsEnum(SortByField)
+  sortBy?: SortByField = SortByField.REVENUE;
 
   @ApiProperty({
     description: 'Sort order',
-    enum: ['asc', 'desc'],
+    enum: SortOrder,
     required: false,
-    default: 'desc'
+    default: SortOrder.DESC
   })
   @IsOptional()
-  @IsIn(['asc', 'desc'])
-  order?: 'asc' | 'desc' = 'desc';
+  @IsEnum(SortOrder)
+  order?: SortOrder = SortOrder.DESC;
 
   @ApiProperty({
     description: 'Filter by campaign status',
