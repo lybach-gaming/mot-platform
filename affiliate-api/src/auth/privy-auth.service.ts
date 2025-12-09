@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrivyClient } from '@privy-io/server-auth';
+import { WalletService } from '../wallet/wallet.service';
 
 export interface SessionUser {
   privyUserId: string;
@@ -52,6 +53,15 @@ export class PrivyAuthService {
       wallets,
       primaryWallet: wallets[0]?.address ?? null,
     };
+
+    // sync to current store (in-memory now; swap with DB later)
+    try {
+      // lazy import to avoid circulars in constructor
+      const walletService = (global as any).walletService as WalletService | undefined;
+      if (walletService) {
+        walletService.ensureUser({ privyUserId: sessionUser.privyUserId, wallets });
+      }
+    } catch {}
 
     const platformJwt = await this.signPlatformJwt(sessionUser);
     return { sessionUser, platformJwt };
