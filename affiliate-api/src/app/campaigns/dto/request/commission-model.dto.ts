@@ -10,10 +10,47 @@ import {
   IsBoolean,
   IsISO8601,
   Min,
-  Max
+  Max,
+  Matches,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
+  Validate
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CommissionType, BonusType } from '../../types';
+
+// Custom validator to check validTo is after validFrom
+@ValidatorConstraint({ name: 'isValidDateRange', async: false })
+export class IsValidDateRangeConstraint implements ValidatorConstraintInterface {
+  validate(validTo: any, args: ValidationArguments) {
+    const object = args.object as any;
+    if (!validTo || !object.validFrom) {
+      return true; // Skip validation if either date is missing
+    }
+    return new Date(validTo) > new Date(object.validFrom);
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'validTo must be after validFrom';
+  }
+}
+
+// Custom validator to check maxSales > minSales
+@ValidatorConstraint({ name: 'isValidSalesRange', async: false })
+export class IsValidSalesRangeConstraint implements ValidatorConstraintInterface {
+  validate(maxSales: any, args: ValidationArguments) {
+    const object = args.object as any;
+    if (maxSales === undefined || maxSales === null) {
+      return true; // Skip validation if maxSales is not provided
+    }
+    return maxSales > object.minSales;
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'maxSales must be greater than minSales';
+  }
+}
 
 export class BaseCommissionDto {
   @ApiProperty({ required: false, example: 50 })
@@ -55,6 +92,7 @@ export class CommissionTierDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Validate(IsValidSalesRangeConstraint)
   maxSales?: number;
 
   @ApiProperty({ required: false, example: 20 })
@@ -165,6 +203,7 @@ export class BonusStructureDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsISO8601()
+  @Validate(IsValidDateRangeConstraint)
   validTo?: Date;
 
   @ApiProperty({ example: true })
@@ -204,8 +243,9 @@ export class CommissionModelDto {
   @Type(() => BonusStructureDto)
   bonuses?: BonusStructureDto[];
 
-  @ApiProperty({ example: 'USD' })
+  @ApiProperty({ example: 'USD', description: 'ISO 4217 currency code (e.g., USD, EUR, GBP)' })
   @IsString()
+  @Matches(/^[A-Z]{3}$/, { message: 'Currency must be a valid 3-letter ISO 4217 code' })
   currency: string;
 
   @ApiProperty({ example: '30% recurring' })

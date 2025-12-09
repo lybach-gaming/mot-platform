@@ -3,6 +3,18 @@ import { IsOptional, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignStatus, CampaignTopic } from '../../types';
 
+export enum CampaignSortField {
+  RATING = 'rating',
+  ACTIVE_AFFILIATES = 'activeAffiliates',
+  NAME = 'name',
+  CREATED_AT = 'createdAt'
+}
+
+export enum SortOrder {
+  ASC = 'ASC',
+  DESC = 'DESC'
+}
+
 export class CampaignQueryDto {
   @ApiProperty({
     required: false,
@@ -63,19 +75,21 @@ export class CampaignQueryDto {
 
   @ApiProperty({
     required: false,
-    enum: ['rating', 'activeAffiliates', 'name', 'createdAt'],
-    default: 'rating',
+    enum: CampaignSortField,
+    default: CampaignSortField.RATING,
     description: 'Sort field'
   })
   @IsOptional()
-  sortBy?: 'rating' | 'activeAffiliates' | 'name' | 'createdAt' = 'rating';
+  @IsEnum(CampaignSortField)
+  sortBy?: CampaignSortField = CampaignSortField.RATING;
 
   @ApiProperty({
     required: false,
-    enum: ['ASC', 'DESC'],
-    default: 'DESC',
+    enum: SortOrder,
+    default: SortOrder.DESC,
     description: 'Sort order'
   })
   @IsOptional()
-  sortOrder?: 'ASC' | 'DESC' = 'DESC';
+  @IsEnum(SortOrder)
+  sortOrder?: SortOrder = SortOrder.DESC;
 }

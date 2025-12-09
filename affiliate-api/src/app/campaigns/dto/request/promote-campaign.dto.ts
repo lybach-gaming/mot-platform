@@ -1,11 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsObject } from 'class-validator';
+import { IsOptional, IsString, IsObject, IsEnum, MaxLength } from 'class-validator';
+
+export enum PromotionChannel {
+  EMAIL = 'email',
+  SOCIAL_MEDIA = 'social_media',
+  BLOG = 'blog',
+  WEBSITE = 'website',
+  VIDEO = 'video',
+  PODCAST = 'podcast',
+  PAID_ADS = 'paid_ads',
+  OTHER = 'other'
+}
 
 export class PromoteCampaignDto {
-  @ApiProperty({ required: false, example: 'email' })
+  @ApiProperty({
+    required: false,
+    enum: PromotionChannel,
+    example: PromotionChannel.EMAIL,
+    description: 'Channel through which the campaign is promoted'
+  })
   @IsOptional()
-  @IsString()
-  channel?: string;
+  @IsEnum(PromotionChannel)
+  channel?: PromotionChannel;
 
   @ApiProperty({ required: false, type: 'object', example: { campaign: 'homepage_banner' } })
   @IsOptional()
