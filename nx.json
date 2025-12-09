@@ -1,7 +1,10 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "namedInputs": {
-    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
     "production": [
       "default",
       "!{projectRoot}/.eslintrc.json",
@@ -57,7 +60,10 @@
       "options": {
         "targetName": "test"
       },
-      "exclude": ["api-e2e/**/*", "affiliate-api-e2e/**/*"]
+      "exclude": [
+        "api-e2e/**/*",
+        "affiliate-api-e2e/**/*",
+      ]
     },
     {
       "plugin": "@nx/next/plugin",
@@ -97,7 +103,9 @@
   ],
   "targetDefaults": {
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     }
   },
   "generators": {
