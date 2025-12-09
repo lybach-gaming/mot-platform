@@ -1,0 +1,26 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .background { fill: #22c55e; }
+      .foreground { fill: white; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: #22c55e; }
+      .foreground { fill: white; }
+    }
+  </style>
+  <g clip-path="url(#clip0_mot)">
+    <!-- Green rounded background -->
+    <rect class="background" width="180" height="180" rx="40" />
+    
+    <!-- MOT text -->
+    <text x="90" y="105" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="bold" class="foreground" text-anchor="middle" dominant-baseline="middle" letter-spacing="-2">
+      MOT
+    </text>
+  </g>
+  <defs>
+    <clipPath id="clip0_mot">
+      <rect width="180" height="180" fill="white" />
+    </clipPath>
+  </defs>
+</svg>
