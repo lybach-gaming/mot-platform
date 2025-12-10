@@ -72,7 +72,7 @@ export default function EmbedWidgetsPage() {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-7xl p-6">
+        <div className="mx-auto max-w-7xl">
           <div className="mb-12">
             <h1 className="text-3xl font-bold tracking-tight mb-2">
               Embed Widget Configurator

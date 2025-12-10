@@ -80,8 +80,8 @@ export default function QuizCard({
     >
       <div className="relative flex justify-center pt-4">
         <Image
-          src="/half-logo.png"
-          alt="Quiz Logo"
+          src={quiz.imageUrl || '/half-logo.png'}
+          alt={quiz.title}
           width={80}
           height={80}
           className={`object-contain rounded-full ${sizeClass.image}`}

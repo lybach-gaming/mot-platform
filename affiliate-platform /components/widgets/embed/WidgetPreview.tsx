@@ -33,7 +33,9 @@ export default function WidgetPreview() {
       params.append('quizIds', currentConfig.selectedQuizIds.join(','));
     }
     params.append('layout', currentConfig.layout);
-    const themeEncoded = btoa(JSON.stringify(currentConfig.theme));
+    const themeEncoded = btoa(
+      encodeURIComponent(JSON.stringify(currentConfig.theme))
+    );
     params.append('theme', themeEncoded);
 
     // Construct full URL - adjust domain as needed for your environment
@@ -58,31 +60,46 @@ export default function WidgetPreview() {
   };
 
   const handleSaveConfig = () => {
-    saveConfig(configName);
+    const trimmedName = configName.trim();
+    if (trimmedName.length === 0) {
+      toast.error('Please enter a valid configuration name.');
+      return;
+    }
+    saveConfig(trimmedName);
     toast.success('Configuration Saved', {
-      description: `Widget "${configName}" has been saved successfully.`,
+      description: `Widget "${trimmedName}" has been saved successfully.`,
     });
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(embedCode);
-    setCopied(true);
-    toast.success('Copied to Clipboard', {
-      description: 'Embed code copied. Paste it on your website.',
-    });
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard
+      .writeText(embedCode)
+      .then(() => {
+        setCopied(true);
+        toast.success('Copied to Clipboard', {
+          description: 'Embed code copied. Paste it on your website.',
+        });
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        toast.error('Copy Failed', {
+          description: 'Could not copy to clipboard. Please try again.',
+        });
+      });
   };
 
   const handleDownloadCode = () => {
     const element = document.createElement('a');
     const file = new Blob([embedCode], { type: 'text/html' });
-    element.href = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
+    element.href = url;
     element.download = `embed-widget-${configName
       .toLowerCase()
       .replace(/\s+/g, '-')}.html`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    URL.revokeObjectURL(url);
     toast.success('Downloaded', {
       description: 'Embed code downloaded as HTML file.',
     });
@@ -267,7 +284,7 @@ export default function WidgetPreview() {
       {/* Success Message */}
       {embedCode && (
         <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
-          <div className="flex gap-2">
+          <div className="w-200 flex gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-green-800 dark:text-green-200">
               Your widget is ready! Copy the code above and embed it on your

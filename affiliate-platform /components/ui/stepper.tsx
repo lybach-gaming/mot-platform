@@ -50,7 +50,7 @@ export function Stepper({
           height: '2px',
           backgroundColor: '#000',
           width: `calc((100% - 10rem) * ${
-            (currentStep - 1) / (steps.length - 1)
+            steps.length > 1 ? (currentStep - 1) / (steps.length - 1) : 0
           })`,
           transition: 'width 0.3s ease',
           zIndex: 0,
@@ -77,11 +77,19 @@ export function Stepper({
             {/* Circle */}
             <button
               onClick={() => onStepClick?.(stepNumber)}
+              type="button"
+              aria-label={`Step ${stepNumber}: ${step.title}${
+                isCompleted ? ' (completed)' : isActive ? ' (current)' : ''
+              }`}
+              aria-current={isActive ? 'step' : undefined}
+              disabled={!onStepClick}
               className={cn(
                 'flex p-2 items-center justify-center rounded-full border-2 transition-all duration-200',
                 state === 'completed' && 'bg-black border-black text-white',
                 state === 'active' && 'border-white bg-black text-white',
-                state === 'inactive' && 'border-gray-300 text-gray-400 bg-white'
+                state === 'inactive' &&
+                  'border-gray-300 text-gray-400 bg-white',
+                !onStepClick && 'cursor-default'
               )}
             >
               {state === 'completed' && <Check className="h-5 w-5" />}

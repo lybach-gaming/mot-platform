@@ -98,7 +98,11 @@ export default function QuizSelector() {
   };
 
   const handleQuizClick = (quizId: string) => {
-    const quiz = MOCK_QUIZZES.find((q) => q.id === quizId)!;
+    const quiz = MOCK_QUIZZES.find((q) => q.id === quizId);
+    if (!quiz) {
+      console.error(`Quiz with ID ${quizId} not found.`);
+      return;
+    }
 
     if (isSingleLayout) {
       if (currentConfig.selectedQuizIds.includes(quizId)) {
@@ -222,7 +226,7 @@ export default function QuizSelector() {
             <Button
               variant="outline"
               onClick={handleClearFilters}
-              className="w-1/8"
+              className="w-auto"
             >
               <X className="mr-2 h-4 w-4" />
               Clear Filters
@@ -262,14 +266,25 @@ export default function QuizSelector() {
                 return (
                   <div
                     key={quiz.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleQuizClick(quiz.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleQuizClick(quiz.id);
+                      }
+                    }}
                     className="cursor-pointer transition-all hover:scale-105"
+                    aria-label={`${selected ? 'Deselect' : 'Select'} quiz: ${
+                      quiz.title
+                    }`}
                   >
                     <Card
                       className={`overflow-hidden rounded-lg transition-all hover:shadow-lg h-full flex flex-col border-2 ${
                         selected
-                          ? 'border-primary shadow-lg ring-2 ring-primary ring-offset-2'
-                          : 'border-border hover:border-primary/50'
+                          ? ' shadow-lg ring-2 ring-accent ring-offset-2'
+                          : 'border-border hover:border-accent/50'
                       }`}
                     >
                       <div className="relative flex justify-center pt-4 pb-2">
@@ -286,7 +301,7 @@ export default function QuizSelector() {
                           </Badge>
                         </div>
                         {selected && (
-                          <div className="absolute top-2 left-2 bg-primary rounded-full p-1">
+                          <div className="absolute top-2 left-2 bg-accent rounded-full p-1">
                             <Check className="h-4 w-4 text-primary-foreground" />
                           </div>
                         )}
@@ -335,6 +350,7 @@ export default function QuizSelector() {
                 >
                   {quiz.title}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleQuizSelection(quiz.id, quiz);

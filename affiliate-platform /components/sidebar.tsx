@@ -68,8 +68,8 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
         { icon: Wallet, label: t('walletPayouts'), href: '/wallet' },
         {
           icon: Code,
-          label: t('Create Embed Quiz Widget'),
-          href: '/embed-quiz-widget',
+          label: t('quizWidget'),
+          href: '/quiz-widget',
         },
       ],
     },

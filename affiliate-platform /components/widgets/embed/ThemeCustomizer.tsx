@@ -68,10 +68,7 @@ export default function ThemeCustomizer() {
         <CardContent className="flex w-full gap-10">
           <div className="space-y-2">
             <Label htmlFor="layout">Layout Type</Label>
-            <Select
-              value={currentConfig.layout}
-              onValueChange={(value) => setLayout(value as any)}
-            >
+            <Select value={currentConfig.layout} onValueChange={setLayout}>
               <SelectTrigger id="layout">
                 <SelectValue />
               </SelectTrigger>
@@ -94,7 +91,9 @@ export default function ThemeCustomizer() {
             <Label htmlFor="size">Widget Size</Label>
             <Select
               value={theme.fontSize}
-              onValueChange={(value: any) => setTheme({ fontSize: value })}
+              onValueChange={(value: 'small' | 'medium' | 'large') =>
+                setTheme({ fontSize: value })
+              }
             >
               <SelectTrigger id="size">
                 <SelectValue />
