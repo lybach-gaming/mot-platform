@@ -1,0 +1,16 @@
+{
+  "name": "affiliate-platform",
+  "projectType": "application",
+  "sourceRoot": "apps/affiliate-platform/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/next:build",
+      "options": {
+        "outputPath": "dist/apps/affiliate-platform"
+      }
+    },
+    "serve": {
+      "executor": "@nx/next:server"
+    }
+  }
+}
