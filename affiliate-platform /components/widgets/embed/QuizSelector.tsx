@@ -22,6 +22,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Search, X, Check } from 'lucide-react';
 import Image from 'next/image';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 import {
   MOCK_CATEGORIES,
@@ -42,6 +50,8 @@ export default function QuizSelector() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
   const [selectedLevel, setSelectedLevel] = useState<string>('');
   const [keyword, setKeyword] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const quizzesPerPage = 15;
   const isSingleLayout = currentConfig.layout === 'single';
 
   const filteredSubcategories = useMemo(() => {
@@ -90,6 +100,10 @@ export default function QuizSelector() {
     setSelectedLevel('');
   }, [selectedSubcategory]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredQuizzes.length]);
+
   const handleClearFilters = () => {
     setSelectedCategory('');
     setSelectedSubcategory('');
@@ -118,6 +132,12 @@ export default function QuizSelector() {
 
   const isQuizSelected = (quizId: string) =>
     currentConfig.selectedQuizIds.includes(quizId);
+
+  const totalPages = Math.ceil(filteredQuizzes.length / quizzesPerPage);
+  const paginatedQuizzes = filteredQuizzes.slice(
+    (currentPage - 1) * quizzesPerPage,
+    currentPage * quizzesPerPage
+  );
 
   return (
     <div className="space-y-6">
@@ -199,7 +219,7 @@ export default function QuizSelector() {
             {/* Level */}
             {selectedSubcategory && filteredLevels.length > 0 && (
               <div className="space-y-2">
-                <Label>Level</Label>
+                <Label>Subcategory Level</Label>
                 <Select
                   value={selectedLevel || 'all'}
                   onValueChange={(value) =>
@@ -207,10 +227,10 @@ export default function QuizSelector() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="All levels" />
+                    <SelectValue placeholder="All Subcategory-levels" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All levels</SelectItem>
+                    <SelectItem value="all">All Subcategory-levels</SelectItem>
                     {filteredLevels.map((lvl) => (
                       <SelectItem key={lvl.id} value={lvl.id}>
                         {lvl.name}
@@ -260,76 +280,137 @@ export default function QuizSelector() {
               <p>No quizzes found. Try adjusting your filters.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredQuizzes.map((quiz) => {
-                const selected = isQuizSelected(quiz.id);
-                return (
-                  <div
-                    key={quiz.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleQuizClick(quiz.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleQuizClick(quiz.id);
-                      }
-                    }}
-                    className="cursor-pointer transition-all hover:scale-105"
-                    aria-label={`${selected ? 'Deselect' : 'Select'} quiz: ${
-                      quiz.title
-                    }`}
-                  >
-                    <Card
-                      className={`overflow-hidden rounded-lg transition-all hover:shadow-lg h-full flex flex-col border-2 ${
-                        selected
-                          ? ' shadow-lg ring-2 ring-accent ring-offset-2'
-                          : 'border-border hover:border-accent/50'
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {paginatedQuizzes.map((quiz) => {
+                  const selected = isQuizSelected(quiz.id);
+                  return (
+                    <div
+                      key={quiz.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleQuizClick(quiz.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleQuizClick(quiz.id);
+                        }
+                      }}
+                      className="cursor-pointer transition-all hover:scale-105"
+                      aria-label={`${selected ? 'Deselect' : 'Select'} quiz: ${
+                        quiz.title
                       }`}
                     >
-                      <div className="relative flex justify-center pt-4 pb-2">
-                        <Image
-                          src="/half-logo.png"
-                          alt="Quiz Logo"
-                          width={80}
-                          height={80}
-                          className="object-contain h-16 w-16 drop-shadow"
-                        />
-                        <div className="absolute top-2 right-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {quiz.questionCount} Qs
-                          </Badge>
-                        </div>
-                        {selected && (
-                          <div className="absolute top-2 left-2 bg-accent rounded-full p-1">
-                            <Check className="h-4 w-4 text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col flex-1 px-4 pb-4">
-                        <h4 className="font-semibold text-sm line-clamp-2 mb-2">
-                          {quiz.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-grow">
-                          {quiz.shortDescription}
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            {quiz.categoryName}
-                          </Badge>
-                          {quiz.subcategoryName && (
-                            <Badge variant="outline" className="text-xs">
-                              {quiz.subcategoryName}
+                      <Card
+                        className={`overflow-hidden rounded-lg transition-all hover:shadow-lg h-full flex flex-col border-2 ${
+                          selected
+                            ? ' shadow-lg ring-2 ring-accent ring-offset-2'
+                            : 'border-border hover:border-accent/50'
+                        }`}
+                      >
+                        <div className="relative flex justify-center pt-4 pb-2">
+                          <Image
+                            src="/half-logo.png"
+                            alt="Quiz Logo"
+                            width={80}
+                            height={80}
+                            className="object-contain h-16 w-16 drop-shadow"
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {quiz.questionCount} Qs
                             </Badge>
+                          </div>
+                          {selected && (
+                            <div className="absolute top-2 left-2 bg-accent rounded-full p-1">
+                              <Check className="h-4 w-4 text-primary-foreground" />
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </Card>
-                  </div>
-                );
-              })}
-            </div>
+
+                        <div className="flex flex-col flex-1 px-4 pb-4">
+                          <h4 className="font-semibold text-sm line-clamp-2 mb-2">
+                            {quiz.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-grow">
+                            {quiz.shortDescription}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="outline" className="text-xs">
+                              {quiz.categoryName}
+                            </Badge>
+                            {quiz.subcategoryName && (
+                              <Badge variant="outline" className="text-xs">
+                                {quiz.subcategoryName}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage > 1)
+                              setCurrentPage(currentPage - 1);
+                          }}
+                          aria-disabled={currentPage === 1}
+                          className={
+                            currentPage === 1
+                              ? 'pointer-events-none opacity-50'
+                              : ''
+                          }
+                        />
+                      </PaginationItem>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(page);
+                              }}
+                              isActive={currentPage === page}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage < totalPages)
+                              setCurrentPage(currentPage + 1);
+                          }}
+                          aria-disabled={currentPage === totalPages}
+                          className={
+                            currentPage === totalPages
+                              ? 'pointer-events-none opacity-50'
+                              : ''
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
