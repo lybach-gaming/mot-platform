@@ -66,6 +66,110 @@ This will serve the Storybook for the admin dashboard
 
 ---
 
+#### Mount Images Directory
+
+The following sections describe how to set up bind-mounted image directories for staging and production environments. Ensure that the destination paths align with your API's `UPLOAD_FILE` environment variable configuration.
+
+##### Staging
+
+- Define paths
+
+```bash
+SRC=/home/anthony/mot-php-admin-staging/images
+DST=/var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads/images
+```
+
+- Create mount point(s) if missing
+
+```bash
+sudo mkdir -p "$SRC" "$DST"
+```
+
+- Ensure traverse permission on parent folders
+
+```bash
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api-staging/public
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads
+```
+
+- Permissions
+
+```bash
+sudo apt-get install -y acl   # Debian/Ubuntu
+sudo setfacl -R -m u:<STAGING_USER>:rwx <SRC> # Replace <STAGING_USER> with the actual web server user (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:<STAGING_USER>:rwx <SRC>
+```
+
+- Bind-mount
+
+```bash
+sudo mount --bind "$SRC" "$DST"
+```
+
+- Persist across reboots
+
+```bash
+echo "$SRC $DST none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+```
+
+- Rollback (Unmount)
+
+```bash
+sudo umount /var/www/vhosts/mastersoftrivia.com/api-staging/public/uploads/images
+```
+
+##### Production
+
+- Define paths
+
+```bash
+SRC=/home/anthony/mot-php-admin/images
+DST=/var/www/vhosts/mastersoftrivia.com/api/public/uploads/images
+```
+
+- Create mount point(s) if missing
+
+```bash
+sudo mkdir -p "$SRC" "$DST"
+```
+
+- Ensure traverse permission on parent folders
+
+```bash
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api/public
+sudo chmod 755 /var/www/vhosts/mastersoftrivia.com/api/public/uploads
+```
+
+- Permissions
+
+```bash
+sudo apt-get install -y acl   # Debian/Ubuntu
+sudo setfacl -R -m u:<PRODUCTION_USER>:rwx <SRC> # Replace <PRODUCTION_USER> with the actual web server user (www-data, apache, nginx, etc.)
+sudo setfacl -d -m u:<PRODUCTION_USER>:rwx <SRC>
+```
+
+- Bind-mount
+
+```bash
+sudo mount --bind "$SRC" "$DST"
+```
+
+- Persist across reboots
+
+```bash
+echo "$SRC $DST none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount -a
+```
+
+- Rollback (Unmount)
+
+```bash
+sudo umount /var/www/vhosts/mastersoftrivia.com/api/public/uploads/images
+```
+
+---
+
 ## 💡 Project Structure
 
 - `/api/`: NestJS API backend
@@ -172,6 +276,108 @@ NODE_ENV=staging npx ts-node test-knex-connection.ts
 # Run DB connection test script with the staging environment (Windows PowerShell syntax)
 $env:NODE_ENV = "staging"; npx ts-node test-knex-connection.ts
 ```
+
+---
+
+## 🧩 Using the `mock-core` Library in Frontend Apps
+
+The `@mot-platform/mock-core` library provides a shared MSW (Mock Service Worker) setup that can be reused by all frontend apps (Next.js).  
+Each app only needs to define its **own mock handlers**, and then include the shared `<Mocker />` component once in the app’s layout.
+
+---
+
+### 🪄 1) Create app-specific handlers
+
+Add a file under your app, for example:
+
+**`apps/web/src/mocks/handlers.ts`**
+
+```ts
+import { http, HttpResponse } from 'msw';
+
+/**
+ * Example: mock GET /api/tournaments
+ */
+export const webHandlers = [
+  http.get('/api/tournaments', () =>
+    HttpResponse.json([
+      { id: 't1', name: 'General Knowledge Cup' },
+      { id: 't2', name: 'Science Trivia Challenge' },
+      { id: 't3', name: 'Pop Culture Showdown' },
+    ])
+  ),
+];
+```
+
+Each handler defines a mocked API route using MSW’s standard `http` and `HttpResponse` utilities.
+
+---
+
+### ⚙️ 2) Enable mocks in your app
+
+Use the `<Mocker />` component from `@mot-platform/mock-core`.  
+It automatically initializes the service worker when `NEXT_PUBLIC_API_MOCKING=true`.
+
+**`apps/web/src/app/layout.tsx` (App Router)**
+
+```tsx
+import { Mocker } from '@mot-platform/mock-core';
+import { webHandlers } from '@/mocks/handlers';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Mocker handlers={webHandlers} />
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+> For Pages Router apps, add `<Mocker handlers={webHandlers} />` in `_app.tsx`.
+
+---
+
+### ⚡ 3) Generate the service worker file (one-time per app)
+
+Run once per app:
+
+```bash
+npx msw init apps/web/public --save
+```
+
+This creates `apps/web/public/mockServiceWorker.js`.  
+Commit that file so it’s available in all environments.
+
+---
+
+### 🔑 4) Toggle mocking with an env var
+
+**`apps/web/.env.local`**
+
+```
+NEXT_PUBLIC_API_MOCKING=true
+```
+
+When this flag is `true`, MSW intercepts API requests and returns mocked data.  
+When it’s `false`, the app calls the real backend endpoints.
+
+---
+
+### 🧠 Quick recap
+
+| Task            | Location                         | Example                               |
+| --------------- | -------------------------------- | ------------------------------------- |
+| Define handlers | `apps/web/src/mocks/handlers.ts` | `http.get('/api/tournaments', ...)`   |
+| Use Mocker      | `layout.tsx` or `_app.tsx`       | `<Mocker handlers={webHandlers} />`   |
+| Init worker     | App `public/` folder             | `npx msw init apps/web/public --save` |
+| Toggle mocking  | `.env.local`                     | `NEXT_PUBLIC_API_MOCKING=true`        |
 
 ---
 

@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { WebSeoService } from './../web-seo/web-seo.service';
 import { FaqService } from '../faq/faq.service';
+import { HelpersService } from './../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -23,6 +24,7 @@ import {
   GUESS_THE_WORD_IMAGE_PATH,
   AUDIO_QUESTION_PATH,
   MATH_MANIA_IMAGE_PATH,
+  MAX_LIMIT,
   TypeModeGame,
   QuizMode,
   OrderBy,
@@ -31,9 +33,11 @@ import {
 import { CategoryDetailDto } from './dto/category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { EditCategoryDto } from './dto/edit-category.dto';
+import { GetAllCategoriesDto } from './dto/filter-category.dto';
 import { CategorySortBy } from '../../common/constants/category';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   LANGUAGE_SCHEMA,
   CATEGORY_SCHEMA,
@@ -60,7 +64,8 @@ export class CategoryService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -84,22 +89,6 @@ export class CategoryService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, CATEGORY_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build category data object from DTO
    * @param dto - The DTO containing category data
    * @param existingCategory - Optional existing category data for updates
@@ -116,6 +105,7 @@ export class CategoryService {
       CATEGORY_SCHEMA.FIELDS.SLUG,
       CATEGORY_SCHEMA.FIELDS.IS_PREMIUM,
       CATEGORY_SCHEMA.FIELDS.COINS,
+      CATEGORY_SCHEMA.FIELDS.ROW_ORDER,
       CATEGORY_SCHEMA.FIELDS.ENABLE_FAQ,
       CATEGORY_SCHEMA.FIELDS.LEVEL,
       CATEGORY_SCHEMA.FIELDS.IS_COMING_SOON,
@@ -138,6 +128,11 @@ export class CategoryService {
         field === CATEGORY_SCHEMA.FIELDS.ENABLE_FAQ
       ) {
         categoryData[field] = 1;
+      } else if (
+        !existingCategory &&
+        field === CATEGORY_SCHEMA.FIELDS.ROW_ORDER
+      ) {
+        categoryData[field] = 0;
       } else if (!existingCategory && field === CATEGORY_SCHEMA.FIELDS.LEVEL) {
         categoryData[field] = 0;
       } else if (
@@ -165,34 +160,56 @@ export class CategoryService {
       try {
         // Generate and format slug
         if (createCategoryDto.slug) {
-          // If slug is provided, format it
-          createCategoryDto.slug = generateSlug(createCategoryDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createCategoryDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createCategoryDto.slug
+            );
+            if (!isUnique) {
+              await trx.rollback();
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createCategoryDto.category_name) {
           // If no slug is provided, generate it from category name
-          createCategoryDto.slug = generateSlug(
-            createCategoryDto.category_name
-          );
+          createCategoryDto.slug =
+            await this.helpersService.ensureValidAndUnique(
+              createCategoryDto.category_name
+            );
         }
 
         // Handle image upload if present
+        let pendingImageUpload: Express.Multer.File | null = null;
         let imageName = '';
         if (createCategoryDto.image_file) {
-          imageName = await this.handleImageUpload(
-            createCategoryDto.image_file
-          );
+          pendingImageUpload = createCategoryDto.image_file;
         }
 
         // Extract only the fields that belong to category table
         const categoryData = this.buildCategoryDataFromDto({
           ...createCategoryDto,
-          image: imageName, // Set image if uploaded
         });
-        categoryData.row_order = 0; // default
+        categoryData.image = imageName;
 
         // Insert the category
-        const [insertedId] = await trx(CATEGORY_SCHEMA.TABLE)
-          .insert(categoryData)
-          .returning(CATEGORY_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(CATEGORY_SCHEMA.TABLE).insert(
+          categoryData
+        );
 
         if (!insertedId) {
           await trx.rollback();
@@ -228,11 +245,26 @@ export class CategoryService {
         // Commit transaction after all operations are done
         await trx.commit();
 
+        // After commit, handle image upload
+        if (pendingImageUpload) {
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update category with new image name
+            await this.dbService
+              .connection(CATEGORY_SCHEMA.TABLE)
+              .where(CATEGORY_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+
+            createdCategory.image = imageName;
+          } catch (imageError) {
+            this.logger.error(
+              `Failed to upload image for Category ID ${insertedId}`,
+              imageError
+            );
+          }
+        }
         // TODO: Cache Manager
         // Will implement in separate cache manager service
-
-        // TODO: Send notification if is_send_notice is true
-        // Will implement in separate notification service
 
         return {
           error: false,
@@ -245,7 +277,7 @@ export class CategoryService {
       }
     } catch (error) {
       this.logger.error('Error creating category', error);
-      throw (new Error('Error creating category'), { cause: error });
+      throw new Error('Error creating category', { cause: error });
     }
   }
 
@@ -254,7 +286,7 @@ export class CategoryService {
    *
    * @param id - ID of the category to edit
    * @param editCategoryDto - Data for editing the category
-   * @returns Updated quiz data or error response
+   * @returns Updated category data or error response
    */
   async editCategory(id: number, dto: EditCategoryDto) {
     const trx = await this.dbService.connection.transaction();
@@ -271,22 +303,94 @@ export class CategoryService {
         };
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(WEB_SEO_SCHEMA.FIELDS.MAINCAT_ID, id)
+        .andWhere(WEB_SEO_SCHEMA.FIELDS.TYPE, TypeModeGame.CATEGORY)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Category SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.category_name) {
-        dto.slug = generateSlug(dto.category_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id,
+            {
+              table: WEB_SEO_SCHEMA.TABLE,
+              idField: WEB_SEO_SCHEMA.FIELDS.ID,
+              slugField: WEB_SEO_SCHEMA.FIELDS.SLUG,
+            }
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.category_name) {
+          // Case 2: No existing slug, generate from category name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.category_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
-      if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+      let pendingImageDelete: string | null = null;
+      let pendingImageUpload: Express.Multer.File | null = null;
+
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
       }
 
-      // Quiz data
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        pendingImageDelete = existing.image;
+        imageName = '';
+      }
+
+      // Check image_file next
+      if (dto.image_file) {
+        if (existing.image) {
+          pendingImageDelete = existing.image;
+        }
+        pendingImageUpload = dto.image_file;
+      }
+
+      // Category data
       const categoryData = this.buildCategoryDataFromDto(dto, existing);
       if (imageName !== existing.image) {
         categoryData.image = imageName;
@@ -322,7 +426,7 @@ export class CategoryService {
         await trx(SUBCATEGORY_SCHEMA.TABLE)
           .where(SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID, id)
           .update({
-            [SUBCATEGORY_LEVEL_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
+            [SUBCATEGORY_SCHEMA.FIELDS.LANGUAGE_ID]: dto.language_id
               ? dto.language_id
               : existing.language_id,
           });
@@ -410,6 +514,39 @@ export class CategoryService {
         .first();
       await trx.commit();
 
+      // After commit, handle image upload/delete
+      if (pendingImageDelete) {
+        try {
+          await this.deleteAllRelatedImages(
+            pendingImageDelete,
+            CATEGORY_IMAGE_PATH
+          );
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to delete image for Category ID ${id}`,
+            imageError
+          );
+        }
+      }
+
+      if (pendingImageUpload) {
+        try {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update category with new image name
+          await this.dbService
+            .connection(CATEGORY_SCHEMA.TABLE)
+            .where(CATEGORY_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+
+          updatedCategory.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to upload image for Category ID ${id}`,
+            imageError
+          );
+        }
+      }
+
       // TODO: Cache Manager
       // Will implement in separate cache manager service
 
@@ -430,20 +567,50 @@ export class CategoryService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of categories
    */
-  async getAllCategories(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: CategorySortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-  }) {
+  async getAllCategories(query: GetAllCategoriesDto) {
     const {
       limit = 20,
       offset = 0,
       search,
       sortBy = CategorySortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      type,
     } = query;
+
+    const filterIds = {
+      languageId,
+      type,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      type: 'Game Type',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new BadRequestException(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
+    // Add validation
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
+    }
+
+    if (limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
+    }
 
     const validSortFields = Object.values(CategorySortBy);
     const sortField = validSortFields.includes(sortBy)
@@ -471,12 +638,30 @@ export class CategoryService {
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
 
+    // Add filter conditions
+    if (languageId) {
+      db.where('c.language_id', languageId);
+    }
+
+    if (type) {
+      db.where('c.type', type); // 1 = Quiz HD, 2 = Fun n Learn, 3 = Guess the Word, 4 = Audio Question, 5 = Math Mania, 6 = True False
+    }
+
     // Search by category name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&'); // Escape % and _ for LIKE query
       db.where((builder) => {
         builder
-          .where(`s.${CATEGORY_SCHEMA.FIELDS.NAME}`, 'like', `%${search}%`)
-          .orWhere(`s.${CATEGORY_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
+          .where(
+            `c.${CATEGORY_SCHEMA.FIELDS.NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
+          .orWhere(
+            `c.${CATEGORY_SCHEMA.FIELDS.SLUG}`,
+            'like',
+            `%${sanitizedSearch}%`
+          );
       });
     }
 
@@ -490,11 +675,11 @@ export class CategoryService {
 
     const results = categories.map((category) => {
       const image = category.image
-        ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
         : null;
 
       const thumbnail = category.image
-        ? `${BASE_URL}${CATEGORY_THUMB_PATH_SMALL}${category.image}`
+        ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
         : null;
 
       const prefixLang = category.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -511,10 +696,14 @@ export class CategoryService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      categories: results,
+      error: false,
+      message: 'Categories retrieved successfully',
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        categories: results,
+      },
     };
   }
 
@@ -524,7 +713,7 @@ export class CategoryService {
    * @returns Detailed category information or error response
    */
   async getCategoryAdminDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Category ID is required',
@@ -561,7 +750,6 @@ export class CategoryService {
           data: null,
         };
       }
-      category.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this category
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -570,26 +758,26 @@ export class CategoryService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.CATEGORY,
         })
         .select('*');
-      if (faq) {
-        category.faq = faq;
-      }
 
       // Format image URLs
-      const image = category.image
-        ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${category.image}`
-        : null;
-      const thumbnail = category.image
-        ? `${BASE_URL}${CATEGORY_THUMB_PATH_SMALL}${category.image}`
-        : null;
-      category.image_url = image;
-      category.thumbnail_url = thumbnail;
+      const getCategoryDetail = {
+        ...category,
+        image_url: category.image
+          ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, category.image)
+          : null,
+        thumbnail_url: category.image
+          ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH_SMALL, category.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted category details
       await trx.commit();
       return {
         error: false,
         message: 'Category details retrieved successfully',
-        data: transformToString(category),
+        data: transformToString(getCategoryDetail),
       };
     } catch (error) {
       await trx.rollback();
@@ -645,9 +833,9 @@ export class CategoryService {
       const subcategories = await trx(SUBCATEGORY_SCHEMA.TABLE)
         .whereIn(SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID, [...existingIds])
         .select(
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.ID,
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.IMAGE,
-          SUBCATEGORY_LEVEL_SCHEMA.FIELDS.MAINCAT_ID
+          SUBCATEGORY_SCHEMA.FIELDS.ID,
+          SUBCATEGORY_SCHEMA.FIELDS.IMAGE,
+          SUBCATEGORY_SCHEMA.FIELDS.MAINCAT_ID
         );
 
       // Get all subcategory levels related to these categories
@@ -1092,10 +1280,10 @@ export class CategoryService {
       const result: CategoryDetailDto = transformToString({
         ...data,
         image: data.image
-          ? `${BASE_URL}${CATEGORY_IMAGE_PATH}${data.image}`
+          ? urlJoin(BASE_URL, CATEGORY_IMAGE_PATH, data.image)
           : '',
         thumb_image: data.image
-          ? `${BASE_URL}${CATEGORY_THUMB_PATH}${data.image}`
+          ? urlJoin(BASE_URL, CATEGORY_THUMB_PATH, data.image)
           : '',
         no_of: data.no_of?.toString() || '0',
         no_of_que: data.no_of_que?.toString() || '0',

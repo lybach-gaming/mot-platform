@@ -62,10 +62,11 @@ out
 .env.production
 .env.staging
 
-
-
 # Patch files
 *.rej
 *.orig
 
 storybook-static
+
+# Local upload files
+api/public/uploads

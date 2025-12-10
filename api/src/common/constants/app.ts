@@ -5,8 +5,6 @@ export const FE_URL = process.env.FE_URL ?? 'https://mastersoftrivia.com/';
 
 export const USER_IMG_PATH = 'images/profile/';
 
-export const QUESTION_IMG_PATH = 'images/questions/';
-
 export const WEB_SETTINGS_LOGO_PATH = 'images/web-settings/';
 
 export const WEB_HOME_SETTINGS_LOGO_PATH = 'images/web-home-settings/';
@@ -40,6 +38,12 @@ export const QUIZZES_IMAGE_PATH = 'images/quizzes/';
 export const QUIZZES_THUMB_PATH = 'images/quizzes/thumbs/100x100/';
 
 export const QUIZZES_THUMB_PATH_SMALL = 'images/quizzes/thumbs/50x50/';
+
+export const QUESTION_IMG_PATH = 'images/questions/';
+
+export const QUESTION_THUMB_PATH = 'images/questions/thumbs/100x100/';
+
+export const QUESTION_THUMB_PATH_SMALL = 'images/questions/thumbs/50x50/';
 
 export const FUN_N_LEARN_IMAGE_PATH = 'images/fun-n-learn/';
 
@@ -89,3 +93,6 @@ export enum QuizMode {
 }
 
 export const LANG_ENGLISH_ID = 14;
+
+// Maximum limit for pagination
+export const MAX_LIMIT = 1000;

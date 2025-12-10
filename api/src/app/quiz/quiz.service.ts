@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import {
   BASE_URL,
   CACHE_TTL_MIN,
@@ -9,6 +9,7 @@ import {
   QUIZZES_THUMB_PATH,
   QUIZZES_THUMB_PATH_SMALL,
   QUESTION_IMG_PATH,
+  MAX_LIMIT,
   OrderBy,
   TypeModeGame,
   QuizMode,
@@ -16,8 +17,10 @@ import {
 import { CacheKey } from '../../common/constants/cache-key';
 import { urlJoin } from '../../common/utils/string.util';
 import { transformToString } from '../../common/utils/transform.util';
+import { isValidId } from '../../common/utils/number.util';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { HelpersService } from '../helpers/helpers.service';
 import {
   FileUploadService,
   FileUploadOptions,
@@ -43,14 +46,15 @@ import { GetMoreQuizzOfQuizHqDto } from './dto/get-more-quizz-of-quizz-hq.dto';
 import { GetQuizRulesDto } from './dto/get-quiz-rules.dto';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { EditQuizDto } from './dto/edit-quiz.dto';
-import { QuizSortBy } from './../../common/constants/quiz';
-import { generateSlug } from '../../common/utils/generateSlug.util';
+import { GetAllQuizzesDto } from './dto/filter-quiz.dto';
+import {
+  QuizSortBy,
+  MAX_RELATED_QUIZZES,
+  COMPLETED_QUIZ_HQ_MIN_PERCENTAGE,
+} from './../../common/constants/quiz';
 import { Knex } from 'knex';
 import { IListQuizItemResponse } from './types';
 import { IApiListResponse } from '../../common/types/response.type';
-
-const MAX_RELATED_QUIZZES = 5;
-const COMPLETED_QUIZ_HQ_MIN_PERCENTAGE = 75;
 
 @Injectable()
 export class QuizService {
@@ -61,7 +65,8 @@ export class QuizService {
     private readonly redisService: RedisService,
     private readonly fileUploadService: FileUploadService,
     private readonly faqService: FaqService,
-    private readonly webSeoService: WebSeoService
+    private readonly webSeoService: WebSeoService,
+    private readonly helpersService: HelpersService
   ) {}
 
   /**
@@ -85,22 +90,6 @@ export class QuizService {
   }
 
   /**
-   * Upload new image and delete old one if exists
-   * @param newFile - The new image file to upload
-   * @param oldImage - The old image filename to delete
-   * @returns The new image filename
-   */
-  private async uploadNewImageAndDeleteOld(
-    newFile: Express.Multer.File,
-    oldImage?: string
-  ): Promise<string> {
-    if (oldImage) {
-      await this.fileUploadService.deleteFile(oldImage, QUIZZES_IMAGE_PATH);
-    }
-    return this.handleImageUpload(newFile);
-  }
-
-  /**
    * Build quiz data object from DTO
    * @param dto - The DTO containing quiz data
    * @param existingQuiz - Optional existing quiz data for updates
@@ -120,6 +109,8 @@ export class QuizService {
       QUIZZ_SCHEMA.FIELDS.STATUS,
       QUIZZ_SCHEMA.FIELDS.IS_PREMIUM,
       QUIZZ_SCHEMA.FIELDS.COINS,
+      QUIZZ_SCHEMA.FIELDS.ROW_ORDER,
+      QUIZZ_SCHEMA.FIELDS.LEVEL,
       QUIZZ_SCHEMA.FIELDS.ENABLE_FAQ,
       QUIZZ_SCHEMA.FIELDS.IS_PUBLIC,
       QUIZZ_SCHEMA.FIELDS.IS_FEATURED,
@@ -137,6 +128,10 @@ export class QuizService {
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.IS_PREMIUM) {
         quizData[field] = 0;
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.COINS) {
+        quizData[field] = 0;
+      } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.ROW_ORDER) {
+        quizData[field] = 0;
+      } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.LEVEL) {
         quizData[field] = 0;
       } else if (!existingQuiz && field === QUIZZ_SCHEMA.FIELDS.ENABLE_FAQ) {
         quizData[field] = 1;
@@ -207,30 +202,53 @@ export class QuizService {
 
         // Generate and format slug
         if (createQuizDto.slug) {
-          // If slug is provided, format it
-          createQuizDto.slug = generateSlug(createQuizDto.slug);
+          try {
+            // Validate and format provided slug
+            this.helpersService.assertValid(createQuizDto.slug);
+
+            // Check unique
+            const isUnique = await this.helpersService.isUniqueGlobal(
+              createQuizDto.slug
+            );
+            if (!isUnique) {
+              await trx.rollback();
+              return {
+                error: true,
+                message: 'Slug already exists',
+                data: null,
+              };
+            }
+          } catch (error) {
+            await trx.rollback();
+            return {
+              error: true,
+              message:
+                error instanceof Error ? error.message : 'Invalid slug format',
+              data: null,
+            };
+          }
         } else if (createQuizDto.quizz_name) {
           // If no slug is provided, generate it from quiz name
-          createQuizDto.slug = generateSlug(createQuizDto.quizz_name);
+          createQuizDto.slug = await this.helpersService.ensureValidAndUnique(
+            createQuizDto.quizz_name
+          );
         }
 
         // Handle image upload if present
+        let pendingImageUpload: Express.Multer.File | null = null;
         let imageName = '';
         if (createQuizDto.image_file) {
-          imageName = await this.handleImageUpload(createQuizDto.image_file);
+          pendingImageUpload = createQuizDto.image_file;
         }
 
         // Extract only the fields that belong to quiz table
         const quizData = this.buildQuizDataFromDto({
           ...createQuizDto,
-          image: imageName, // Set image if uploaded
         });
-        quizData.row_order = 0; // default
+        quizData.image = imageName;
 
         // Insert the quiz
-        const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE)
-          .insert(quizData)
-          .returning(QUIZZ_SCHEMA.FIELDS.ID);
+        const [insertedId] = await trx(QUIZZ_SCHEMA.TABLE).insert(quizData);
 
         if (!insertedId) {
           await trx.rollback();
@@ -265,6 +283,25 @@ export class QuizService {
 
         // Commit transaction after all operations are done
         await trx.commit();
+
+        // After commit, handle image upload
+        if (pendingImageUpload) {
+          try {
+            imageName = await this.handleImageUpload(pendingImageUpload);
+            // Update quiz with new image name
+            await this.dbService
+              .connection(QUIZZ_SCHEMA.TABLE)
+              .where(QUIZZ_SCHEMA.FIELDS.ID, insertedId)
+              .update({ image: imageName });
+
+            createdQuiz.image = imageName;
+          } catch (imageError) {
+            this.logger.error(
+              `Failed to upload image for quiz ID ${insertedId}`,
+              imageError
+            );
+          }
+        }
 
         // TODO: Cache Manager
         // Will implement in separate cache manager service
@@ -321,19 +358,91 @@ export class QuizService {
         }
       }
 
+      // Get web SEO ID
+      const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
+        .where(WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID, id)
+        .andWhere(WEB_SEO_SCHEMA.FIELDS.TYPE, TypeModeGame.QUIZ)
+        .first();
+
+      if (!webSeo) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Quiz SEO data not found',
+          data: null,
+        };
+      }
+      const web_seo_id = webSeo.id;
+
       // Slug: If has no changes, keep existing slug
-      if (dto.slug) dto.slug = generateSlug(dto.slug);
-      else if (!existing.slug && dto.quizz_name) {
-        dto.slug = generateSlug(dto.quizz_name);
-      } else dto.slug = existing.slug;
+      try {
+        if (dto.slug) {
+          // Case 1: User update slug
+          this.helpersService.assertValid(dto.slug);
+          const isUnique = await this.helpersService.isUniqueGlobal(
+            dto.slug,
+            web_seo_id,
+            {
+              table: WEB_SEO_SCHEMA.TABLE,
+              idField: WEB_SEO_SCHEMA.FIELDS.ID,
+              slugField: WEB_SEO_SCHEMA.FIELDS.SLUG,
+            }
+          );
+
+          if (!isUnique) {
+            await trx.rollback();
+            return {
+              error: true,
+              message: 'Slug already exists',
+              data: null,
+            };
+          }
+        } else if (!existing.slug && dto.quizz_name) {
+          // Case 2: No existing slug, generate from quiz name
+          dto.slug = await this.helpersService.ensureValidAndUnique(
+            dto.quizz_name
+          );
+        } else {
+          // Case 3: Keep existing slug
+          dto.slug = existing.slug;
+        }
+      } catch (error) {
+        await trx.rollback();
+        return {
+          error: true,
+          message:
+            error instanceof Error ? error.message : 'Invalid slug format',
+          data: null,
+        };
+      }
 
       // Image
       let imageName = existing.image;
+      let pendingImageDelete: string | null = null;
+      let pendingImageUpload: Express.Multer.File | null = null;
+
+      // Validate mutually exclusive flags
+      if (dto.remove_image === 1 && dto.image_file) {
+        await trx.rollback();
+        return {
+          error: true,
+          message: 'Cannot upload and remove image at the same time',
+          data: null,
+        };
+      }
+
+      // Check remove_image flag first
+      if (dto.remove_image === 1 && existing.image) {
+        pendingImageDelete = existing.image;
+        imageName = '';
+      }
+
+      // Check image_file next
       if (dto.image_file) {
-        imageName = await this.uploadNewImageAndDeleteOld(
-          dto.image_file,
-          existing.image
-        );
+        if (existing.image) {
+          pendingImageDelete = existing.image;
+        }
+        pendingImageUpload = dto.image_file;
       }
 
       // Quiz data
@@ -391,6 +500,36 @@ export class QuizService {
         .first();
       await trx.commit();
 
+      // After commit, handle image upload/delete
+      if (pendingImageDelete) {
+        try {
+          await this.deleteQuizImages(pendingImageDelete);
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to delete image for quiz ID ${id}`,
+            imageError
+          );
+        }
+      }
+
+      if (pendingImageUpload) {
+        try {
+          imageName = await this.handleImageUpload(pendingImageUpload);
+          // Update quiz with new image name
+          await this.dbService
+            .connection(QUIZZ_SCHEMA.TABLE)
+            .where(QUIZZ_SCHEMA.FIELDS.ID, id)
+            .update({ image: imageName });
+
+          updatedQuiz.image = imageName;
+        } catch (imageError) {
+          this.logger.error(
+            `Failed to upload image for quiz ID ${id}`,
+            imageError
+          );
+        }
+      }
+
       // TODO: Cache Manager
       // Will implement in separate cache manager service
 
@@ -411,20 +550,56 @@ export class QuizService {
    * @param query - Query parameters for pagination and search
    * @returns Paginated list of quizzes
    */
-  async getAllQuizzes(query: {
-    limit: number;
-    offset: number;
-    search?: string;
-    sortBy?: QuizSortBy;
-    order?: OrderBy.DESC | OrderBy.ASC;
-  }) {
+  async getAllQuizzes(query: GetAllQuizzesDto) {
     const {
       limit = 20,
       offset = 0,
       search,
       sortBy = QuizSortBy.ID,
       order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
     } = query;
+
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+      subcategoryId: 'Subcategory ID',
+      subcategoryLevelId: 'Subcategory Level ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new BadRequestException(
+          `${friendlyNames[key] || key} must be a positive integer`
+        );
+      }
+    }
+
+    // Validate limit and offset
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
+    }
+
+    if (limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
+    }
 
     const validSortFields = Object.values(QuizSortBy);
     const sortField = validSortFields.includes(sortBy) ? sortBy : QuizSortBy.ID;
@@ -463,12 +638,38 @@ export class QuizService {
         this.dbService.connection.raw('IFNULL(qq.no_of_que, 0) as no_of_que')
       );
 
+    // Add filter conditions
+    if (languageId) {
+      db.where('q.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('q.maincat_id', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('q.main_subcat_id', subcategoryId);
+    }
+
+    if (subcategoryLevelId) {
+      db.where('q.main_subcat_level_id', subcategoryLevelId);
+    }
+
     // Search by quiz name or slug
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}`, 'like', `%${search}%`)
-          .orWhere(`q.${QUIZZ_SCHEMA.FIELDS.SLUG}`, 'like', `%${search}%`);
+          .where(
+            `q.${QUIZZ_SCHEMA.FIELDS.QUIZZ_NAME}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
+          .orWhere(
+            `q.${QUIZZ_SCHEMA.FIELDS.SLUG}`,
+            'like',
+            `%${sanitizedSearch}%`
+          );
       });
     }
 
@@ -482,11 +683,11 @@ export class QuizService {
 
     const results = quizzes.map((quiz) => {
       const image = quiz.image
-        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
         : null;
 
       const thumbnail = quiz.image
-        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
+        ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
         : null;
 
       const prefixLang = quiz.language_id === 14 ? '/en' : '/en'; // Default to English for now
@@ -503,10 +704,14 @@ export class QuizService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      quizzes: results,
+      error: false,
+      message: 'Quizzes retrieved successfully',
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        quizzes: results,
+      },
     };
   }
 
@@ -516,7 +721,7 @@ export class QuizService {
    * @returns Detailed quiz information or error response
    */
   async getQuizDetails(id: number) {
-    if (!id) {
+    if (!isValidId(id)) {
       return {
         error: true,
         message: 'Quiz ID is required',
@@ -542,7 +747,7 @@ export class QuizService {
       const webSeo = await trx(WEB_SEO_SCHEMA.TABLE)
         .where({
           [WEB_SEO_SCHEMA.FIELDS.QUIZZ_ID]: id,
-          [WEB_SEO_SCHEMA.FIELDS.TYPE]: 4,
+          [WEB_SEO_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         })
         .first();
       if (!webSeo) {
@@ -553,7 +758,6 @@ export class QuizService {
           data: null,
         };
       }
-      quiz.web_seo = webSeo || null;
 
       // Fetch FAQ entries related to this quiz
       const faq = await trx(FAQ_SCHEMA.TABLE)
@@ -562,26 +766,26 @@ export class QuizService {
           [FAQ_SCHEMA.FIELDS.TYPE]: TypeModeGame.QUIZ,
         })
         .select('*');
-      if (faq) {
-        quiz.faq = faq;
-      }
 
       // Format image URLs
-      const image = quiz.image
-        ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
-        : null;
-      const thumbnail = quiz.image
-        ? `${BASE_URL}${QUIZZES_THUMB_PATH_SMALL}${quiz.image}`
-        : null;
-      quiz.image_url = image;
-      quiz.thumbnail_url = thumbnail;
+      const getQuizDetail = {
+        ...quiz,
+        image_url: quiz.image
+          ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
+          : null,
+        thumbnail_url: quiz.image
+          ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH_SMALL, quiz.image)
+          : null,
+        web_seo: webSeo ?? null,
+        faq: faq ?? [],
+      };
 
       // Return formatted quiz data
       await trx.commit();
       return {
         error: false,
         message: 'Quiz details retrieved successfully',
-        data: transformToString(quiz),
+        data: transformToString(getQuizDetail),
       };
     } catch (error) {
       await trx.rollback();
@@ -1397,10 +1601,10 @@ export class QuizService {
           const data = quizzes.map((quiz) => ({
             ...quiz,
             image: quiz.image
-              ? `${BASE_URL}${QUIZZES_IMAGE_PATH}${quiz.image}`
+              ? urlJoin(BASE_URL, QUIZZES_IMAGE_PATH, quiz.image)
               : '',
             thumb_image: quiz.image
-              ? `${BASE_URL}${QUIZZES_THUMB_PATH}${quiz.image}`
+              ? urlJoin(BASE_URL, QUIZZES_THUMB_PATH, quiz.image)
               : '',
             completed: playedQuizIds.includes(quiz.id_quizz),
           }));

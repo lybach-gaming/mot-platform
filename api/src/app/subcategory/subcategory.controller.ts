@@ -24,8 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
 import { EditSubcategoryDto } from './dto/edit-subcategory.dto';
 import { DeleteSubcategoriesDto } from './dto/delete-subcategory.dto';
-import { SubcategorySortBy } from '../../common/constants/subcategory';
-import { OrderBy } from '../../common/constants/app';
+import { GetAllSubcategoriesDto } from './dto/filter-subcategory.dto';
 
 interface SubcategoryParams {
   id?: number;
@@ -85,54 +84,8 @@ export class SubcategoryController {
   // [Admin] Endpoint to get all subcategories
   @ApiOperation({ summary: '[Admin] Get all subcategories' })
   @Get('/admin/subcategories')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of subcategories per page (default: 20)',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: SubcategorySortBy,
-    default: SubcategorySortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: OrderBy,
-    default: OrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  async getAllSubcategories(
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: SubcategorySortBy = SubcategorySortBy.ID,
-    @Query('order') order: OrderBy = OrderBy.DESC
-  ) {
-    return await this.subcategoryService.getAllSubcategories({
-      limit,
-      offset,
-      search,
-      sortBy,
-      order,
-    });
+  async getAllSubcategories(@Query() query: GetAllSubcategoriesDto) {
+    return await this.subcategoryService.getAllSubcategories(query);
   }
 
   // [Admin] Endpoint to get subcategory details

@@ -18,7 +18,6 @@ import {
   ApiConsumes,
   ApiBody,
   ApiParam,
-  ApiQuery,
   getSchemaPath,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -27,15 +26,12 @@ import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
 import { DeleteQuestionsDto } from './dto/delete-question.dto';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
+import { GetAllQuestionsDto } from './dto/filter-question.dto';
 import { QuestionService } from './question.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { validateOrReject } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { normalizeIndexedFormData } from '../../common/utils/normalizeFormDataBody.util';
-import {
-  QuestionSortBy,
-  QuestionOrderBy,
-} from '../../common/constants/question';
 
 @Controller('/v2')
 @ApiBearerAuth()
@@ -121,54 +117,19 @@ export class QuestionController {
   // [Admin] Get all questions
   @ApiOperation({ summary: '[Admin] Get all questions' })
   @Get('/admin/questions')
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of questions per page (default: 20)',
+  async getAllQuestions(@Query() query: GetAllQuestionsDto) {
+    return await this.questionService.getAllQuestions(query);
+  }
+
+  // [Admin] Get Question Detail by ID
+  @ApiOperation({
+    summary: '[Admin] Get Question Detail',
+    description: 'Retrieve a detailed question by its ID.',
   })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    type: Number,
-    description: 'Number of items to skip (default: 0)',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search by title or description',
-  })
-  @ApiQuery({
-    name: 'sortBy',
-    required: false,
-    type: String,
-    enum: QuestionSortBy,
-    default: QuestionSortBy.ID,
-    description: 'Field to sort by',
-  })
-  @ApiQuery({
-    name: 'order',
-    required: false,
-    type: String,
-    enum: QuestionOrderBy,
-    default: QuestionOrderBy.DESC,
-    description: 'Sorting direction',
-  })
-  async getAllQuestions(
-    @Query('offset') offset = 0,
-    @Query('limit') limit = 20,
-    @Query('search') search?: string,
-    @Query('sortBy') sortBy: QuestionSortBy = QuestionSortBy.ID,
-    @Query('order') order: QuestionOrderBy = QuestionOrderBy.DESC
-  ) {
-    return await this.questionService.getAllQuestions({
-      offset,
-      limit,
-      search,
-      sortBy,
-      order,
-    });
+  @ApiParam({ name: 'id', type: Number })
+  @Get('/admin/questions/:id')
+  async getQuestionDetail(@Param('id', ParseIntPipe) id: number) {
+    return await this.questionService.getQuestionDetail(id);
   }
 
   // [Admin] Endpoint to delete a question

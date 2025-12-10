@@ -16,16 +16,7 @@
       "path": "./admin"
     },
     {
-      "path": "./affiliate-api-e2e"
-    },
-    {
-      "path": "./affiliate-api"
-    },
-    {
-      "path": "./affiliate-web-e2e"
-    },
-    {
-      "path": "./affiliate-web"
+      "path": "./libs/mock-core"
     }
   ],
   "ts-node": {

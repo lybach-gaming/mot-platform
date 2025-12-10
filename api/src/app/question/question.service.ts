@@ -1,20 +1,23 @@
-import {
-  QuestionSortBy,
-  QuestionOrderBy,
-} from './../../common/constants/question';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GetQuestionsQuizHdDto } from './dto/get-questions-quiz-hd.dto';
 import { DatabaseService } from '../../core/database/database.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { transformToString } from '../../common/utils/transform.util';
 import { encryptData, urlJoin } from '../../common/utils/string.util';
+import { isValidId } from '../../common/utils/number.util';
 import {
   BASE_URL,
   CACHE_TTL_MIN,
   QUESTION_IMG_PATH,
-  QUIZZES_IMAGE_PATH,
+  QUESTION_THUMB_PATH_SMALL,
   SECRET_KEY_ANSWER,
+  MAX_LIMIT,
+  OrderBy,
 } from '../../common/constants/app';
+import {
+  QuestionSortBy,
+  MAX_BATCH_SIZE,
+} from './../../common/constants/question';
 import {
   BOOKMARK_SCHEMA,
   QUESTION_SCHEMA,
@@ -32,11 +35,11 @@ import {
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { BatchCreateQuestionDto } from './dto/batch-create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
+import { GetAllQuestionsDto } from './dto/filter-question.dto';
 
 @Injectable()
 export class QuestionService {
   private readonly logger = new Logger(QuestionService.name);
-  private readonly MAX_BATCH_SIZE = 100; // Limit questions/batch
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -91,7 +94,7 @@ export class QuestionService {
   private async handleImageUpload(file: Express.Multer.File): Promise<string> {
     try {
       const options: FileUploadOptions = {
-        directory: QUIZZES_IMAGE_PATH,
+        directory: QUESTION_IMG_PATH,
         generateThumbnail: true,
         allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
         maxSize: 5 * 1024 * 1024, // 5MB
@@ -148,16 +151,20 @@ export class QuestionService {
    * @returns Result of batch creation
    */
   async createQuestionBatch(dto: BatchCreateQuestionDto) {
-    if (!dto.questions || !Array.isArray(dto.questions)) {
-      throw new Error('Invalid questions payload');
+    if (
+      !dto.questions ||
+      !Array.isArray(dto.questions) ||
+      dto.questions.length === 0
+    ) {
+      throw new BadRequestException(
+        'Questions payload must be a non-empty array'
+      );
     }
     // Validate batch size
-    if (dto.questions.length > this.MAX_BATCH_SIZE) {
-      return {
-        error: true,
-        message: `Batch size cannot exceed ${this.MAX_BATCH_SIZE} questions`,
-        data: null,
-      };
+    if (dto.questions.length > MAX_BATCH_SIZE) {
+      throw new BadRequestException(
+        `Cannot create more than ${MAX_BATCH_SIZE} questions in a single batch`
+      );
     }
 
     try {
@@ -180,7 +187,10 @@ export class QuestionService {
             failed.push({
               index,
               question: question.question,
-              error: error,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to prepare question',
             });
 
             this.logger.error(`Failed to prepare question`, {
@@ -191,16 +201,9 @@ export class QuestionService {
         }
 
         // Insert questions in chunks
-        for (
-          let i = 0;
-          i < questionsToInsert.length;
-          i += this.MAX_BATCH_SIZE
-        ) {
-          const chunk = questionsToInsert.slice(i, i + this.MAX_BATCH_SIZE);
-          const originalChunk = originalQuestions.slice(
-            i,
-            i + this.MAX_BATCH_SIZE
-          );
+        for (let i = 0; i < questionsToInsert.length; i += MAX_BATCH_SIZE) {
+          const chunk = questionsToInsert.slice(i, i + MAX_BATCH_SIZE);
+          const originalChunk = originalQuestions.slice(i, i + MAX_BATCH_SIZE);
 
           const result = await trx(QUESTION_SCHEMA.TABLE).insert(chunk);
           const firstInsertId = Array.isArray(result) ? result[0] : result;
@@ -403,20 +406,59 @@ export class QuestionService {
    * @returns Paginated list of questions
    * @throws Error if database query fails
    */
-  async getAllQuestions(query: {
-    offset: number;
-    limit: number;
-    search?: string;
-    sortBy?: QuestionSortBy;
-    order?: QuestionOrderBy.DESC | QuestionOrderBy.ASC;
-  }) {
+  async getAllQuestions(query: GetAllQuestionsDto) {
     const {
       offset = 0,
       limit = 20,
       search,
       sortBy = QuestionSortBy.ID,
-      order = QuestionOrderBy.DESC,
+      order = OrderBy.DESC,
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
     } = query;
+
+    const filterIds = {
+      languageId,
+      categoryId,
+      subcategoryId,
+      subcategoryLevelId,
+      quizId,
+    };
+
+    const friendlyNames: Record<string, string> = {
+      languageId: 'Language ID',
+      categoryId: 'Category ID',
+      subcategoryId: 'Subcategory ID',
+      subcategoryLevelId: 'Subcategory Level ID',
+      quizId: 'Quiz ID',
+    };
+
+    for (const [key, value] of Object.entries(filterIds)) {
+      if (value !== undefined && !isValidId(value)) {
+        throw new BadRequestException(
+          `${friendlyNames[key] || key} must be a valid positive integer`
+        );
+      }
+    }
+
+    // Add validation
+    if (
+      !Number.isInteger(limit) ||
+      !Number.isInteger(offset) ||
+      limit < 0 ||
+      offset < 0
+    ) {
+      throw new BadRequestException(
+        'Limit and offset must be non-negative numbers'
+      );
+    }
+
+    if (limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
+    }
 
     const validSortFields = Object.values(QuestionSortBy);
     const sortField = validSortFields.includes(sortBy)
@@ -447,35 +489,61 @@ export class QuestionService {
         'quiz.quizz_name as quiz'
       );
 
-    // Search by question name or slug
+    // Add filter conditions
+    if (languageId) {
+      db.where('q.language_id', languageId);
+    }
+
+    if (categoryId) {
+      db.where('q.category', categoryId);
+    }
+
+    if (subcategoryId) {
+      db.where('q.subcategory', subcategoryId);
+    }
+
+    if (subcategoryLevelId) {
+      db.where('q.subcategory_level', subcategoryLevelId);
+    }
+
+    if (quizId) {
+      db.where('q.quizzes', quizId);
+    }
+
+    // Search by question name or slug or question or answer
     if (search) {
+      const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
       db.where((builder) => {
         builder
-          .where(`q.${QUESTION_SCHEMA.FIELDS.QUESTION}`, 'like', `%${search}%`)
+          .where(
+            `q.${QUESTION_SCHEMA.FIELDS.QUESTION}`,
+            'like',
+            `%${sanitizedSearch}%`
+          )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_A}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_B}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_C}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_D}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           )
           .orWhere(
             `q.${QUESTION_SCHEMA.FIELDS.OPTION_E}`,
             'like',
-            `%${search}%`
+            `%${sanitizedSearch}%`
           );
       });
     }
@@ -490,11 +558,11 @@ export class QuestionService {
 
     const results = questions.map((question) => {
       const image = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, question.image)
         : null;
 
       const thumbnail = question.image
-        ? `${BASE_URL}${QUESTION_IMG_PATH}thumbs/100x100/${question.image}`
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, question.image)
         : null;
 
       return {
@@ -507,15 +575,63 @@ export class QuestionService {
     const total = await totalQuery.clearSelect().count({ count: '*' }).first();
 
     return {
-      total: Number(total?.count || 0),
-      limit,
-      offset,
-      questions: results,
+      error: false,
+      message: 'Questions retrieved successfully',
+      data: {
+        total: Number(total?.count || 0),
+        limit,
+        offset,
+        questions: results,
+      },
     };
   }
 
   /**
-   * Delete questions by IDs
+   * [Admin] Get detail questions by ID
+   *
+   * @param id - Question ID to retrieve
+   * @returns Detailed question info or error response
+   */
+  async getQuestionDetail(id: number) {
+    if (!isValidId(id)) {
+      return {
+        error: true,
+        message: 'Question ID is required',
+        data: null,
+      };
+    }
+
+    const F = QUESTION_SCHEMA.FIELDS;
+
+    // Fetch question details
+    const existing = await this.dbService
+      .connection(QUESTION_SCHEMA.TABLE)
+      .where(F.ID, id)
+      .first();
+
+    if (!existing) {
+      return { error: true, message: 'Question not found', data: null };
+    }
+
+    const getQuestionDetail = {
+      ...existing,
+      image_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_IMG_PATH, existing.image)
+        : null,
+      thumbnail_url: existing.image
+        ? urlJoin(BASE_URL, QUESTION_THUMB_PATH_SMALL, existing.image)
+        : null,
+    };
+
+    return {
+      error: false,
+      message: 'Question details retrieved successfully',
+      data: transformToString(getQuestionDetail),
+    };
+  }
+
+  /**
+   * [Admin] Delete questions by IDs
    *
    * @param dto - DTO containing question IDs to delete
    * @returns Result of deletion operation

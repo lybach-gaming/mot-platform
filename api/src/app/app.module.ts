@@ -5,16 +5,19 @@ import { RedisModule } from '../core/redis/redis.module';
 import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { LanguageModule } from './language/language.module';
 import { CategoryModule } from './category/category.module';
 import { QuestionModule } from './question/question.module';
 import { QuizModule } from './quiz/quiz.module';
 import { SettingModule } from './setting/setting.module';
+import { HelpersModule } from './helpers/helpers.module';
 import { SubcategoryLevelModule } from './subcategory-level/subcategory-level.module';
 import { SubcategoryModule } from './subcategory/subcategory.module';
 import { WebSeoModule } from './web-seo/web-seo.module';
 import { FaqModule } from './faq/faq.module';
 import { AdminGuardMiddleware } from '../common/middlewares/admin-guard.middleware';
 import { FileUploadModule } from '../core/file-upload/file-upload.module';
+import { DashboardModule } from './admin-dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -22,7 +25,9 @@ import { FileUploadModule } from '../core/file-upload/file-upload.module';
     RedisModule,
     FileUploadModule,
     SettingModule,
+    HelpersModule,
     AccountModule,
+    LanguageModule,
     CategoryModule,
     SubcategoryModule,
     SubcategoryLevelModule,
@@ -30,6 +35,7 @@ import { FileUploadModule } from '../core/file-upload/file-upload.module';
     WebSeoModule,
     QuestionModule,
     FaqModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

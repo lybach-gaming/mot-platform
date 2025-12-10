@@ -10,3 +10,7 @@ export enum QuizSortBy {
   IS_COMING_SOON = 'is_coming_soon',
   IS_PINNED = 'is_pinned',
 }
+
+export const MAX_RELATED_QUIZZES = 5;
+
+export const COMPLETED_QUIZ_HQ_MIN_PERCENTAGE = 75;
